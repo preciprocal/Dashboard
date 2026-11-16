@@ -226,7 +226,7 @@ const ProfileInterviewCard: React.FC<ProfileInterviewCardProps> = ({
                   </span>
                 ))}
               {techstack.length > 4 && (
-                <span className="px-2.5 py-1 bg-slate-700/50 text-slate-400 rounded text-xs border border-white/5">
+                <span className="px-2.5 py-1 bg-white/[0.06] text-slate-400 rounded text-xs border border-white/5">
                   +{techstack.length - 4}
                 </span>
               )}
@@ -343,7 +343,7 @@ const ProfileInterviewCard: React.FC<ProfileInterviewCardProps> = ({
           {isCompleted ? (
             <div className="flex gap-3">
               <Link href={feedbackUrl} className="flex-1 cursor-pointer">
-                <Button className="w-full py-3 rounded-lg font-medium text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] cursor-pointer">
+                <Button className="w-full py-3 rounded-lg font-medium text-[var(--on-primary)] bg-[var(--primary)] hover:bg-[var(--primary-hover)] cursor-pointer">
                   <div className="flex items-center justify-center gap-2">
                     <Eye className="w-4 h-4" />
                     <span>Results</span>
@@ -352,7 +352,7 @@ const ProfileInterviewCard: React.FC<ProfileInterviewCardProps> = ({
               </Link>
 
               <Link href={interviewUrl} className="flex-1 cursor-pointer">
-                <Button className="w-full py-3 rounded-lg font-medium text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] cursor-pointer">
+                <Button className="w-full py-3 rounded-lg font-medium text-[var(--on-primary)] bg-[var(--primary)] hover:bg-[var(--primary-hover)] cursor-pointer">
                   <div className="flex items-center justify-center gap-2">
                     <RotateCcw className="w-4 h-4" />
                     <span>Retake</span>
@@ -362,7 +362,7 @@ const ProfileInterviewCard: React.FC<ProfileInterviewCardProps> = ({
             </div>
           ) : (
             <Link href={interviewUrl} className="block cursor-pointer">
-              <Button className="w-full py-3 rounded-lg font-medium text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] cursor-pointer">
+              <Button className="w-full py-3 rounded-lg font-medium text-[var(--on-primary)] bg-[var(--primary)] hover:bg-[var(--primary-hover)] cursor-pointer">
                 <div className="flex items-center justify-center gap-2">
                   <Play className="w-4 h-4" />
                   <span>Start Interview</span>

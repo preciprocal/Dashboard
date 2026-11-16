@@ -485,13 +485,13 @@ export default function UsersFeedback({
       <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-md" />
 
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-xl rounded-2xl border border-slate-700/60 bg-slate-900/98 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden"
+      <div className="w-full max-w-xl rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden"
         style={{ maxHeight: "calc(100vh - 3rem)" }}>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--border)]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-linear-to-br from-indigo-500 to-violet-500 flex items-center justify-center shadow-lg">
+            <div className="w-8 h-8 rounded-xl bg-[var(--accent)] flex items-center justify-center shadow-lg">
               <MessageSquarePlus className="w-4 h-4 text-white" />
             </div>
             <div>
@@ -500,7 +500,7 @@ export default function UsersFeedback({
             </div>
           </div>
           <button type="button" onClick={handleClose} aria-label="Close feedback"
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer">
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.086] transition-colors cursor-pointer">
             <span aria-hidden="true" className="text-lg leading-none">&times;</span>
           </button>
         </div>
@@ -531,7 +531,7 @@ export default function UsersFeedback({
                 Your input directly shapes what we build next. We read every response carefully.
               </p>
               <button onClick={handleClose}
-                className="mt-2 px-5 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-xs hover:text-white hover:border-slate-600 transition-all">
+                className="mt-2 px-5 py-2 rounded-xl bg-[var(--bg-raised)] border border-[var(--border)] text-slate-300 text-xs hover:text-white hover:border-[var(--border-hover)] transition-all">
                 Close
               </button>
             </div>
@@ -553,7 +553,7 @@ export default function UsersFeedback({
                 )}
               </div>
 
-              <div className="border-t border-slate-800 pt-4 space-y-3">
+              <div className="border-t border-[var(--border)] pt-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-slate-300 font-medium text-xs uppercase tracking-wider">Rate specific aspects</p>
                   <span className="text-xs text-slate-400">
@@ -573,7 +573,7 @@ export default function UsersFeedback({
                 ))}
               </div>
 
-              <div className="border-t border-slate-800 pt-4 space-y-2">
+              <div className="border-t border-[var(--border)] pt-4 space-y-2">
                 <p className="text-slate-300 font-medium text-xs uppercase tracking-wider">{config.usageLabel}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {config.usageOptions.map((opt) => (
@@ -603,7 +603,7 @@ export default function UsersFeedback({
               </div>
 
               {config.specificQuestions.length > 0 && (
-                <div className="border-t border-slate-800 pt-4 space-y-4">
+                <div className="border-t border-[var(--border)] pt-4 space-y-4">
                   <p className="text-slate-300 font-medium text-xs uppercase tracking-wider">Rate these statements</p>
                   {config.specificQuestions.map((q) => (
                     <div key={q.id} className="space-y-1.5">
@@ -617,7 +617,7 @@ export default function UsersFeedback({
                 </div>
               )}
 
-              <div className="border-t border-slate-800 pt-4 space-y-2">
+              <div className="border-t border-[var(--border)] pt-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <p className="text-slate-300 font-medium text-xs uppercase tracking-wider">What should we improve first?</p>
                   <span className="text-red-400 text-xs">* Required</span>
@@ -648,13 +648,13 @@ export default function UsersFeedback({
                 <p className="text-slate-400 text-xs">Bugs, missing features, or anything that surprised you.</p>
                 <textarea value={freeText} onChange={(e) => setFreeText(e.target.value)}
                   placeholder={config.freePlaceholder} rows={6} maxLength={800}
-                  className="w-full bg-slate-800/60 border border-slate-700/60 rounded-xl px-3 py-2.5
+                  className="w-full bg-white/[0.042] border border-[var(--border)] rounded-xl px-3 py-2.5
                     text-slate-200 placeholder:text-slate-500 text-sm resize-none focus:outline-none
                     focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 transition-all" />
                 <p className="text-slate-500 text-xs text-right">{freeText.length}/800</p>
               </div>
 
-              <div className="rounded-xl border border-slate-800 bg-slate-800/30 px-3 py-2.5 space-y-2">
+              <div className="rounded-xl border border-[var(--border)] bg-white/[0.035] px-3 py-2.5 space-y-2">
                 <p className="text-slate-400 text-xs uppercase tracking-wider font-medium">Your feedback summary</p>
                 <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
                   <span className="flex items-center gap-1">
@@ -681,7 +681,7 @@ export default function UsersFeedback({
 
         {/* Footer */}
         {!submitted && (
-          <div className="px-6 py-5 border-t border-slate-800 flex items-center justify-between gap-3">
+          <div className="px-6 py-5 border-t border-[var(--border)] flex items-center justify-between gap-3">
             <button type="button"
               onClick={() => setStep((s) => (s - 1) as 1 | 2 | 3)}
               disabled={step === 1}

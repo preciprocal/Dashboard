@@ -706,7 +706,7 @@ function JobRecommendationsPage() {
               </p>
             </div>
 
-            <div className="relative w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-4 sm:mb-6">
+            <div className="relative w-full h-1.5 bg-[var(--bg-raised)] rounded-full overflow-hidden mb-4 sm:mb-6">
               <div 
                 className="absolute top-0 left-0 h-full bg-[var(--accent)] transition-all duration-500"
                 style={{ 
@@ -737,7 +737,7 @@ function JobRecommendationsPage() {
                   ) : idx === loadingStep ? (
                     <Loader2 className="w-4 h-4 mr-3 flex-shrink-0 animate-spin" />
                   ) : (
-                    <div className="w-4 h-4 mr-3 border border-slate-700 rounded-full flex-shrink-0" />
+                    <div className="w-4 h-4 mr-3 border border-[var(--border)] rounded-full flex-shrink-0" />
                   )}
                   <span>{step.name}</span>
                 </div>

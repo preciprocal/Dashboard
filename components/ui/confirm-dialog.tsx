@@ -43,7 +43,7 @@ export function useConfirm() {
     return (
       <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => handleChoice(false)} />
-        <div className="relative w-full max-w-sm rounded-2xl border border-white/[0.08] bg-[#0a0c12] shadow-2xl p-6 animate-fade-in-up">
+        <div className="relative w-full max-w-sm rounded-2xl border border-white/[0.08] bg-[var(--bg-raised)] shadow-2xl p-6 animate-fade-in-up">
           <div className="flex items-start gap-3 mb-5">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
               state.danger ? 'bg-red-500/10 border border-red-500/20' : 'bg-indigo-500/10 border border-indigo-500/20'

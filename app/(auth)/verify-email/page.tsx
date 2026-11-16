@@ -51,7 +51,7 @@ function VerifyEmailContent() {
   };
 
   return (
-    <div className="min-h-screen flex bg-[#050810] items-center justify-center p-6">
+    <div className="min-h-screen flex bg-[var(--bg)] items-center justify-center p-6">
       {/* Background orbs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 -left-32 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse" />
@@ -69,7 +69,7 @@ function VerifyEmailContent() {
         </div>
 
         {/* Card */}
-        <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-8 backdrop-blur-sm shadow-2xl">
+        <div className="bg-white/[0.024] border border-[var(--border)] rounded-2xl p-8 backdrop-blur-sm shadow-2xl">
           {/* Email icon */}
           <div className="flex justify-center mb-6">
             <div className="w-20 h-20 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
@@ -96,11 +96,11 @@ function VerifyEmailContent() {
           <button
             onClick={handleResend}
             disabled={isResending || resendCooldown > 0}
-            className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-[var(--bg-raised)] hover:bg-white/[0.1] border border-[var(--border)] text-slate-300 font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
           >
             {isResending ? (
               <>
-                <div className="w-4 h-4 border-2 border-slate-600 border-t-slate-300 rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-[var(--border-hover)] border-t-slate-300 rounded-full animate-spin" />
                 <span>Sending...</span>
               </>
             ) : resendCooldown > 0 ? (
@@ -116,7 +116,7 @@ function VerifyEmailContent() {
           </button>
 
           {/* Tips */}
-          <div className="mt-6 p-4 bg-slate-800/40 border border-slate-700/40 rounded-xl">
+          <div className="mt-6 p-4 bg-white/[0.042] border border-[var(--border)] rounded-xl">
             <p className="text-xs text-slate-400 font-medium mb-2">Didn&apos;t receive it?</p>
             <ul className="text-xs text-slate-400 space-y-1">
               <li className="flex items-start space-x-2">

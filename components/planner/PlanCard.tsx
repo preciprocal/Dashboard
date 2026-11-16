@@ -156,7 +156,7 @@ export default function PlanCard({ plan, onUpdate }: PlanCardProps) {
               {showMenu && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-                  <div className="absolute right-0 top-full mt-1.5 w-40 bg-slate-900/98 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-1.5 w-40 bg-[var(--bg-surface)] backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden">
                     <button
                       onClick={handleDelete}
                       disabled={isDeleting}

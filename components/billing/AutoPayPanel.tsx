@@ -75,9 +75,9 @@ export default function AutoPayPanel() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-start justify-between gap-4 p-3.5 rounded-xl border border-white/[0.05] bg-slate-800/20">
+      <div className="flex items-start justify-between gap-4 p-3.5 rounded-xl border border-white/[0.05] bg-white/[0.025]">
         <div className="flex items-start gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-slate-800/60 border border-white/[0.06] flex-shrink-0">
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-white/[0.042] border border-white/[0.06] flex-shrink-0">
             {on ? <CreditCard className="w-4 h-4 text-slate-300" /> : <Mail className="w-4 h-4 text-slate-300" />}
           </div>
           <div className="min-w-0">
@@ -98,7 +98,7 @@ export default function AutoPayPanel() {
           aria-label="Pay automatically each month"
           onClick={toggle}
           disabled={saving || ending}
-          className={`relative w-10 h-6 rounded-full transition-colors flex-shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${on ? 'bg-indigo-500' : 'bg-slate-700'}`}
+          className={`relative w-10 h-6 rounded-full transition-colors flex-shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${on ? 'bg-[var(--accent)]' : 'bg-white/[0.08]'}`}
         >
           <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${on ? 'translate-x-4' : ''}`} />
           {saving && <Loader2 className="absolute -left-6 top-1 w-4 h-4 animate-spin text-slate-400" />}

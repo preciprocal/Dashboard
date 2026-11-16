@@ -260,7 +260,7 @@ const InteractiveSolutionsDashboard = () => {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <section className="py-12 border-b border-gray-800">
+      <section className="py-12 border-b border-[var(--border)]">
         <div className="container mx-auto px-6">
           <div className="text-center max-w-4xl mx-auto">
             <div className="inline-flex items-center px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-indigo-300 text-sm font-medium mb-8">
@@ -269,7 +269,7 @@ const InteractiveSolutionsDashboard = () => {
             </div>
             <h1 className="text-4xl lg:text-6xl font-bold text-white leading-tight mb-6">
               Detailed{" "}
-              <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              <span className="bg-[var(--accent)] bg-clip-text text-transparent">
                 Action Plans
               </span>
             </h1>
@@ -370,7 +370,7 @@ const InteractiveSolutionsDashboard = () => {
                             <h4 className="text-lg font-semibold text-white mb-2">{step.title}</h4>
                             <p className="text-gray-300 mb-4">{step.content}</p>
                             {step.example && (
-                              <div className="bg-gray-900/50 rounded-lg p-4 border-l-4 border-green-500">
+                              <div className="bg-white/[0.024] rounded-lg p-4 border-l-4 border-green-500">
                                 <div className="flex items-start space-x-2">
                                   <div className="w-6 h-6 bg-green-500/20 rounded-full flex items-center justify-center mt-0.5">
                                     <span className="text-green-400 text-xs">💡</span>
@@ -389,7 +389,7 @@ const InteractiveSolutionsDashboard = () => {
                   </div>
 
                   {/* Action Button */}
-                  <div className="mt-8 p-6 bg-gradient-to-r from-gray-900/50 to-gray-800/30 rounded-xl border border-gray-700">
+                  <div className="mt-8 p-6 bg-white/[0.02] rounded-xl border border-[var(--border)]">
                     <div className="flex items-center justify-between">
                       <div>
                         <h4 className="text-white font-semibold mb-1">Ready to Practice?</h4>
@@ -408,7 +408,7 @@ const InteractiveSolutionsDashboard = () => {
       </section>
 
       {/* Quick Reference Card */}
-      <section className="py-16 bg-gradient-to-r from-gray-900/50 to-gray-800/30 border-t border-gray-700">
+      <section className="py-16 bg-white/[0.02] border-t border-[var(--border)]">
         <div className="container mx-auto px-6">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-8">
@@ -434,7 +434,7 @@ const InteractiveSolutionsDashboard = () => {
               <button className={`px-8 py-4 bg-${currentSolution.color}-600 hover:bg-${currentSolution.color}-700 text-white rounded-lg font-semibold transition-colors mr-4`}>
                 Download Framework PDF
               </button>
-              <button className="px-8 py-4 border border-gray-700 text-gray-300 rounded-lg font-semibold hover:border-gray-600 hover:text-white transition-colors">
+              <button className="px-8 py-4 border border-[var(--border)] text-gray-300 rounded-lg font-semibold hover:border-[var(--border-hover)] hover:text-white transition-colors">
                 Schedule Coaching Session
               </button>
             </div>

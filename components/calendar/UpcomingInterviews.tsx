@@ -61,7 +61,7 @@ export default function UpcomingInterviews({ schedules, apps, onOpen }: { schedu
                 </p>
               </div>
               {/* Icon-only on a phone so the role keeps its width. */}
-              <Link href={`/interview/create?application=${s.applicationId}`} aria-label={`Prepare for ${app.company}`} className="flex-shrink-0 inline-flex items-center gap-1.5 h-8 px-2.5 sm:px-3 rounded-[var(--r-md)] text-xs font-semibold text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] transition-colors">
+              <Link href={`/interview/create?application=${s.applicationId}`} aria-label={`Prepare for ${app.company}`} className="flex-shrink-0 inline-flex items-center gap-1.5 h-8 px-2.5 sm:px-3 rounded-[var(--r-md)] text-xs font-semibold text-[var(--on-primary)] bg-[var(--primary)] hover:bg-[var(--primary-hover)] transition-colors">
                 <Mic className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Prepare</span>
               </Link>
             </li>

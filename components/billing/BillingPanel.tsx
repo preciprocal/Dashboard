@@ -144,10 +144,10 @@ export default function BillingPanel() {
   return (
     <div className="space-y-5">
       {/* Card */}
-      <div className="p-3.5 rounded-xl border border-white/[0.05] bg-slate-800/20">
+      <div className="p-3.5 rounded-xl border border-white/[0.05] bg-white/[0.025]">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-slate-800/60 border border-white/[0.06] flex-shrink-0">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-white/[0.042] border border-white/[0.06] flex-shrink-0">
               <CreditCard className="w-4 h-4 text-slate-300" />
             </div>
             <div className="min-w-0">
@@ -178,7 +178,7 @@ export default function BillingPanel() {
 
       {/* Cancel / resume */}
       {sub && (
-        <div className="p-3.5 rounded-xl border border-white/[0.05] bg-slate-800/20">
+        <div className="p-3.5 rounded-xl border border-white/[0.05] bg-white/[0.025]">
           {sub.cancelAtPeriodEnd ? (
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm text-slate-300">

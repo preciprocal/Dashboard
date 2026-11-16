@@ -98,7 +98,7 @@ export default function ApplyJobPage() {
           return (
             <button key={s.id} role="tab" aria-selected={active} onClick={() => setStep(s.id)}
               className={`flex-1 min-w-fit flex items-center justify-center gap-2 h-10 px-4 rounded-[10px] text-[13px] font-medium whitespace-nowrap transition-colors
-                ${active ? 'bg-[var(--accent)] text-white' : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'}`}>
+                ${active ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'}`}>
               {s.done && !active ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Icon className="w-4 h-4" />}
               <span>{i + 1}. {s.label}</span>
             </button>

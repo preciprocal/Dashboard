@@ -451,7 +451,7 @@ function JobToolsContent() {
             </div>
 
             {jobData.skills && jobData.skills.length > 0 && jobData.skills[0] !== 'Not specified' && (
-              <div className="mb-4 pb-4 border-b border-slate-800/50">
+              <div className="mb-4 pb-4 border-b border-[var(--border)]">
                 <div className="flex items-center gap-2 mb-3"><Award className="w-4 h-4 text-purple-400" /><h3 className="text-sm font-semibold text-slate-300">Required Skills</h3></div>
                 <div className="flex flex-wrap gap-2">
                   {jobData.skills.map((skill, idx) => (
@@ -462,7 +462,7 @@ function JobToolsContent() {
             )}
 
             {jobData.benefits && jobData.benefits.length > 0 && jobData.benefits[0] !== 'Not specified' && (
-              <div className="mb-4 pb-4 border-b border-slate-800/50">
+              <div className="mb-4 pb-4 border-b border-[var(--border)]">
                 <div className="flex items-center gap-2 mb-3"><Award className="w-4 h-4 text-emerald-400" /><h3 className="text-sm font-semibold text-slate-300">Benefits & Perks</h3></div>
                 <div className="flex flex-wrap gap-2">
                   {jobData.benefits.map((benefit, idx) => (
@@ -481,7 +481,7 @@ function JobToolsContent() {
               </div>
               <div className={`glass-morphism p-4 rounded-lg border border-white/5 ${!showFullDescription ? 'max-h-32 overflow-hidden relative' : ''}`}>
                 <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{jobData.description}</p>
-                {!showFullDescription && <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-slate-900/90 to-transparent"></div>}
+                {!showFullDescription && <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[var(--bg)]/90 to-transparent"></div>}
               </div>
             </div>
           </div>
@@ -504,10 +504,10 @@ function JobToolsContent() {
 
         {results.resume && (
           <div className="glass-card">
-            <div className="flex border-b border-slate-800/50">
+            <div className="flex border-b border-[var(--border)]">
               {(['resume', 'cover', 'interview'] as const).map((tab) => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`flex-1 px-4 sm:px-6 py-3 sm:py-4 font-semibold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 ${activeTab === tab ? 'bg-[var(--accent)] text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
+                  className={`flex-1 px-4 sm:px-6 py-3 sm:py-4 font-semibold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 ${activeTab === tab ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : 'text-slate-400 hover:text-white hover:bg-white/[0.072]'}`}>
                   {tab === 'resume' && <><FileText className="w-4 h-4" /><span className="hidden xs:inline">Resume</span></>}
                   {tab === 'cover' && <><MessageSquare className="w-4 h-4" /><span className="hidden xs:inline">Cover Letter</span></>}
                   {tab === 'interview' && <><Video className="w-4 h-4" /><span className="hidden xs:inline">Interview</span></>}
@@ -520,7 +520,7 @@ function JobToolsContent() {
                 <div className="animate-fade-in-up">
                   <div className="flex items-center justify-between mb-4 sm:mb-6 flex-wrap gap-3">
                     <h3 className="text-lg sm:text-xl font-bold text-white">ATS Compatibility Score</h3>
-                    <div className="text-3xl sm:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">{results.resume.atsScore}%</div>
+                    <div className="text-3xl sm:text-4xl font-bold text-transparent bg-clip-text bg-[var(--accent)]">{results.resume.atsScore}%</div>
                   </div>
                   <div className="glass-morphism p-4 rounded-xl mb-4">
                     <p className="text-sm text-slate-300">Your resume has a <span className="font-bold text-white">{results.resume.atsScore}%</span> compatibility score. Follow the suggestions below to improve your chances.</p>
@@ -559,7 +559,7 @@ function JobToolsContent() {
                             <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showToneMenu ? 'rotate-180' : ''}`} />
                           </button>
                           {showToneMenu && (
-                            <div className="absolute left-0 right-0 top-full mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-xl z-20 overflow-hidden">
+                            <div className="absolute left-0 right-0 top-full mt-2 bg-[var(--bg-surface)] backdrop-blur-xl border border-white/10 rounded-lg shadow-xl z-20 overflow-hidden">
                               {['professional', 'enthusiastic', 'formal', 'friendly', 'confident'].map((toneOption) => (
                                 <button key={toneOption} type="button" onClick={() => { setCoverLetterTone(toneOption); setShowToneMenu(false); }}
                                   className={`w-full px-4 py-2.5 text-left text-sm transition-colors capitalize ${coverLetterTone === toneOption ? 'bg-blue-500/30 text-blue-300' : 'text-white hover:bg-white/5'}`}>

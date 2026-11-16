@@ -301,7 +301,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
               <p className="text-[12px] font-semibold text-slate-400">Paste manually</p>
               {formData.jobDescription.length > 20 && (
                 <button type="button" onClick={handleManualAnalysis} disabled={isAnalyzing}
-                  className="px-2.5 py-1 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-semibold disabled:opacity-50 transition-all">
+                  className="px-2.5 py-1 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] text-xs font-semibold disabled:opacity-50 transition-all">
                   {isAnalyzing
                     ? <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 border border-current border-t-transparent rounded-full animate-spin" />Analysing…</span>
                     : 'Analyse'}
@@ -392,7 +392,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
                 <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-150 ${showLevelMenu ? 'rotate-180' : ''}`} />
               </button>
               {showLevelMenu && (
-                <div className="absolute left-0 right-0 top-full mt-2 bg-[#0d1526]/98 border border-white/[0.08] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] z-20 overflow-hidden">
+                <div className="absolute left-0 right-0 top-full mt-2 bg-[var(--bg-raised)] border border-white/[0.08] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] z-20 overflow-hidden">
                   {(['entry','mid','senior'] as const).map(l => (
                     <button key={l} type="button" onClick={() => { setFormData(p => ({ ...p, level: l })); setShowLevelMenu(false); }}
                       className={`w-full px-4 py-2.5 text-left text-[12px] font-medium transition-colors ${formData.level === l ? 'bg-indigo-500/15 text-indigo-300' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'}`}>
@@ -432,7 +432,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
                 <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-150 ${showTypeMenu ? 'rotate-180' : ''}`} />
               </button>
               {showTypeMenu && (
-                <div className="absolute left-0 right-0 top-full mt-2 bg-[#0d1526]/98 border border-white/[0.08] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] z-20 overflow-hidden">
+                <div className="absolute left-0 right-0 top-full mt-2 bg-[var(--bg-raised)] border border-white/[0.08] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] z-20 overflow-hidden">
                   {(['technical','behavioural','mixed'] as const).map(t => (
                     <button key={t} type="button" onClick={() => { setFormData(p => ({ ...p, type: t })); setShowTypeMenu(false); }}
                       className={`w-full px-4 py-2.5 text-left text-[12px] font-medium transition-colors ${formData.type === t ? 'bg-indigo-500/15 text-indigo-300' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'}`}>
@@ -461,7 +461,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
       <Button
         onClick={handleSubmit}
         disabled={isGenerating || isProcessingFile || isAnalyzing}
-        className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-semibold py-3 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all  "
+        className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] font-semibold py-3 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all  "
       >
         {isGenerating ? (
           <span className="flex items-center justify-center gap-2.5">

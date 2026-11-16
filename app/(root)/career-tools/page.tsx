@@ -47,7 +47,7 @@ function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) 
   const [copied, setCopied] = useState(false);
   return (
     <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); toast.success('Copied to clipboard'); setTimeout(() => setCopied(false), 2000); }}
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700/80 text-slate-400 hover:text-white rounded-lg text-xs font-medium border border-white/[0.06] hover:border-white/[0.10] transition-all duration-150 flex-shrink-0">
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[var(--bg-raised)] hover:bg-white/[0.1] text-slate-400 hover:text-white rounded-lg text-xs font-medium border border-white/[0.06] hover:border-white/[0.10] transition-all duration-150 flex-shrink-0">
       {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
       {copied ? 'Copied!' : label}
     </button>
@@ -424,7 +424,7 @@ function UpgradeGate({ feature, used, limit }: { feature: 'linkedin' | 'outreach
 
   return (
     <div className="space-y-3 animate-fade-in-up">
-      <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526]">
+      <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--bg-surface)]">
         <div className={`absolute -top-24 -right-24 w-56 h-56 rounded-full pointer-events-none blur-3xl ${isLI ? 'bg-blue-500/[0.06]' : 'bg-emerald-500/[0.06]'}`} />
         <div className="relative p-6">
           <div className="inline-flex items-center gap-1.5 bg-amber-500/[0.08] border border-amber-500/20 rounded-full px-3 py-1 mb-4">
@@ -442,7 +442,7 @@ function UpgradeGate({ feature, used, limit }: { feature: 'linkedin' | 'outreach
             <span className="text-sm text-slate-400 leading-snug">{STATS[activeStat].line}</span>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/pricing" className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all group ${isLI ? 'bg-[var(--accent)] hover:bg-[var(--accent-hover)] ' : 'bg-emerald-600 hover:bg-emerald-500 '}`}>
+            <Link href="/pricing" className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-[var(--on-primary)] transition-all group ${isLI ? 'bg-[var(--primary)] hover:bg-[var(--primary-hover)] ' : 'bg-emerald-600 hover:bg-emerald-500 '}`}>
               Get More <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
             <span className="text-[11px] text-slate-500">Cancel anytime · Instant access</span>
@@ -469,7 +469,7 @@ function ToolTabs({ active, setActive }: { active: 'linkedin' | 'outreach'; setA
     <div className="flex gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-xl">
       {tabs.map(t => (
         <button key={t.id} onClick={() => setActive(t.id)}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-150 ${active === t.id ? 'bg-[var(--accent)] text-white ' : 'text-slate-400 hover:text-slate-300 hover:bg-white/[0.04]'}`}>
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-150 ${active === t.id ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : 'text-slate-400 hover:text-slate-300 hover:bg-white/[0.04]'}`}>
           <t.icon className="w-3.5 h-3.5" />{t.label}
         </button>
       ))}

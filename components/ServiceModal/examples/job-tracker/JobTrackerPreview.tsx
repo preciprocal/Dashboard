@@ -71,7 +71,7 @@ type View = 'dashboard' | 'form' | 'contacts';
 
 function MiniCard({ app, onFindContacts, onEdit, highlight }: { app: typeof APPS[0]; onFindContacts: () => void; onEdit?: () => void; highlight?: boolean }) {
   return (
-    <div className={`bg-[#0d1526]/80 border rounded-xl p-3 flex flex-col group transition-all ${highlight ? 'border-purple-500/40 ' : 'border-white/[0.07] hover:border-white/[0.12]'}`}>
+    <div className={`bg-[var(--bg-raised)] border rounded-xl p-3 flex flex-col group transition-all ${highlight ? 'border-purple-500/40 ' : 'border-white/[0.07] hover:border-white/[0.12]'}`}>
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-start gap-2 flex-1 min-w-0">
           <div className="w-7 h-7 bg-white/[0.07] border border-white/[0.09] rounded-lg flex items-center justify-center text-white font-bold text-[10px] flex-shrink-0">
@@ -111,7 +111,7 @@ function MiniCard({ app, onFindContacts, onEdit, highlight }: { app: typeof APPS
       <div className="grid grid-cols-2 gap-1.5 mt-auto">
         <button
           onClick={onFindContacts}
-          className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-[8px] font-semibold transition-all cursor-pointer ${highlight ? 'text-white bg-purple-600 border border-purple-500  animate-pulse' : 'text-purple-400 bg-purple-500/[0.07] border border-purple-500/20 hover:bg-purple-500/15 hover:border-purple-500/35 hover:text-purple-300'}`}
+          className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-[8px] font-semibold transition-all cursor-pointer ${highlight ? 'text-white bg-[var(--accent)] border border-purple-500  animate-pulse' : 'text-purple-400 bg-purple-500/[0.07] border border-purple-500/20 hover:bg-purple-500/15 hover:border-purple-500/35 hover:text-purple-300'}`}
         >
           <UserSearch className="w-2.5 h-2.5" /> Find Contacts
         </button>
@@ -192,7 +192,7 @@ export function JobTrackerExamplePreview({ step }: { step: number }) {
     return (
       <div style={{ minHeight: 480 }} className="flex items-center justify-center">
         <FadeIn delay={200}>
-          <div className="bg-[#0d1526]/90 border border-white/[0.08] rounded-xl overflow-hidden max-w-lg mx-auto">
+          <div className="bg-[var(--bg-raised)] border border-white/[0.08] rounded-xl overflow-hidden max-w-lg mx-auto">
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 bg-[var(--accent)] rounded-lg flex items-center justify-center">
@@ -267,7 +267,7 @@ export function JobTrackerExamplePreview({ step }: { step: number }) {
 
     return (
       <div style={{ minHeight: 480 }}>
-        <div className="bg-[#0d1526]/90 border border-white/[0.08] rounded-xl overflow-hidden">
+        <div className="bg-[var(--bg-raised)] border border-white/[0.08] rounded-xl overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]">
             <div className="flex items-center gap-2">

@@ -107,9 +107,9 @@ export default function DevicesPanel() {
           const isConfirming = confirming === d.id;
           return (
             <div key={d.id}
-              className="flex flex-col sm:flex-row sm:items-center gap-3 p-3.5 rounded-xl border border-white/[0.05] bg-slate-800/20">
+              className="flex flex-col sm:flex-row sm:items-center gap-3 p-3.5 rounded-xl border border-white/[0.05] bg-white/[0.025]">
               <div className="flex items-start gap-3 flex-1 min-w-0">
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-slate-800/60 border border-white/[0.06] flex-shrink-0">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-white/[0.042] border border-white/[0.06] flex-shrink-0">
                   <Icon className="w-4 h-4 text-slate-300" />
                 </div>
                 <div className="min-w-0">

@@ -370,7 +370,7 @@ function DownloadMenu({
   const posClass = position === 'above' ? 'bottom-full mb-2' : 'top-full mt-2';
   return (
     <div className={`absolute right-0 ${posClass} w-48
-                     bg-[#0d1526]/98 border border-white/[0.08]
+                     bg-[var(--bg-raised)] border border-white/[0.08]
                      rounded-xl shadow-[0_16px_48px_rgba(0,0,0,0.5)]
                      z-30 overflow-hidden download-dropdown-menu`}>
       <button
@@ -806,7 +806,7 @@ export default function CoverLetterDashboard() {
                   </button>
                   {showFilterMenu && (
                     <div className="absolute right-0 top-full mt-2 w-48
-                                    bg-[#0d1526]/98 border border-white/[0.08]
+                                    bg-[var(--bg-raised)] border border-white/[0.08]
                                     rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)]
                                     z-20 overflow-hidden">
                       {(['all','recent','by-company','by-role'] as SortOption[]).map(opt => (

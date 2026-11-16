@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* The app is dark only (<html class="dark">): dark: styles follow that class,
+   not the visitor's system setting, so no page turns light. */
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* Safelist for colour classes built at runtime (`bg-${accent}-500/20`).
    Tailwind only generates classes it can see written out, so these were

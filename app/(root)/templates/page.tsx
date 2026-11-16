@@ -181,7 +181,7 @@ const TemplateCard: React.FC<{ template: Template }> = ({ template }) => {
           <span key={i} className="px-2 py-0.5 bg-blue-500/10 border border-blue-500/15 text-blue-400 rounded-md text-[11px] font-medium">{tech}</span>
         ))}
         {template.techstack.length > 4 && (
-          <span className="px-2 py-0.5 bg-slate-800/60 border border-white/[0.06] text-slate-400 rounded-md text-[11px]">+{template.techstack.length - 4} more</span>
+          <span className="px-2 py-0.5 bg-white/[0.042] border border-white/[0.06] text-slate-400 rounded-md text-[11px]">+{template.techstack.length - 4} more</span>
         )}
       </div>
 
@@ -258,7 +258,7 @@ function FilterDropdown({
         {open && (
           <div className="absolute left-0 right-0 top-full mt-1.5 rounded-xl border border-white/[0.08]
                           shadow-[0_16px_48px_rgba(0,0,0,0.6)] z-30 overflow-hidden max-h-60 overflow-y-auto"
-               style={{ background: '#0d1526' }}>
+               style={{ background: 'var(--bg-raised)' }}>
             {options.map(opt => (
               <button key={opt.value} type="button"
                 onClick={() => { onChange(opt.value); setOpen(false); }}
@@ -427,7 +427,7 @@ export default function TemplatesPage() {
             { value: `${stats.technical}`,                                       label: 'Technical'   },
             { value: `${stats.behavioral}`,                                      label: 'Behavioral'  },
           ].map(s => (
-            <div key={s.label} className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3 sm:p-4">
+            <div key={s.label} className="bg-white/[0.042] border border-white/[0.06] rounded-xl p-3 sm:p-4">
               <div className="flex items-center gap-1 mb-0.5">
                 <span className="text-xl font-bold text-white">{s.value}</span>
               </div>
@@ -444,7 +444,7 @@ export default function TemplatesPage() {
             placeholder="Search by role, tech stack, or keywords…"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-800/50 border border-white/[0.08] rounded-xl pl-10 pr-10 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500/40 transition-colors"
+            className="w-full bg-white/[0.042] border border-white/[0.08] rounded-xl pl-10 pr-10 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500/40 transition-colors"
           />
           {searchQuery && (
             <button onClick={() => setSearchQuery('')}
@@ -456,7 +456,7 @@ export default function TemplatesPage() {
 
         {/* Mobile filter toggle */}
         <button onClick={() => setShowFilters(!showFilters)}
-          className="sm:hidden w-full flex items-center justify-between px-4 py-2.5 bg-slate-800/40 border border-white/[0.06] rounded-xl text-white text-sm mb-3 cursor-pointer">
+          className="sm:hidden w-full flex items-center justify-between px-4 py-2.5 bg-white/[0.042] border border-white/[0.06] rounded-xl text-white text-sm mb-3 cursor-pointer">
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-slate-400" />
             <span className="font-medium">Filters</span>
@@ -476,7 +476,7 @@ export default function TemplatesPage() {
         {hasActiveFilters && (
           <div className="mt-3">
             <button onClick={resetFilters}
-              className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-lg bg-slate-800/40 border border-white/[0.06] hover:border-white/10 transition-all cursor-pointer">
+              className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-lg bg-white/[0.042] border border-white/[0.06] hover:border-white/10 transition-all cursor-pointer">
               <X className="w-3 h-3" /> Reset filters
             </button>
           </div>
@@ -494,7 +494,7 @@ export default function TemplatesPage() {
       {/* ── Grid ── */}
       {view === 'saved' && savedIds.size === 0 ? (
         <div className="glass-card p-12 text-center">
-          <div className="w-14 h-14 bg-slate-800/60 border border-white/[0.06] rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-14 h-14 bg-white/[0.042] border border-white/[0.06] rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Bookmark className="w-7 h-7 text-slate-400" />
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">No saved templates yet</h3>
@@ -510,7 +510,7 @@ export default function TemplatesPage() {
         </div>
       ) : filteredTemplates.length === 0 ? (
         <div className="glass-card p-12 text-center">
-          <div className="w-14 h-14 bg-slate-800/60 border border-white/[0.06] rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-14 h-14 bg-white/[0.042] border border-white/[0.06] rounded-2xl flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-7 h-7 text-slate-400" />
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">No templates found</h3>

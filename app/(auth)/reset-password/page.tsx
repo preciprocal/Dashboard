@@ -69,7 +69,7 @@ const ResetPasswordPage = () => {
 
   if (hasSession === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#050810]">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg)]">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-slate-400">Verifying reset link...</p>
@@ -80,7 +80,7 @@ const ResetPasswordPage = () => {
 
   if (!hasSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#050810] p-8">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] p-8">
         <div className="max-w-md w-full text-center">
           <div className="mb-8">
             <Image 
@@ -97,7 +97,7 @@ const ResetPasswordPage = () => {
             </p>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 mb-6">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-6 mb-6">
             <svg className="w-16 h-16 text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -109,7 +109,7 @@ const ResetPasswordPage = () => {
           <div className="space-y-3">
             <Link
               href="/forgot-password"
-              className="block w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-semibold py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+              className="block w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] font-semibold py-3 rounded-lg transition-all duration-200 shadow-[var(--shadow-btn)] hover:shadow-[var(--shadow-btn)]"
             >
               Request new reset link
             </Link>
@@ -126,9 +126,9 @@ const ResetPasswordPage = () => {
   }
 
   return (
-    <div className="min-h-screen flex bg-[#050810]">
+    <div className="min-h-screen flex bg-[var(--bg)]">
       {/* Left Side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-[var(--bg)] relative overflow-hidden">
         {/* Subtle Grid Pattern */}
         <div className="absolute inset-0 opacity-[0.02]" style={{
           backgroundImage: `linear-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px),
@@ -140,12 +140,12 @@ const ResetPasswordPage = () => {
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute top-1/4 -left-20 w-72 h-72 bg-purple-500/5 rounded-full blur-3xl animate-pulse"></div>
           <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "2s" }}></div>
-          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-slate-700/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: "4s" }}></div>
+          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-white/[0.035] rounded-full blur-2xl animate-pulse" style={{ animationDelay: "4s" }}></div>
         </div>
 
         {/* Geometric Accents */}
-        <div className="absolute top-20 right-20 w-32 h-32 border border-slate-700/20 rounded-2xl rotate-12 opacity-20"></div>
-        <div className="absolute bottom-40 left-20 w-24 h-24 border border-slate-700/20 rounded-full opacity-20"></div>
+        <div className="absolute top-20 right-20 w-32 h-32 border border-[var(--border)] rounded-2xl rotate-12 opacity-20"></div>
+        <div className="absolute bottom-40 left-20 w-24 h-24 border border-[var(--border)] rounded-full opacity-20"></div>
 
         {/* Content */}
         <div className="relative z-10 flex flex-col justify-center px-16 text-white">
@@ -171,7 +171,7 @@ const ResetPasswordPage = () => {
 
           {/* Security Tips */}
           <div className="space-y-3 mt-8">
-            <div className="group p-5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/30 rounded-xl transition-all duration-300 backdrop-blur-sm">
+            <div className="group p-5 bg-white/[0.035] hover:bg-white/[0.072] border border-[var(--border)] rounded-xl transition-all duration-300 backdrop-blur-sm">
               <div className="flex items-start space-x-4">
                 <div className="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-purple-500/20 transition-all">
                   <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -185,7 +185,7 @@ const ResetPasswordPage = () => {
               </div>
             </div>
 
-            <div className="group p-5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/30 rounded-xl transition-all duration-300 backdrop-blur-sm">
+            <div className="group p-5 bg-white/[0.035] hover:bg-white/[0.072] border border-[var(--border)] rounded-xl transition-all duration-300 backdrop-blur-sm">
               <div className="flex items-start space-x-4">
                 <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-500/20 transition-all">
                   <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -199,7 +199,7 @@ const ResetPasswordPage = () => {
               </div>
             </div>
 
-            <div className="group p-5 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/30 rounded-xl transition-all duration-300 backdrop-blur-sm">
+            <div className="group p-5 bg-white/[0.035] hover:bg-white/[0.072] border border-[var(--border)] rounded-xl transition-all duration-300 backdrop-blur-sm">
               <div className="flex items-start space-x-4">
                 <div className="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-cyan-500/20 transition-all">
                   <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -217,7 +217,7 @@ const ResetPasswordPage = () => {
       </div>
 
       {/* Right Side - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[#050810]">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[var(--bg)]">
         <div className="w-full max-w-md">
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">
@@ -261,7 +261,7 @@ const ResetPasswordPage = () => {
                     {...form.register("password")}
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
-                    className="w-full px-4 py-3 pr-12 bg-slate-900 border border-slate-800 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                    className="w-full px-4 py-3 pr-12 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
                     disabled={isLoading}
                   />
                   <button
@@ -297,7 +297,7 @@ const ResetPasswordPage = () => {
                     {...form.register("confirmPassword")}
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="••••••••"
-                    className="w-full px-4 py-3 pr-12 bg-slate-900 border border-slate-800 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                    className="w-full px-4 py-3 pr-12 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
                     disabled={isLoading}
                   />
                   <button
@@ -327,7 +327,7 @@ const ResetPasswordPage = () => {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-semibold py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border-0 shadow-lg hover:shadow-xl"
+                className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] font-semibold py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border-0 shadow-[var(--shadow-btn)] hover:shadow-[var(--shadow-btn)]"
               >
                 {isLoading ? (
                   <div className="flex items-center justify-center space-x-2">

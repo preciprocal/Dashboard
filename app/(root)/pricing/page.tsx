@@ -758,7 +758,7 @@ function SuccessOverlay({ plan, isStudent, onDone }: { plan: Plan; isStudent: bo
   }, [onDone]);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-white/10 rounded-2xl p-8 max-w-sm w-full text-center">
+      <div className="bg-[var(--bg-surface)] border border-white/10 rounded-2xl p-8 max-w-sm w-full text-center">
         <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-4">
           <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
@@ -1002,7 +1002,7 @@ export default function PricingPage() {
 
                 {plan.badge && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="px-2.5 py-1 text-xs font-semibold text-indigo-100 rounded-md whitespace-nowrap bg-[#1d2140] border border-[var(--accent-border)]">
+                    <span className="px-2.5 py-1 text-xs font-semibold text-indigo-100 rounded-md whitespace-nowrap bg-[var(--accent-subtle)] border border-[var(--accent-border)]">
                       {plan.badge}
                     </span>
                   </div>

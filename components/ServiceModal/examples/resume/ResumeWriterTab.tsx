@@ -192,7 +192,7 @@ export function ResumeWriterTab({ onHighlight }: ResumeWriterTabProps) {
         {subTabs.map(tab => (
           <button key={tab.id} onClick={() => setSubTab(tab.id)}
             className={`flex-1 py-1 text-[7px] font-medium rounded transition-all cursor-pointer flex items-center justify-center gap-0.5 ${
-              subTab === tab.id ? 'bg-[var(--accent)] text-white' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'
+              subTab === tab.id ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'
             }`}>
             {tab.icon} {tab.label}
             {tab.count && <span className={`text-[6px] px-1 rounded-full ${subTab === tab.id ? 'bg-white/20' : 'bg-white/[0.06]'}`}>{tab.count}</span>}
@@ -248,7 +248,7 @@ export function ResumeWriterTab({ onHighlight }: ResumeWriterTabProps) {
               <button onClick={() => setSubTab('quickwins')} className="text-[7px] text-indigo-400 font-semibold cursor-pointer hover:text-indigo-300">See all →</button>
             </div>
             <div className="p-2 bg-white/[0.02] border border-white/[0.06] rounded-lg flex items-start gap-2">
-              <span className="w-4 h-4 rounded-full bg-slate-700 text-[7px] font-bold text-white flex items-center justify-center flex-shrink-0">1</span>
+              <span className="w-4 h-4 rounded-full bg-white/[0.08] text-[7px] font-bold text-white flex items-center justify-center flex-shrink-0">1</span>
               <div>
                 <p className="text-[8px] text-white font-medium">Add professional summary</p>
                 <p className="text-[7px] text-slate-500">Resume lacks a summary connecting skills to impact.</p>
@@ -277,7 +277,7 @@ export function ResumeWriterTab({ onHighlight }: ResumeWriterTabProps) {
                   onMouseLeave={() => { if (!isExpanded) hl(null); }}
                   className="w-full p-2.5 flex items-center gap-2 cursor-pointer hover:bg-white/[0.02] transition-colors text-left"
                 >
-                  <span className={`w-5 h-5 rounded-full text-[8px] font-bold text-white flex items-center justify-center flex-shrink-0 ${isApplied ? 'bg-emerald-600' : 'bg-slate-700'}`}>
+                  <span className={`w-5 h-5 rounded-full text-[8px] font-bold text-white flex items-center justify-center flex-shrink-0 ${isApplied ? 'bg-emerald-600' : 'bg-white/[0.08]'}`}>
                     {isApplied ? <Check className="w-3 h-3" /> : win.id}
                   </span>
                   <div className="flex-1 min-w-0">

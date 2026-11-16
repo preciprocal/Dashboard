@@ -96,10 +96,10 @@ function AnalysingFacts() {
         <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
         <span className="text-sm text-indigo-300 font-semibold">Analyzing your resume…</span>
       </div>
-      <div className="w-full max-w-xs h-1 bg-slate-700/60 rounded-full overflow-hidden">
+      <div className="w-full max-w-xs h-1 bg-white/[0.06] rounded-full overflow-hidden">
         <div className="h-full bg-[var(--accent)] rounded-full" style={{ width: `${progress}%`, transition: 'width 4.8s linear' }} />
       </div>
-      <div className={`w-full bg-slate-800/50 border border-white/[0.06] rounded-xl p-4 transition-all duration-400 ${isExiting ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`} style={{ minHeight: 88 }}>
+      <div className={`w-full bg-white/[0.042] border border-white/[0.06] rounded-xl p-4 transition-all duration-400 ${isExiting ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`} style={{ minHeight: 88 }}>
         <div className="flex items-center gap-2 mb-2">
           <span className="text-base">{emoji}</span>
           <span className="text-[11px] font-semibold text-indigo-400 uppercase tracking-wider">Tip</span>
@@ -147,7 +147,7 @@ function SectionBar({ score, label }: { score: number; label: string }) {
   return (
     <div className="flex items-center gap-2 text-xs">
       <span className="text-slate-400 w-20 shrink-0 truncate">{label}</span>
-      <div className="flex-1 h-1.5 bg-slate-700/60 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-700 ${color}`} style={{ width: `${score}%` }} /></div>
+      <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-700 ${color}`} style={{ width: `${score}%` }} /></div>
       <span className={`w-8 text-right font-bold tabular-nums ${score >= 80 ? 'text-emerald-400' : score >= 60 ? 'text-amber-400' : 'text-red-400'}`}>{score}</span>
     </div>
   );
@@ -155,7 +155,7 @@ function SectionBar({ score, label }: { score: number; label: string }) {
 
 function StatChip({ icon: Icon, label, value, good }: { icon: React.ElementType; label: string; value: number; good: boolean | undefined }) {
   return (
-    <div className="flex flex-col items-center gap-1 bg-slate-800/50 border border-white/[0.06] rounded-xl p-3">
+    <div className="flex flex-col items-center gap-1 bg-white/[0.042] border border-white/[0.06] rounded-xl p-3">
       <Icon className={`w-4 h-4 ${good === undefined ? 'text-slate-400' : good ? 'text-emerald-400' : 'text-red-400'}`} />
       <span className={`text-base font-bold tabular-nums ${good === undefined ? 'text-white' : good ? 'text-emerald-400' : 'text-red-400'}`}>{value}</span>
       <span className="text-[11px] text-slate-400 text-center leading-tight">{label}</span>
@@ -179,7 +179,7 @@ function BulletRow({ bullet, onApply, onHighlight, appliedSet, ignoredSet, onMar
   );
 
   if (isIgnored) return (
-    <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-800/20 border border-white/[0.04]">
+    <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/[0.025] border border-white/[0.04]">
       <XCircle className="w-3.5 h-3.5 text-slate-500 shrink-0" />
       <p className="text-xs text-slate-500 truncate flex-1">{bullet.originalText}</p>
       <button onClick={() => onMarkIgnored(bullet.originalText)} className="text-[11px] text-slate-400 hover:text-slate-300 cursor-pointer transition-colors shrink-0">Undo</button>
@@ -215,9 +215,9 @@ function BulletRow({ bullet, onApply, onHighlight, appliedSet, ignoredSet, onMar
                 <button onClick={() => { onApply(bullet.originalText, bullet.rewrite!); onMarkApplied(bullet.originalText); toast.success('Applied!'); }}
                   className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1 cursor-pointer"><Check className="w-3 h-3" /> Apply</button>
                 <button onClick={() => { onMarkIgnored(bullet.originalText); toast('Ignored', { icon: '🙈', duration: 1500 }); }}
-                  className="px-3 py-1.5 bg-slate-700/60 hover:bg-slate-600/60 text-slate-400 hover:text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1 cursor-pointer"><XCircle className="w-3 h-3" /> Ignore</button>
+                  className="px-3 py-1.5 bg-white/[0.06] hover:bg-slate-600/60 text-slate-400 hover:text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1 cursor-pointer"><XCircle className="w-3 h-3" /> Ignore</button>
                 <button onClick={async () => { await navigator.clipboard.writeText(bullet.rewrite!); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-                  className="px-3 py-1.5 bg-slate-700/60 hover:bg-slate-700 text-slate-300 rounded-lg text-xs transition-colors flex items-center gap-1 cursor-pointer">
+                  className="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 rounded-lg text-xs transition-colors flex items-center gap-1 cursor-pointer">
                   {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}{copied ? 'Copied' : 'Copy'}
                 </button>
               </div>
@@ -236,21 +236,21 @@ function SectionCard({ section, onApply, onHighlight, appliedSet, ignoredSet, on
   const cfg = ({ excellent: { badge: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400', dot: 'bg-emerald-400' }, good: { badge: 'bg-blue-500/10 border-blue-500/20 text-blue-400', dot: 'bg-blue-400' }, needs_work: { badge: 'bg-amber-500/10 border-amber-500/20 text-amber-400', dot: 'bg-amber-400' }, missing: { badge: 'bg-red-500/10 border-red-500/20 text-red-400', dot: 'bg-red-400' } } as Record<string, { badge: string; dot: string }>)[section.status] ?? { badge: 'bg-slate-500/10 border-slate-500/20 text-slate-400', dot: 'bg-slate-400' };
 
   return (
-    <div className="bg-slate-800/30 border border-white/[0.06] rounded-xl overflow-hidden">
+    <div className="bg-white/[0.035] border border-white/[0.06] rounded-xl overflow-hidden">
       <button className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.02] transition-colors cursor-pointer" onClick={() => setOpen(!open)}>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-sm font-semibold text-white">{section.name}</span>
             <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] font-semibold ${cfg.badge}`}><span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />{section.status.replace('_', ' ')}</span>
           </div>
-          <div className="h-1 bg-slate-700/60 rounded-full overflow-hidden"><div className={`h-full rounded-full ${section.score >= 80 ? 'bg-emerald-500' : section.score >= 60 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${section.score}%`, transition: 'width 0.7s ease' }} /></div>
+          <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden"><div className={`h-full rounded-full ${section.score >= 80 ? 'bg-emerald-500' : section.score >= 60 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${section.score}%`, transition: 'width 0.7s ease' }} /></div>
         </div>
         <span className={`text-sm font-bold tabular-nums shrink-0 ${section.score >= 80 ? 'text-emerald-400' : section.score >= 60 ? 'text-amber-400' : 'text-red-400'}`}>{section.score}/100</span>
         {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
       </button>
       {open && (
-        <div className="px-4 py-3 space-y-2 bg-slate-900/30">
-          {section.sectionIssues.length > 0 && <div className="flex flex-col gap-1 mb-3">{section.sectionIssues.map((issue, i) => <div key={i} className="flex items-start gap-2 text-xs text-slate-400 bg-slate-800/40 rounded-xl px-3 py-2"><Info className="w-3.5 h-3.5 text-blue-400 mt-0.5 shrink-0" />{issue}</div>)}</div>}
+        <div className="px-4 py-3 space-y-2 bg-white/[0.02]">
+          {section.sectionIssues.length > 0 && <div className="flex flex-col gap-1 mb-3">{section.sectionIssues.map((issue, i) => <div key={i} className="flex items-start gap-2 text-xs text-slate-400 bg-white/[0.042] rounded-xl px-3 py-2"><Info className="w-3.5 h-3.5 text-blue-400 mt-0.5 shrink-0" />{issue}</div>)}</div>}
           {section.bullets.length > 0 ? <div className="space-y-2">{section.bullets.map((b, i) => <BulletRow key={i} bullet={b} onApply={onApply} onHighlight={onHighlight} appliedSet={appliedSet} ignoredSet={ignoredSet} onMarkApplied={onMarkApplied} onMarkIgnored={onMarkIgnored} />)}</div>
             : section.status === 'missing' ? <div className="py-4 text-center"><p className="text-xs text-slate-400">Section not detected.</p>{section.quickFix && <p className="text-xs text-blue-400 mt-1">{section.quickFix}</p>}</div> : null}
         </div>
@@ -276,7 +276,7 @@ function QuickWinCard({ win, index, onApply, onHighlight, appliedSet, ignoredSet
   );
 
   if (isIgnored) return (
-    <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-slate-800/20 border border-white/[0.04]">
+    <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/[0.025] border border-white/[0.04]">
       <XCircle className="w-3.5 h-3.5 text-slate-500 shrink-0" />
       <p className="text-xs text-slate-500 truncate flex-1">Ignored - {win.title}</p>
       <button onClick={() => onMarkIgnored(win.originalText)} className="text-[11px] text-slate-400 hover:text-slate-300 cursor-pointer transition-colors">Undo</button>
@@ -287,7 +287,7 @@ function QuickWinCard({ win, index, onApply, onHighlight, appliedSet, ignoredSet
     <div className={`rounded-xl border overflow-hidden transition-all duration-200 ${pcfg.bg}`}
       onMouseEnter={() => (win.lineId || win.originalText) && onHighlight(win.lineId || win.originalText)} onMouseLeave={() => onHighlight(null)}>
       <button className="w-full flex items-center gap-3 px-4 py-3 text-left cursor-pointer" onClick={() => setExpanded(!expanded)}>
-        <span className="w-6 h-6 rounded-full bg-slate-700/60 flex items-center justify-center text-xs font-bold text-slate-300 shrink-0">{index + 1}</span>
+        <span className="w-6 h-6 rounded-full bg-white/[0.06] flex items-center justify-center text-xs font-bold text-slate-300 shrink-0">{index + 1}</span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5"><p className="text-xs font-semibold text-white truncate">{win.title}</p><span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded capitalize shrink-0 ${pcfg.badge}`}>{win.priority}</span></div>
           <p className="text-xs text-slate-400 truncate">{win.description}</p>
@@ -298,14 +298,14 @@ function QuickWinCard({ win, index, onApply, onHighlight, appliedSet, ignoredSet
         <div className="border-t border-white/[0.05] px-4 pb-4 space-y-3 pt-3">
           <div><p className="text-[11px] font-semibold text-red-400 uppercase tracking-wider mb-1.5 flex items-center gap-1"><XCircle className="w-3 h-3" /> Current</p><div className="bg-red-500/10 border border-red-500/20 rounded-xl p-2.5"><p className="text-xs text-slate-300 leading-relaxed line-through decoration-red-400/50">{win.originalText}</p></div></div>
           <div><p className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider mb-1.5 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Improved</p><div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-2.5"><p className="text-xs text-white leading-relaxed font-medium">{win.rewrite}</p></div></div>
-          <div className="flex items-center gap-2 bg-slate-800/50 border border-white/[0.06] rounded-xl px-3 py-2"><Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" /><p className="text-xs text-slate-300">{win.impact}</p></div>
+          <div className="flex items-center gap-2 bg-white/[0.042] border border-white/[0.06] rounded-xl px-3 py-2"><Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" /><p className="text-xs text-slate-300">{win.impact}</p></div>
           <div className="flex gap-2">
             <button onClick={() => { onApply(win.originalText, win.rewrite); onMarkApplied(win.originalText); toast.success('Applied to resume'); }}
               className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"><Check className="w-3.5 h-3.5" /> Apply</button>
             <button onClick={() => { onMarkIgnored(win.originalText); toast('Ignored', { icon: '🙈', duration: 1500 }); }}
-              className="px-3 py-2 bg-slate-700/60 hover:bg-slate-600/60 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer"><XCircle className="w-3.5 h-3.5" /> Ignore</button>
+              className="px-3 py-2 bg-white/[0.06] hover:bg-slate-600/60 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer"><XCircle className="w-3.5 h-3.5" /> Ignore</button>
             <button onClick={async () => { await navigator.clipboard.writeText(win.rewrite); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-              className="px-3 py-2 bg-slate-700/60 hover:bg-slate-700 text-slate-300 rounded-xl text-xs transition-colors flex items-center gap-1 cursor-pointer">
+              className="px-3 py-2 bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 rounded-xl text-xs transition-colors flex items-center gap-1 cursor-pointer">
               {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
             </button>
           </div>
@@ -394,7 +394,7 @@ function TailorChangeCard(props: {
   );
 
   if (isIgnored) return (
-    <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-800/20 border border-white/[0.04]">
+    <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/[0.025] border border-white/[0.04]">
       <XCircle className="w-3.5 h-3.5 text-slate-500 shrink-0" />
       <p className="text-xs text-slate-500 truncate flex-1">{original || change}</p>
       <button onClick={onMarkIgnored} className="text-[11px] text-slate-400 hover:text-slate-300 cursor-pointer transition-colors shrink-0">Undo</button>
@@ -426,7 +426,7 @@ function TailorChangeCard(props: {
             <div><p className="text-[11px] font-semibold text-indigo-400 uppercase tracking-wider mb-1.5 flex items-center gap-1"><Target className="w-3 h-3" /> Change</p><div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-2.5"><p className="text-xs text-white leading-relaxed">{change}</p></div></div>
           )}
           {keywords.length > 0 && (
-            <div className="flex items-center gap-2 bg-slate-800/50 border border-white/[0.06] rounded-xl px-3 py-2">
+            <div className="flex items-center gap-2 bg-white/[0.042] border border-white/[0.06] rounded-xl px-3 py-2">
               <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <div className="flex flex-wrap gap-1">{keywords.map(kw => <span key={kw} className="px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/15 text-[11px] text-indigo-300 font-medium">{kw}</span>)}</div>
             </div>
@@ -437,9 +437,9 @@ function TailorChangeCard(props: {
                 className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"><Check className="w-3.5 h-3.5" /> Apply</button>
             )}
             <button onClick={() => { onMarkIgnored(); toast('Ignored', { icon: '🙈', duration: 1500 }); }}
-              className={`${hasOriginal ? '' : 'flex-1 '}px-3 py-2 bg-slate-700/60 hover:bg-slate-600/60 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer`}><XCircle className="w-3.5 h-3.5" /> Ignore</button>
+              className={`${hasOriginal ? '' : 'flex-1 '}px-3 py-2 bg-white/[0.06] hover:bg-slate-600/60 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer`}><XCircle className="w-3.5 h-3.5" /> Ignore</button>
             <button onClick={async () => { await navigator.clipboard.writeText(hasOriginal ? rewrite : change); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-              className="px-3 py-2 bg-slate-700/60 hover:bg-slate-700 text-slate-300 rounded-xl text-xs transition-colors flex items-center gap-1 cursor-pointer">
+              className="px-3 py-2 bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 rounded-xl text-xs transition-colors flex items-center gap-1 cursor-pointer">
               {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
             </button>
           </div>
@@ -490,7 +490,7 @@ function TailorTab({ resumeId, resumeContent, jobTitle: initTitle, companyName: 
 
   return (
     <div className="p-4 space-y-4">
-      <div className="bg-slate-800/30 border border-white/[0.06] rounded-xl overflow-hidden">
+      <div className="bg-white/[0.035] border border-white/[0.06] rounded-xl overflow-hidden">
         <button onClick={() => setShowInputs(!showInputs)} className="w-full flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors">
           <div className="flex items-center gap-2.5"><Target className="w-4 h-4 text-indigo-400" /><span className="text-xs font-semibold text-white">{result ? `Tailored for ${jobTitle}${companyName ? ` at ${companyName}` : ''}` : 'Target Job Details'}</span></div>
           {showInputs ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
@@ -498,19 +498,19 @@ function TailorTab({ resumeId, resumeContent, jobTitle: initTitle, companyName: 
         {showInputs && (
           <div className="px-4 pb-4 space-y-3 border-t border-white/[0.05] pt-3">
             <div className="grid grid-cols-2 gap-2">
-              <div><label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Job Title *</label><input value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="e.g. Software Engineer" className="w-full px-3 py-2 bg-slate-800/60 border border-white/[0.08] rounded-lg text-xs text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-indigo-500/50" /></div>
-              <div><label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Company</label><input value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="e.g. Google" className="w-full px-3 py-2 bg-slate-800/60 border border-white/[0.08] rounded-lg text-xs text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-indigo-500/50" /></div>
+              <div><label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Job Title *</label><input value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="e.g. Software Engineer" className="w-full px-3 py-2 bg-white/[0.042] border border-white/[0.08] rounded-lg text-xs text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-indigo-500/50" /></div>
+              <div><label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Company</label><input value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="e.g. Google" className="w-full px-3 py-2 bg-white/[0.042] border border-white/[0.08] rounded-lg text-xs text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-indigo-500/50" /></div>
             </div>
-            <div><label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Job Description *</label><textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} placeholder="Paste the full job description…" rows={3} className="w-full px-3 py-2 bg-slate-800/60 border border-white/[0.08] rounded-xl text-xs text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-indigo-500/50 resize-none" />{jobDesc.length > 0 && jobDesc.length < 50 && <p className="text-[11px] text-amber-400 mt-1">{50 - jobDesc.length} more chars needed</p>}</div>
-            <button onClick={handleTailor} disabled={!canTailor || isTailoring} className={`w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all ${!canTailor || isTailoring ? 'bg-slate-700/50 text-slate-400 cursor-not-allowed' : 'bg-[var(--accent)] text-white shadow-lg  hover:-translate-y-0.5 cursor-pointer'}`}>{isTailoring ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Tailoring…</> : <><Target className="w-3.5 h-3.5" /> Tailor Resume</>}</button>
+            <div><label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Job Description *</label><textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} placeholder="Paste the full job description…" rows={3} className="w-full px-3 py-2 bg-white/[0.042] border border-white/[0.08] rounded-xl text-xs text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-indigo-500/50 resize-none" />{jobDesc.length > 0 && jobDesc.length < 50 && <p className="text-[11px] text-amber-400 mt-1">{50 - jobDesc.length} more chars needed</p>}</div>
+            <button onClick={handleTailor} disabled={!canTailor || isTailoring} className={`w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all ${!canTailor || isTailoring ? 'bg-white/[0.06] text-slate-400 cursor-not-allowed' : 'bg-[var(--accent)] text-white shadow-lg  hover:-translate-y-0.5 cursor-pointer'}`}>{isTailoring ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Tailoring…</> : <><Target className="w-3.5 h-3.5" /> Tailor Resume</>}</button>
           </div>
         )}
       </div>
       {error && (<div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-2"><AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" /><p className="text-xs text-red-300">{error}</p></div>)}
       {result && (
         <div className="space-y-3">
-          {ats && (<div className="bg-slate-800/30 border border-white/[0.06] rounded-xl p-4"><div className="flex items-center justify-between mb-3"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Job keyword match</p>{improvement > 0 && <span className="flex items-center gap-1 text-xs font-bold text-emerald-400"><TrendingUp className="w-3 h-3" />+{improvement} pts</span>}</div><div className="flex items-center gap-3"><div className="text-center"><p className={`text-xl font-bold tabular-nums ${ats.before >= 70 ? 'text-amber-400' : 'text-red-400'}`}>{ats.before}</p><p className="text-[11px] text-slate-400">Before</p></div><div className="flex-1"><div className="flex items-center gap-2"><div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-red-500/60 rounded-full" style={{ width: `${ats.before}%` }} /></div><ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0" /><div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: `${ats.after}%` }} /></div></div></div><div className="text-center"><p className="text-xl font-bold tabular-nums text-emerald-400">{ats.after}</p><p className="text-[11px] text-slate-400">After</p></div></div></div>)}
-          {result.keywordsFromJD && (result.keywordsFromJD.matched.length > 0 || result.keywordsFromJD.missing.length > 0) && (<div className="bg-slate-800/30 border border-white/[0.06] rounded-xl p-4 space-y-2.5"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Keyword Coverage</p>{result.keywordsFromJD.matched.length > 0 && <div className="flex flex-wrap gap-1">{result.keywordsFromJD.matched.map(kw => <span key={kw} className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-300">{kw}</span>)}</div>}{result.keywordsFromJD.missing.length > 0 && <div><p className="text-[11px] text-amber-400 font-medium mb-1">Not shown on your resume:</p><div className="flex flex-wrap gap-1">{result.keywordsFromJD.missing.map(kw => <span key={kw} className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300">{kw}</span>)}</div></div>}</div>)}
+          {ats && (<div className="bg-white/[0.035] border border-white/[0.06] rounded-xl p-4"><div className="flex items-center justify-between mb-3"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Job keyword match</p>{improvement > 0 && <span className="flex items-center gap-1 text-xs font-bold text-emerald-400"><TrendingUp className="w-3 h-3" />+{improvement} pts</span>}</div><div className="flex items-center gap-3"><div className="text-center"><p className={`text-xl font-bold tabular-nums ${ats.before >= 70 ? 'text-amber-400' : 'text-red-400'}`}>{ats.before}</p><p className="text-[11px] text-slate-400">Before</p></div><div className="flex-1"><div className="flex items-center gap-2"><div className="flex-1 h-1.5 bg-white/[0.08] rounded-full overflow-hidden"><div className="h-full bg-red-500/60 rounded-full" style={{ width: `${ats.before}%` }} /></div><ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0" /><div className="flex-1 h-1.5 bg-white/[0.08] rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: `${ats.after}%` }} /></div></div></div><div className="text-center"><p className="text-xl font-bold tabular-nums text-emerald-400">{ats.after}</p><p className="text-[11px] text-slate-400">After</p></div></div></div>)}
+          {result.keywordsFromJD && (result.keywordsFromJD.matched.length > 0 || result.keywordsFromJD.missing.length > 0) && (<div className="bg-white/[0.035] border border-white/[0.06] rounded-xl p-4 space-y-2.5"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Keyword Coverage</p>{result.keywordsFromJD.matched.length > 0 && <div className="flex flex-wrap gap-1">{result.keywordsFromJD.matched.map(kw => <span key={kw} className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-300">{kw}</span>)}</div>}{result.keywordsFromJD.missing.length > 0 && <div><p className="text-[11px] text-amber-400 font-medium mb-1">Not shown on your resume:</p><div className="flex flex-wrap gap-1">{result.keywordsFromJD.missing.map(kw => <span key={kw} className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300">{kw}</span>)}</div></div>}</div>)}
 
           {/* ── Suggested Changes - QuickWin-style cards ── */}
           {result.sections && result.sections.length > 0 && (() => {
@@ -524,7 +524,7 @@ function TailorTab({ resumeId, resumeContent, jobTitle: initTitle, companyName: 
                 <p className="text-[11px] text-slate-500">{pendingCount} pending{appliedCount > 0 ? ` · ${appliedCount} applied` : ''}</p>
               </div>
               {result.sections.map((sec, si) => (
-                <div key={si} className="bg-slate-800/30 border border-white/[0.06] rounded-xl overflow-hidden">
+                <div key={si} className="bg-white/[0.035] border border-white/[0.06] rounded-xl overflow-hidden">
                   <div className="px-4 py-2.5 border-b border-white/[0.04] flex items-center gap-2">
                     <FileText className="w-3.5 h-3.5 text-indigo-400" />
                     <span className="text-xs font-semibold text-white">{sec.name}</span>
@@ -558,12 +558,12 @@ function TailorTab({ resumeId, resumeContent, jobTitle: initTitle, companyName: 
             );
           })()}
 
-          {result.skillsOptimization?.added?.length ? (<div className="bg-slate-800/30 border border-white/[0.06] rounded-xl p-4"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Skills to move up</p><div className="flex flex-wrap gap-1.5">{result.skillsOptimization.added.map(s => <span key={s} className="px-2 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300 font-medium flex items-center gap-1"><Plus className="w-3 h-3" />{s}</span>)}</div></div>) : null}
+          {result.skillsOptimization?.added?.length ? (<div className="bg-white/[0.035] border border-white/[0.06] rounded-xl p-4"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Skills to move up</p><div className="flex flex-wrap gap-1.5">{result.skillsOptimization.added.map(s => <span key={s} className="px-2 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300 font-medium flex items-center gap-1"><Plus className="w-3 h-3" />{s}</span>)}</div></div>) : null}
           {result.interviewPrepNotes?.length ? (<div className="bg-amber-500/[0.04] border border-amber-500/15 rounded-xl p-4"><p className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Study Before Interview</p><div className="space-y-1.5">{result.interviewPrepNotes.map((n, i) => <div key={i} className="flex items-start gap-2 text-xs text-slate-300"><span className="w-4 h-4 rounded-full bg-amber-500/15 flex items-center justify-center text-[11px] font-bold text-amber-400 shrink-0 mt-0.5">{i+1}</span><span className="leading-relaxed">{n}</span></div>)}</div></div>) : null}
-          <button onClick={() => { setShowInputs(true); onTailorResultChange(null); }} className="w-full py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-800/30 border border-white/[0.06] hover:border-white/10 flex items-center justify-center gap-1.5 transition-all cursor-pointer"><RefreshCw className="w-3 h-3" /> Tailor for a Different Job</button>
+          <button onClick={() => { setShowInputs(true); onTailorResultChange(null); }} className="w-full py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-white/[0.035] border border-white/[0.06] hover:border-white/10 flex items-center justify-center gap-1.5 transition-all cursor-pointer"><RefreshCw className="w-3 h-3" /> Tailor for a Different Job</button>
         </div>
       )}
-      {!result && !isTailoring && !error && !showInputs && (<button onClick={() => setShowInputs(true)} className="w-full py-8 rounded-xl bg-slate-800/20 border border-dashed border-white/[0.08] flex flex-col items-center gap-2 cursor-pointer hover:border-indigo-500/30 transition-colors"><Target className="w-6 h-6 text-indigo-400" /><span className="text-xs font-medium text-slate-400">Enter job details to tailor</span></button>)}
+      {!result && !isTailoring && !error && !showInputs && (<button onClick={() => setShowInputs(true)} className="w-full py-8 rounded-xl bg-white/[0.025] border border-dashed border-white/[0.08] flex flex-col items-center gap-2 cursor-pointer hover:border-indigo-500/30 transition-colors"><Target className="w-6 h-6 text-indigo-400" /><span className="text-xs font-medium text-slate-400">Enter job details to tailor</span></button>)}
     </div>
   );
 }
@@ -702,19 +702,19 @@ export default function IntelligentAIPanel({
             <div><h2 className="text-sm font-bold text-white">Resume Analyzer</h2><p className="text-xs text-indigo-300/60">{analysis ? `Score: ${analysis.overallScore}/100` : 'AI-powered deep analysis'}</p></div>
           </div>
           <div className="flex items-center gap-1.5">
-            <button onClick={() => setShowJobInput(!showJobInput)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${jobDescription ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/30' : 'bg-slate-800/60 text-slate-400 border border-white/[0.06] hover:text-white'}`}>
+            <button onClick={() => setShowJobInput(!showJobInput)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${jobDescription ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/30' : 'bg-white/[0.042] text-slate-400 border border-white/[0.06] hover:text-white'}`}>
               <Target className="w-3 h-3" />{isPreFilled ? (initialCompanyName || initialJobTitle || 'Targeted') : jobDescription ? 'Targeted' : 'Add Job'}
             </button>
-            {analysis && <button onClick={() => runAnalysis()} disabled={isAnalyzing} className="p-1.5 rounded-lg bg-slate-800/60 text-slate-400 hover:text-white border border-white/[0.06] transition-colors cursor-pointer" title="Re-analyze"><RefreshCw className={`w-3.5 h-3.5 ${isAnalyzing ? 'animate-spin' : ''}`} /></button>}
+            {analysis && <button onClick={() => runAnalysis()} disabled={isAnalyzing} className="p-1.5 rounded-lg bg-white/[0.042] text-slate-400 hover:text-white border border-white/[0.06] transition-colors cursor-pointer" title="Re-analyze"><RefreshCw className={`w-3.5 h-3.5 ${isAnalyzing ? 'animate-spin' : ''}`} /></button>}
           </div>
         </div>
 
         {showJobInput && (
           <div className="mb-3 space-y-2">
             {isPreFilled && <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-lg"><CheckCircle2 className="w-3 h-3 text-indigo-400 shrink-0" /><p className="text-xs text-indigo-300">Pre-filled{initialJobTitle && <span className="font-semibold"> · {initialJobTitle}</span>}{initialCompanyName && <span className="text-indigo-400"> at {initialCompanyName}</span>}</p></div>}
-            <textarea value={jobDescription} onChange={e => setJobDescription(e.target.value)} placeholder="Paste job description…" rows={3} className="w-full px-3 py-2 bg-slate-800/60 border border-white/[0.08] rounded-xl text-xs text-slate-200 placeholder-slate-600 focus:ring-1 focus:ring-indigo-500/50 resize-none outline-none" />
+            <textarea value={jobDescription} onChange={e => setJobDescription(e.target.value)} placeholder="Paste job description…" rows={3} className="w-full px-3 py-2 bg-white/[0.042] border border-white/[0.08] rounded-xl text-xs text-slate-200 placeholder-slate-600 focus:ring-1 focus:ring-indigo-500/50 resize-none outline-none" />
             <div className="flex gap-2">
-              <button onClick={() => { setJobDescription(''); setShowJobInput(false); }} className="px-3 py-1.5 bg-slate-700/50 text-slate-400 rounded-lg text-xs hover:text-white cursor-pointer">Clear</button>
+              <button onClick={() => { setJobDescription(''); setShowJobInput(false); }} className="px-3 py-1.5 bg-white/[0.06] text-slate-400 rounded-lg text-xs hover:text-white cursor-pointer">Clear</button>
               <button onClick={() => setShowJobInput(false)} className="flex-1 py-1.5 bg-indigo-600/50 hover:bg-indigo-600/70 text-indigo-200 rounded-lg text-xs font-medium cursor-pointer">{jobDescription ? '✓ Targeting' : 'Done'}</button>
             </div>
           </div>
@@ -727,7 +727,7 @@ export default function IntelligentAIPanel({
         )}
 
         {/* Tab bar */}
-        <div className="flex items-center gap-1 bg-slate-800/40 border border-white/[0.05] rounded-xl p-1 mt-4 mb-1">
+        <div className="flex items-center gap-1 bg-white/[0.042] border border-white/[0.05] rounded-xl p-1 mt-4 mb-1">
           {tabs.map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${activeTab === tab.id ? 'bg-indigo-600/50 text-white shadow-sm' : 'text-slate-400 hover:text-slate-300'}`}>
@@ -768,13 +768,13 @@ export default function IntelligentAIPanel({
         {/* Overview */}
         {analysis && activeTab === 'overview' && (
           <div className="p-4 space-y-4">
-            <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl py-4 px-3"><div className="flex items-center justify-around"><ScoreRing score={analysis.overallScore} size={80} strokeWidth={7} label="Overall" sublabel="Score" /><div className="w-px h-14 bg-slate-700/50" /><ScoreRing score={analysis.atsScore} size={58} strokeWidth={5} label="ATS" /><ScoreRing score={analysis.impactScore} size={58} strokeWidth={5} label="Impact" /><ScoreRing score={analysis.clarityScore} size={58} strokeWidth={5} label="Clarity" /></div></div>
+            <div className="bg-white/[0.042] border border-white/[0.06] rounded-xl py-4 px-3"><div className="flex items-center justify-around"><ScoreRing score={analysis.overallScore} size={80} strokeWidth={7} label="Overall" sublabel="Score" /><div className="w-px h-14 bg-white/[0.06]" /><ScoreRing score={analysis.atsScore} size={58} strokeWidth={5} label="ATS" /><ScoreRing score={analysis.impactScore} size={58} strokeWidth={5} label="Impact" /><ScoreRing score={analysis.clarityScore} size={58} strokeWidth={5} label="Clarity" /></div></div>
             <div className="grid grid-cols-4 gap-2"><StatChip icon={FileText} label="Words" value={analysis.wordCount} good={analysis.wordCount >= 400 && analysis.wordCount <= 700} /><StatChip icon={Hash} label="Bullets" value={analysis.bulletCount} good={analysis.bulletCount >= 6} /><StatChip icon={TrendingUp} label="Metrics" value={analysis.metricCount} good={analysis.metricCount >= 4} /><StatChip icon={AlertTriangle} label="Weak Verbs" value={analysis.weakVerbCount} good={analysis.weakVerbCount === 0} /></div>
-            <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2.5">Section Scores</p><div className="space-y-2">{analysis.sections.map(s => <SectionBar key={s.name} label={s.name} score={s.score} />)}</div></div>
+            <div className="bg-white/[0.042] border border-white/[0.06] rounded-xl p-3"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2.5">Section Scores</p><div className="space-y-2">{analysis.sections.map(s => <SectionBar key={s.name} label={s.name} score={s.score} />)}</div></div>
             {analysis.quickWins.filter(w => !appliedKeys.has(w.originalText) && !ignoredKeys.has(w.originalText)).length > 0 && (
-              <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3">
+              <div className="bg-white/[0.042] border border-white/[0.06] rounded-xl p-3">
                 <div className="flex items-center justify-between mb-2"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Top Quick Wins</p><button onClick={() => setActiveTab('quickwins')} className="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer">See all <ArrowRight className="w-3 h-3" /></button></div>
-                <div className="space-y-1.5">{analysis.quickWins.filter(w => !appliedKeys.has(w.originalText) && !ignoredKeys.has(w.originalText)).slice(0, 2).map((win, i) => (<div key={win.id} className="flex items-center gap-2.5 rounded-xl bg-slate-900/50 border border-white/[0.04] px-3 py-2 cursor-pointer hover:border-indigo-500/25 transition-all" onClick={() => setActiveTab('quickwins')}><span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${win.priority === 'critical' ? 'bg-red-500/15 text-red-400' : win.priority === 'high' ? 'bg-amber-500/15 text-amber-400' : 'bg-blue-500/15 text-blue-400'}`}>{i + 1}</span><div className="flex-1 min-w-0"><p className="text-xs font-semibold text-white truncate">{win.title}</p><p className="text-[11px] text-slate-400 truncate mt-0.5">{win.description}</p></div><ChevronRight className="w-3 h-3 text-slate-500 shrink-0" /></div>))}</div>
+                <div className="space-y-1.5">{analysis.quickWins.filter(w => !appliedKeys.has(w.originalText) && !ignoredKeys.has(w.originalText)).slice(0, 2).map((win, i) => (<div key={win.id} className="flex items-center gap-2.5 rounded-xl bg-white/[0.024] border border-white/[0.04] px-3 py-2 cursor-pointer hover:border-indigo-500/25 transition-all" onClick={() => setActiveTab('quickwins')}><span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${win.priority === 'critical' ? 'bg-red-500/15 text-red-400' : win.priority === 'high' ? 'bg-amber-500/15 text-amber-400' : 'bg-blue-500/15 text-blue-400'}`}>{i + 1}</span><div className="flex-1 min-w-0"><p className="text-xs font-semibold text-white truncate">{win.title}</p><p className="text-[11px] text-slate-400 truncate mt-0.5">{win.description}</p></div><ChevronRight className="w-3 h-3 text-slate-500 shrink-0" /></div>))}</div>
               </div>
             )}
           </div>
@@ -820,7 +820,7 @@ export default function IntelligentAIPanel({
               return (
                 <div key={section.name}>
                   <SectionCard section={{ ...section, bullets: pending }} onApply={(o, n) => { onApplySuggestion(o, n); markApplied(o); }} onHighlight={onHighlightLine} appliedSet={appliedKeys} ignoredSet={ignoredKeys} onMarkApplied={markApplied} onMarkIgnored={toggleIgnored} />
-                  {ignored.length > 0 && <div className="mt-1 px-3 space-y-1">{ignored.map((b, i) => <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800/20 border border-white/[0.04]"><XCircle className="w-3 h-3 text-slate-500 shrink-0" /><p className="text-[11px] text-slate-500 truncate flex-1">{b.originalText}</p><button onClick={() => toggleIgnored(b.originalText)} className="text-[11px] text-slate-400 hover:text-slate-300 cursor-pointer transition-colors shrink-0">Undo</button></div>)}</div>}
+                  {ignored.length > 0 && <div className="mt-1 px-3 space-y-1">{ignored.map((b, i) => <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.025] border border-white/[0.04]"><XCircle className="w-3 h-3 text-slate-500 shrink-0" /><p className="text-[11px] text-slate-500 truncate flex-1">{b.originalText}</p><button onClick={() => toggleIgnored(b.originalText)} className="text-[11px] text-slate-400 hover:text-slate-300 cursor-pointer transition-colors shrink-0">Undo</button></div>)}</div>}
                   {done.length > 0 && <div className="mt-1 px-3 space-y-1">{done.map((b, i) => <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/20"><CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" /><p className="text-[11px] text-emerald-300 truncate">{b.rewrite ?? b.originalText}</p></div>)}</div>}
                 </div>
               );

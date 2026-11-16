@@ -48,7 +48,7 @@ function PanelAvatar({ initials, gradient, isSpeaking, size = 'lg' }: {
   const sz = size === 'sm' ? 'w-8 h-8 text-[9px]' : size === 'md' ? 'w-16 h-16 text-lg' : 'w-12 h-12 text-sm';
   return (
     <div className="relative">
-      <div className={`${sz} bg-gradient-to-br ${gradient} rounded-full flex items-center justify-center border-2 ${isSpeaking ? 'border-blue-400 scale-105' : 'border-slate-700'} transition-all duration-300`}>
+      <div className={`${sz} bg-gradient-to-br ${gradient} rounded-full flex items-center justify-center border-2 ${isSpeaking ? 'border-blue-400 scale-105' : 'border-[var(--border)]'} transition-all duration-300`}>
         <span className="text-white font-bold">{initials}</span>
       </div>
       {isSpeaking && (
@@ -96,7 +96,7 @@ function WaitingRoom({ step }: { step: number }) {
             <p className="text-[10px] font-medium text-white flex items-center gap-1.5 mb-2">
               <Camera className="w-3.5 h-3.5 text-blue-400" /> Camera Preview
             </p>
-            <div className="relative bg-slate-950 rounded-lg overflow-hidden flex-1 min-h-[200px]">
+            <div className="relative bg-[var(--bg-surface)] rounded-lg overflow-hidden flex-1 min-h-[200px]">
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
                   <div className="w-14 h-14 bg-[var(--accent)] rounded-full flex items-center justify-center mx-auto mb-2">
@@ -112,7 +112,7 @@ function WaitingRoom({ step }: { step: number }) {
                   { icon: <Volume2 className="w-3 h-3" />, red: false },
                   { icon: <Settings className="w-3 h-3" />, red: false },
                 ].map((btn, i) => (
-                  <div key={i} className={`p-2 rounded-full ${btn.red ? 'bg-red-600/80' : 'bg-slate-800/80'} text-white`}>{btn.icon}</div>
+                  <div key={i} className={`p-2 rounded-full ${btn.red ? 'bg-red-600/80' : 'bg-[var(--bg-raised)]'} text-white`}>{btn.icon}</div>
                 ))}
               </div>
             </div>
@@ -334,10 +334,10 @@ function LiveInterview() {
                 }`}
               >
                 {p.isLead && (
-                  <span className="absolute top-2 right-2 px-2 py-0.5 bg-blue-600 text-white text-[7px] rounded-full font-medium">Lead</span>
+                  <span className="absolute top-2 right-2 px-2 py-0.5 bg-[var(--accent)] text-white text-[7px] rounded-full font-medium">Lead</span>
                 )}
                 {p.isUser && (
-                  <span className="absolute top-2 right-2 px-2 py-0.5 bg-purple-600 text-white text-[7px] rounded-full font-medium">You</span>
+                  <span className="absolute top-2 right-2 px-2 py-0.5 bg-[var(--accent)] text-white text-[7px] rounded-full font-medium">You</span>
                 )}
                 <PanelAvatar initials={p.initials} gradient={p.gradient} isSpeaking={isSpeaking} size="md" />
                 <p className={`text-[11px] font-semibold mt-2 ${isSpeaking ? 'text-blue-300' : 'text-white'}`}>{p.name}</p>
@@ -378,10 +378,10 @@ function LiveInterview() {
             </div>
             <div className="flex items-center gap-1.5">
               {[
-                { icon: <Mic className="w-3 h-3" />, bg: 'bg-slate-800' },
-                { icon: <Video className="w-3 h-3" />, bg: 'bg-slate-800' },
+                { icon: <Mic className="w-3 h-3" />, bg: 'bg-[var(--bg-raised)]' },
+                { icon: <Video className="w-3 h-3" />, bg: 'bg-[var(--bg-raised)]' },
                 { icon: <PhoneOff className="w-3 h-3" />, bg: 'bg-red-600' },
-                { icon: <Volume2 className="w-3 h-3" />, bg: 'bg-slate-800' },
+                { icon: <Volume2 className="w-3 h-3" />, bg: 'bg-[var(--bg-raised)]' },
               ].map((b, i) => (
                 <div key={i} className={`p-1.5 rounded-full ${b.bg} text-white`}>{b.icon}</div>
               ))}
@@ -389,7 +389,7 @@ function LiveInterview() {
           </div>
           <div className="p-1.5 bg-white/[0.02] border border-white/[0.06] rounded-lg">
             <div className="flex items-center gap-1.5 mb-0.5">
-              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+              <div className="w-1.5 h-1.5 bg-[var(--accent)] rounded-full animate-pulse" />
               <span className="text-[7px] text-slate-400 font-medium">
                 Live Transcript {speakerId && speakerId !== 'you' ? `- ${participants.find(p => p.id === speakerId)?.name}` : speakerId === 'you' ? '- Jordan Lee' : ''}
               </span>

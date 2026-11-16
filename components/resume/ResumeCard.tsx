@@ -249,7 +249,7 @@ const ResumeCardInner = memo(function ResumeCard({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={e => { e.stopPropagation(); setShowDeleteModal(false); }}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
       <div className="relative w-full max-w-sm rounded-2xl border border-white/[0.08] p-6 animate-fade-in-up"
-        style={{ background: '#0d1526', boxShadow: '0 24px 64px rgba(0,0,0,0.7)' }} onClick={e => e.stopPropagation()}>
+        style={{ background: 'var(--bg-raised)', boxShadow: '0 24px 64px rgba(0,0,0,0.7)' }} onClick={e => e.stopPropagation()}>
         <button onClick={handleDeleteCancel} className="absolute top-4 right-4 w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"><X className="w-3.5 h-3.5" /></button>
         <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4 bg-red-500/10 border border-red-500/20"><Trash2 className="w-5 h-5 text-red-400" /></div>
         <h3 className="text-base font-semibold text-white mb-1">Delete Resume</h3>
@@ -272,7 +272,7 @@ const ResumeCardInner = memo(function ResumeCard({
         <div className={`glass-card transition-all duration-300 hover:border-purple-500/20 ${className}`}>
           <div className="p-5 flex items-center gap-5">
             <Link href={`/resume/${resume.id}`} className="flex-shrink-0">
-              <div className="w-12 h-16 rounded-lg overflow-hidden bg-slate-800 border border-white/10 relative flex items-center justify-center"><Thumbnail small /></div>
+              <div className="w-12 h-16 rounded-lg overflow-hidden bg-[var(--bg-raised)] border border-white/10 relative flex items-center justify-center"><Thumbnail small /></div>
             </Link>
             <Link href={`/resume/${resume.id}`} className="flex-1 min-w-0">
               <h3 className="text-sm font-semibold text-white truncate hover:text-purple-300 transition-colors duration-200">{resume.companyName || resume.jobTitle || 'Resume Analysis'}</h3>
@@ -285,8 +285,8 @@ const ResumeCardInner = memo(function ResumeCard({
               <div className="text-center"><p className="text-base font-semibold text-amber-400 leading-none">{improvements}</p><p className="text-[11px] text-slate-400 mt-1">To fix</p></div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <button onClick={handleDownload} title="Download" className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-800/60 border border-white/10 text-slate-400 hover:text-blue-400 hover:border-blue-500/30 transition-colors duration-150 cursor-pointer"><Download className="w-3.5 h-3.5" /></button>
-              <button onClick={handleDeleteClick} title="Delete" className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-800/60 border border-white/10 text-slate-400 hover:text-red-400 hover:border-red-500/30 transition-colors duration-150 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
+              <button onClick={handleDownload} title="Download" className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.042] border border-white/10 text-slate-400 hover:text-blue-400 hover:border-blue-500/30 transition-colors duration-150 cursor-pointer"><Download className="w-3.5 h-3.5" /></button>
+              <button onClick={handleDeleteClick} title="Delete" className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.042] border border-white/10 text-slate-400 hover:text-red-400 hover:border-red-500/30 transition-colors duration-150 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
             </div>
           </div>
         </div>
@@ -308,7 +308,7 @@ const ResumeCardInner = memo(function ResumeCard({
           <div className={`flex-shrink-0 px-2.5 py-1 rounded-lg border text-xs font-semibold ${scoreBg(overallScore)}`}>{overallScore}%</div>
         </div>
         <div className="px-5 pb-4">
-          <div className="aspect-[3/4] rounded-xl overflow-hidden bg-slate-800/60 border border-white/10 relative">
+          <div className="aspect-[3/4] rounded-xl overflow-hidden bg-white/[0.042] border border-white/10 relative">
             <Thumbnail />
             <div className="absolute bottom-0 left-0 right-0 px-3 py-2.5 bg-gradient-to-t from-slate-950/90 to-transparent">
               <div className="flex items-center gap-3 text-xs font-medium">
@@ -319,11 +319,11 @@ const ResumeCardInner = memo(function ResumeCard({
           </div>
         </div>
         <div className="px-5 pb-4 grid grid-cols-2 gap-2">
-          <div className="bg-slate-800/40 border border-white/[5%] rounded-lg px-3 py-2">
+          <div className="bg-white/[0.042] border border-white/[5%] rounded-lg px-3 py-2">
             <div className="flex items-center gap-1.5 mb-1"><div className={`w-1.5 h-1.5 rounded-full ${dotColor(atsScore)}`} /><span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">ATS</span></div>
             <p className={`text-sm font-bold ${scoreFg(atsScore)}`}>{atsScore}%</p>
           </div>
-          <div className="bg-slate-800/40 border border-white/[5%] rounded-lg px-3 py-2">
+          <div className="bg-white/[0.042] border border-white/[5%] rounded-lg px-3 py-2">
             <div className="flex items-center gap-1.5 mb-1"><div className={`w-1.5 h-1.5 rounded-full ${dotColor(contentScore)}`} /><span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Content</span></div>
             <p className={`text-sm font-bold ${scoreFg(contentScore)}`}>{contentScore}%</p>
           </div>
@@ -332,8 +332,8 @@ const ResumeCardInner = memo(function ResumeCard({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-xs text-slate-400"><Calendar className="w-3 h-3" /><span>{formatDate(resume.createdAt)}</span></div>
             <div className="flex items-center gap-1.5">
-              <button onClick={handleDownload} title="Download" className="w-7 h-7 rounded-lg flex items-center justify-center bg-slate-800/60 border border-white/10 text-slate-400 hover:text-blue-400 hover:border-blue-500/30 transition-colors duration-150 cursor-pointer"><Download className="w-3.5 h-3.5" /></button>
-              <button onClick={handleDeleteClick} title="Delete" className="w-7 h-7 rounded-lg flex items-center justify-center bg-slate-800/60 border border-white/10 text-slate-400 hover:text-red-400 hover:border-red-500/30 transition-colors duration-150 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
+              <button onClick={handleDownload} title="Download" className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.042] border border-white/10 text-slate-400 hover:text-blue-400 hover:border-blue-500/30 transition-colors duration-150 cursor-pointer"><Download className="w-3.5 h-3.5" /></button>
+              <button onClick={handleDeleteClick} title="Delete" className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.042] border border-white/10 text-slate-400 hover:text-red-400 hover:border-red-500/30 transition-colors duration-150 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
             </div>
           </div>
           <Link href={`/resume/${resume.id}`} className="btn-primary w-full justify-between">

@@ -96,7 +96,7 @@ export default function ErrorPage({
             </div>
 
             {/* Error Code */}
-            <div className="inline-flex items-center bg-slate-800/50 border border-white/5 px-4 py-2 rounded-lg mb-4">
+            <div className="inline-flex items-center bg-white/[0.042] border border-white/5 px-4 py-2 rounded-lg mb-4">
               <Terminal className="w-4 h-4 text-slate-400 mr-2" />
               <span className="text-sm font-mono text-slate-300">ERROR {errorCode}</span>
             </div>
@@ -189,7 +189,7 @@ export default function ErrorPage({
                 'Contact support if the issue persists'
               ].map((tip, index) => (
                 <div key={index} className="flex items-start gap-3">
-                  <div className="w-6 h-6 bg-slate-800/50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-6 h-6 bg-white/[0.042] rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
                     <span className="text-slate-400 text-xs">{index + 1}</span>
                   </div>
                   <p className="text-slate-400">{tip}</p>

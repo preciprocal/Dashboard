@@ -118,7 +118,7 @@ export default function PrepStep({ application, pack, onPack, update }: ApplySte
               return (
                 <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
                   className={`flex-1 min-w-fit flex items-center justify-center gap-1.5 h-9 px-3 rounded-[10px] text-[12.5px] font-medium whitespace-nowrap transition-colors
-                    ${tab === t.id ? 'bg-[var(--accent)] text-white' : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'}`}>
+                    ${tab === t.id ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'}`}>
                   <Icon className="w-3.5 h-3.5" />{t.label}
                 </button>
               );

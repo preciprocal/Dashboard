@@ -53,11 +53,11 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
   };
 
   return (
-    <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 hover:border-slate-700 transition-all duration-300">
+    <div className="bg-white/[0.024] backdrop-blur-xl rounded-2xl border border-[var(--border)] hover:border-[var(--border)] transition-all duration-300">
       {/* Header - Dark Mode */}
       <div
         onClick={() => setIsExpanded(!isExpanded)}
-        className="p-6 cursor-pointer hover:bg-slate-800/30 transition-colors rounded-t-2xl"
+        className="p-6 cursor-pointer hover:bg-white/[0.065] transition-colors rounded-t-2xl"
       >
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -100,7 +100,7 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
                 </span>
               ))}
               {dailyPlan.topics.length > 4 && (
-                <span className="px-2 py-1 bg-slate-800/60 border border-slate-700 text-slate-400 rounded text-xs">
+                <span className="px-2 py-1 bg-white/[0.042] border border-[var(--border)] text-slate-400 rounded text-xs">
                   +{dailyPlan.topics.length - 4}
                 </span>
               )}
@@ -108,7 +108,7 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
 
             {/* Progress Bar */}
             <div className="flex items-center gap-4">
-              <div className="flex-1 h-2 bg-slate-800/60 rounded-full overflow-hidden border border-slate-700">
+              <div className="flex-1 h-2 bg-white/[0.042] rounded-full overflow-hidden border border-[var(--border)]">
                 <div
                   className="h-full bg-[var(--accent)] transition-all duration-500"
                   style={{ width: `${progress}%` }}
@@ -127,7 +127,7 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
 
           {/* Expand Button */}
           <button 
-            className="ml-4 p-2 rounded-lg hover:bg-slate-800/60 transition-colors border border-slate-700"
+            className="ml-4 p-2 rounded-lg hover:bg-white/[0.072] transition-colors border border-[var(--border)]"
             aria-label={isExpanded ? "Collapse day details" : "Expand day details"}
           >
             {isExpanded ? (
@@ -141,7 +141,7 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
 
       {/* Expanded Content - Dark Mode */}
       {isExpanded && (
-        <div className="border-t border-slate-800 p-6 space-y-6 bg-slate-800/20">
+        <div className="border-t border-[var(--border)] p-6 space-y-6 bg-white/[0.025]">
           
           {/* Tasks */}
           <div>
@@ -155,7 +155,7 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
               {dailyPlan.tasks.map((task) => (
                 <div
                   key={task.id}
-                  className="flex items-start gap-3 p-4 rounded-lg bg-slate-800/60 backdrop-blur-xl border border-slate-700 hover:border-slate-600 transition-all duration-300"
+                  className="flex items-start gap-3 p-4 rounded-lg bg-white/[0.042] backdrop-blur-xl border border-[var(--border)] hover:border-[var(--border-hover)] transition-all duration-300"
                 >
                   <button
                     onClick={() => {
@@ -192,7 +192,7 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
                       }`}>
                         {task.priority}
                       </span>
-                      <span className="px-2 py-0.5 bg-slate-700/60 text-slate-400 rounded text-xs flex items-center border border-slate-700">
+                      <span className="px-2 py-0.5 bg-white/[0.06] text-slate-400 rounded text-xs flex items-center border border-[var(--border)]">
                         <Clock className="w-3 h-3 mr-1" />
                         {task.estimatedMinutes}m
                       </span>
@@ -222,7 +222,7 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
                       href={resource.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group flex items-center gap-3 p-3 rounded-lg bg-slate-800/60 backdrop-blur-xl border border-slate-700 hover:border-slate-600 transition-all duration-300"
+                      className="group flex items-center gap-3 p-3 rounded-lg bg-white/[0.042] backdrop-blur-xl border border-[var(--border)] hover:border-[var(--border-hover)] transition-all duration-300"
                     >
                       <div className={`w-8 h-8 rounded-lg ${colorClass} flex items-center justify-center`}>
                         <Icon className="w-4 h-4 text-white" />
@@ -245,7 +245,7 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
 
           {/* Behavioral */}
           {dailyPlan.behavioral && (
-            <div className="bg-slate-800/60 backdrop-blur-xl rounded-xl p-5 border border-purple-500/20">
+            <div className="bg-white/[0.042] backdrop-blur-xl rounded-xl p-5 border border-purple-500/20">
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0 border border-purple-500/20">
                   <MessageSquare className="w-5 h-5 text-purple-400" />
@@ -278,7 +278,7 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
 
           {/* Communication Tip */}
           {dailyPlan.communicationTip && (
-            <div className="bg-slate-800/60 backdrop-blur-xl rounded-xl p-5 border border-blue-500/20">
+            <div className="bg-white/[0.042] backdrop-blur-xl rounded-xl p-5 border border-blue-500/20">
               <div className="flex items-start gap-3">
                 <Lightbulb className="w-5 h-5 text-blue-400 flex-shrink-0 mt-1" />
                 <div>
@@ -304,7 +304,7 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
               </h4>
               <div className="space-y-2">
                 {dailyPlan.aiTips.map((tip, index) => (
-                  <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-slate-800/60 backdrop-blur-xl border border-amber-500/20">
+                  <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-white/[0.042] backdrop-blur-xl border border-amber-500/20">
                     <span className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-medium">
                       {index + 1}
                     </span>

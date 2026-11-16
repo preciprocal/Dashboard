@@ -98,7 +98,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
   return (
     <div className="space-y-3 animate-fade-in-up">
       <div className="relative overflow-hidden rounded-2xl border border-white/[0.08]
-                      bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526]">
+                      bg-[var(--bg-surface)]">
         <div className="absolute -top-24 -right-24 w-56 h-56 rounded-full
                         bg-indigo-500/[0.06] blur-3xl pointer-events-none" />
         <div className="relative p-6">
@@ -352,8 +352,8 @@ export default function UploadResume() {
     <>
       {/* Processing overlay */}
       {isProcessing && (
-        <div className="fixed inset-0 bg-[#090d1a]/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0d1526]/98 border border-white/[0.09] rounded-2xl max-w-md w-full p-6 shadow-[0_32px_64px_rgba(0,0,0,0.6)]">
+        <div className="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[var(--bg-raised)] border border-white/[0.09] rounded-2xl max-w-md w-full p-6 shadow-[0_32px_64px_rgba(0,0,0,0.6)]">
             <div className="text-center mb-6">
               <div className="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4 ">
                 <Sparkles className="w-5 h-5 text-white" />

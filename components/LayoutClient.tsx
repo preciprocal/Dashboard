@@ -423,7 +423,7 @@ const SearchDropdown = () => {
                      max-h-96 overflow-y-auto scrollbar-hide z-[9999] animate-fade-in-up">
           {!searchQuery ? (
             <div className="py-2">
-              <div className="px-4 py-2.5 bg-slate-800/60">
+              <div className="px-4 py-2.5 bg-white/[0.042]">
                 <div className="flex items-center gap-2">
                   <HelpCircle className="w-3.5 h-3.5 text-purple-400" />
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Common Questions</p>
@@ -434,7 +434,7 @@ const SearchDropdown = () => {
                   .filter(f => ['faq-g1','faq-i1','faq-r1','faq-c1','faq-p1','faq-g5','faq-g9'].includes(f.id))
                   .map(item => (
                     <button key={item.id} onClick={() => handleFAQClick(item)} role="option"
-                      className="w-full flex items-center gap-3 px-4 py-3 transition-colors text-left border-b border-slate-800 last:border-0 hover:bg-slate-800/80">
+                      className="w-full flex items-center gap-3 px-4 py-3 transition-colors text-left border-b border-[var(--border)] last:border-0 hover:bg-white/[0.086]">
                       <div className="w-7 h-7 rounded-lg bg-purple-500/15 flex items-center justify-center flex-shrink-0">
                         <HelpCircle className="w-3.5 h-3.5 text-purple-400" />
                       </div>
@@ -453,7 +453,7 @@ const SearchDropdown = () => {
             <>
               {filteredNavigation.length > 0 && (
                 <div className="py-2">
-                  <div className="px-4 py-2.5 bg-slate-800/60">
+                  <div className="px-4 py-2.5 bg-white/[0.042]">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pages</p>
                   </div>
                   <div className="py-1">
@@ -461,9 +461,9 @@ const SearchDropdown = () => {
                       const Icon = item.icon;
                       return (
                         <Link key={`nav-${index}`} href={item.href} role="option" onClick={closeAndNavigate}
-                          className={`flex items-center gap-3 px-4 py-3 transition-colors border-b border-slate-800 last:border-0
+                          className={`flex items-center gap-3 px-4 py-3 transition-colors border-b border-[var(--border)] last:border-0
                                       ${activeIndex === index ? 'bg-slate-700' : 'hover:bg-slate-800/80'}`}>
-                          <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0">
+                          <div className="w-8 h-8 rounded-lg bg-[var(--bg-raised)] flex items-center justify-center flex-shrink-0">
                             <Icon className="w-4 h-4 text-purple-400" />
                           </div>
                           <span className="text-sm font-medium text-slate-200">{highlight(item.label, searchQuery)}</span>
@@ -474,8 +474,8 @@ const SearchDropdown = () => {
                 </div>
               )}
               {filteredFAQs.length > 0 && (
-                <div className={`py-2 ${filteredNavigation.length > 0 ? 'border-t border-slate-700' : ''}`}>
-                  <div className="px-4 py-2.5 bg-slate-800/60">
+                <div className={`py-2 ${filteredNavigation.length > 0 ? 'border-t border-[var(--border)]' : ''}`}>
+                  <div className="px-4 py-2.5 bg-white/[0.042]">
                     <div className="flex items-center gap-2">
                       <HelpCircle className="w-3.5 h-3.5 text-purple-400" />
                       <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">FAQ Articles</p>
@@ -484,14 +484,14 @@ const SearchDropdown = () => {
                   <div className="py-1">
                     {filteredFAQs.slice(0, 6).map((item, faqIdx) => (
                       <button key={item.id} onClick={() => handleFAQClick(item)} role="option"
-                        className={`w-full flex items-start gap-3 px-4 py-3 transition-colors text-left border-b border-slate-800 last:border-0
+                        className={`w-full flex items-start gap-3 px-4 py-3 transition-colors text-left border-b border-[var(--border)] last:border-0
                                     ${activeIndex === filteredNavigation.length + faqIdx ? 'bg-slate-700' : 'hover:bg-slate-800/80'}`}>
                         <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                           <HelpCircle className="w-4 h-4 text-purple-400" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium line-clamp-2 mb-1 text-slate-300">{highlight(item.label, searchQuery)}</p>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-800 text-slate-400 capitalize">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[var(--bg-raised)] text-slate-400 capitalize">
                             {item.category.replace('-', ' ')}
                           </span>
                         </div>

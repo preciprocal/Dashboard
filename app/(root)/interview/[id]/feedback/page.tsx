@@ -286,7 +286,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
           <div className="grid lg:grid-cols-3 gap-6 sm:gap-8">
             <div className="text-center">
               <div className="relative inline-block mb-4 sm:mb-6">
-                <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-slate-800/50 border-4 border-slate-700 flex items-center justify-center relative">
+                <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-white/[0.042] border-4 border-[var(--border)] flex items-center justify-center relative">
                   <svg className="absolute inset-0 w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                     <circle cx="50" cy="50" r="42" stroke="currentColor" strokeWidth="4" fill="none" className="text-slate-500" />
                     <circle cx="50" cy="50" r="42"
@@ -368,9 +368,9 @@ export default async function InterviewFeedbackPage({ params }: Props) {
                     {item.value}
                   </span>
                 </div>
-                <div className="w-full bg-slate-800/50 rounded-full h-2">
+                <div className="w-full bg-white/[0.042] rounded-full h-2">
                   <div
-                    className={`h-2 rounded-full transition-all duration-1000 ${item.isUser ? "bg-blue-500" : item.isTop ? "bg-emerald-500" : "bg-slate-600"}`}
+                    className={`h-2 rounded-full transition-all duration-1000 ${item.isUser ? "bg-[var(--accent)]" : item.isTop ? "bg-emerald-500" : "bg-slate-600"}`}
                     style={{ width: `${item.value}%` }}
                   />
                 </div>
@@ -670,7 +670,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
             Continue your interview preparation journey
           </p>
           <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 sm:gap-4">
-            <Button asChild className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base">
+            <Button asChild className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] font-medium px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base">
               <Link href="/interview/create" className="flex items-center gap-2">
                 <Target className="w-4 h-4 sm:w-5 sm:h-5" />
                 Practice More

@@ -883,7 +883,7 @@ function HelpSupportContent() {
                       <h4 className="text-base font-semibold text-white mb-1">Sign in to submit a ticket</h4>
                       <p className="text-slate-400 text-sm">You need to be signed in to contact support and track your tickets.</p>
                     </div>
-                    <Link href="/sign-in" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium shadow-md hover:shadow-lg transition-all">
+                    <Link href="/sign-in" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] text-sm font-medium shadow-[var(--shadow-btn)] hover:shadow-[var(--shadow-btn)] transition-all">
                       <LogOut className="w-4 h-4 rotate-180" />Sign In
                     </Link>
                   </div>
@@ -1054,7 +1054,7 @@ function HelpSupportContent() {
                   <h3 className="text-base font-semibold text-white mb-1">Sign in to view tickets</h3>
                   <p className="text-slate-400 text-sm mb-5">Your support history is tied to your account.</p>
                   <Link href="/sign-in"
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition-colors">
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] text-sm font-semibold transition-colors">
                     Sign in
                   </Link>
                 </div>
@@ -1246,7 +1246,7 @@ function HelpSupportContent() {
                   <h3 className="text-base font-semibold text-white mb-1">No tickets yet</h3>
                   <p className="text-slate-400 text-sm mb-5">When you contact support, the conversation appears here.</p>
                   <button onClick={() => setActiveSection('contact')}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition-colors">
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] text-sm font-semibold transition-colors">
                     <MessageSquare className="w-3.5 h-3.5" /> Contact support
                   </button>
                 </div>

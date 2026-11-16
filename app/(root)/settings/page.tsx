@@ -114,7 +114,7 @@ function Toggle({
     <label className="relative inline-flex items-center cursor-pointer">
       <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)}
         disabled={disabled} className="sr-only peer" />
-      <div className={`w-10 h-5 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-disabled:opacity-50 ${colorMap[color] ?? colorMap.emerald}`} />
+      <div className={`w-10 h-5 bg-white/[0.08] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-disabled:opacity-50 ${colorMap[color] ?? colorMap.emerald}`} />
     </label>
   );
 }
@@ -132,7 +132,7 @@ function Input({ ...props }: React.InputHTMLAttributes<HTMLInputElement> & { cla
   return (
     <input
       {...props}
-      className={`w-full px-3.5 py-2.5 bg-slate-800/50 border border-white/[0.08] rounded-xl text-sm text-white
+      className={`w-full px-3.5 py-2.5 bg-white/[0.042] border border-white/[0.08] rounded-xl text-sm text-white
                   placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 focus:border-indigo-500/30
                   disabled:opacity-40 disabled:cursor-not-allowed transition-all ${props.className ?? ''}`}
     />
@@ -426,7 +426,7 @@ export default function SettingsPage() {
                 {userInitials}
               </div>
             )}
-            <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-[#090d1a]" />
+            <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-[var(--bg)]" />
           </div>
 
           <div className="flex-1 min-w-0">
@@ -445,7 +445,7 @@ export default function SettingsPage() {
                 {plan.name}
               </span>
               {isGoogleUser && (
-                <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full bg-slate-800/60 text-slate-400 border border-slate-700/50 font-medium">Google</span>
+                <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full bg-white/[0.042] text-slate-400 border border-[var(--border)] font-medium">Google</span>
               )}
             </div>
           </div>
@@ -455,7 +455,7 @@ export default function SettingsPage() {
       {/* ── Tab bar ── */}
       <div className="glass-card overflow-hidden relative">
         {/* On a phone only 3 of the 7 or 8 tabs fit; the fade says there are more. */}
-        <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-12 z-10 bg-gradient-to-l from-slate-950 to-transparent lg:hidden" />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-12 z-10 bg-gradient-to-l from-[var(--sheet)] to-transparent lg:hidden" />
         <div className="flex overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           {sections.map(s => {
             const isActive = activeSection === s.id;
@@ -469,7 +469,7 @@ export default function SettingsPage() {
                 <s.icon className={`w-3.5 h-3.5 flex-shrink-0 ${isActive && !s.danger ? 'text-indigo-400' : ''}`} />
                 <span>{s.label}</span>
                 {s.badge && (
-                  <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-indigo-600 text-white font-bold leading-none">{s.badge}</span>
+                  <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-[var(--accent)] text-white font-bold leading-none">{s.badge}</span>
                 )}
                 {isActive && (
                   <span className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-full ${s.danger ? 'bg-red-400' : 'bg-[var(--accent)]'}`} />
@@ -542,7 +542,7 @@ export default function SettingsPage() {
                       ? new Date(user.last_sign_in_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-',
                   },
                 ].map(({ label, value, mono, badge }) => (
-                  <div key={label} className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-slate-800/30 border border-white/[0.05] hover:border-white/[0.08] transition-colors">
+                  <div key={label} className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-white/[0.035] border border-white/[0.05] hover:border-white/[0.08] transition-colors">
                     <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">{label}</span>
                     {badge ? (
                       <span className={`self-start inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border ${badge.color}`}>
@@ -576,7 +576,7 @@ export default function SettingsPage() {
                 const isSaving = savingNotifKey === item.key;
                 return (
                   <div key={item.key}
-                    className="flex items-center justify-between p-3.5 rounded-xl border border-white/[0.05] bg-slate-800/20 hover:bg-slate-800/40 transition-colors gap-4">
+                    className="flex items-center justify-between p-3.5 rounded-xl border border-white/[0.05] bg-white/[0.025] hover:bg-white/[0.072] transition-colors gap-4">
                     <div className="flex-1 min-w-0">
                       <h4 className="text-white text-sm font-medium">{item.label}</h4>
                       <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">{item.desc}</p>
@@ -693,7 +693,7 @@ export default function SettingsPage() {
 
                     <div className="flex justify-end">
                       <button onClick={handleUpdatePassword} disabled={savingPassword}
-                        className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500
+                        className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-500
                                    disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-xl transition-all cursor-pointer">
                         {savingPassword ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Updating…</> : <><Lock className="w-3.5 h-3.5" />Update Password</>}
                       </button>
@@ -712,12 +712,12 @@ export default function SettingsPage() {
               <SectionHeader icon={CreditCard} iconColor="text-purple-400" iconBg="bg-purple-500/10 border-purple-500/20"
                 title="Current Plan" subtitle="Your subscription and usage" />
               <div className="p-5 space-y-5">
-                <div className="flex items-center justify-between p-4 rounded-xl bg-slate-800/40 border border-white/[0.06]">
+                <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.042] border border-white/[0.06]">
                   <div className="flex-1 min-w-0">
                     {statsLoading ? (
                       <div className="space-y-1.5">
-                        <div className="h-4 w-24 bg-slate-700 rounded animate-pulse" />
-                        <div className="h-3 w-48 bg-slate-800 rounded animate-pulse" />
+                        <div className="h-4 w-24 bg-white/[0.08] rounded animate-pulse" />
+                        <div className="h-3 w-48 bg-[var(--bg-raised)] rounded animate-pulse" />
                       </div>
                     ) : (
                       <>
@@ -752,7 +752,7 @@ export default function SettingsPage() {
                       </>
                     )}
                   </div>
-                  <span className="flex-shrink-0 inline-flex items-center gap-1.5 bg-slate-700/50 border border-white/[0.06] text-slate-300 text-[11px] font-medium px-3 py-1.5 rounded-full ml-3">
+                  <span className="flex-shrink-0 inline-flex items-center gap-1.5 bg-white/[0.06] border border-white/[0.06] text-slate-300 text-[11px] font-medium px-3 py-1.5 rounded-full ml-3">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Active
                   </span>
                 </div>
@@ -764,10 +764,10 @@ export default function SettingsPage() {
                       {[1, 2, 3, 4].map(n => (
                         <div key={n}>
                           <div className="flex justify-between mb-1.5">
-                            <div className="h-3 w-24 bg-slate-800 rounded animate-pulse" />
-                            <div className="h-3 w-10 bg-slate-800 rounded animate-pulse" />
+                            <div className="h-3 w-24 bg-[var(--bg-raised)] rounded animate-pulse" />
+                            <div className="h-3 w-10 bg-[var(--bg-raised)] rounded animate-pulse" />
                           </div>
-                          <div className="h-1.5 bg-slate-800 rounded-full animate-pulse" />
+                          <div className="h-1.5 bg-[var(--bg-raised)] rounded-full animate-pulse" />
                         </div>
                       ))}
                     </div>
@@ -950,7 +950,7 @@ export default function SettingsPage() {
                         );
                       }
                     }}
-                    className="flex-shrink-0 inline-flex items-center gap-1.5 bg-slate-800/60 hover:bg-slate-700/60 border border-white/[0.06] hover:border-white/10 text-slate-300 text-xs px-3 py-2 rounded-xl transition-all cursor-pointer">
+                    className="flex-shrink-0 inline-flex items-center gap-1.5 bg-white/[0.042] hover:bg-white/[0.09] border border-white/[0.06] hover:border-white/10 text-slate-300 text-xs px-3 py-2 rounded-xl transition-all cursor-pointer">
                     <ExternalLink className="w-3.5 h-3.5" /> Request
                   </button>
                 </div>
@@ -977,7 +977,7 @@ export default function SettingsPage() {
                     onChange={e => setDeletionReason(e.target.value)}
                     placeholder="e.g. No longer job searching, switching to a different tool, missing a feature…"
                     rows={3}
-                    className="w-full px-3.5 py-2.5 bg-slate-800/50 border border-white/[0.08] rounded-xl text-sm text-white
+                    className="w-full px-3.5 py-2.5 bg-white/[0.042] border border-white/[0.08] rounded-xl text-sm text-white
                                placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-red-500/30 focus:border-red-500/20
                                transition-all resize-none"
                   />
@@ -991,7 +991,7 @@ export default function SettingsPage() {
                       : 'Sends a closure request to our team. You will get an email confirming we received it.'}
                   </p>
                   <button onClick={handleRequestDeletion} disabled={closureSending || closureSent}
-                    className="flex-shrink-0 inline-flex items-center gap-2 bg-slate-800/60 hover:bg-red-600/15
+                    className="flex-shrink-0 inline-flex items-center gap-2 bg-white/[0.042] hover:bg-red-600/15
                                border border-white/[0.06] hover:border-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed
                                text-slate-300 hover:text-red-400 text-xs font-medium px-4 py-2 rounded-xl transition-all cursor-pointer">
                     <Mail className="w-3.5 h-3.5" /> {closureSent ? 'Request sent' : closureSending ? 'Sending…' : 'Request Account Closure'}

@@ -109,7 +109,7 @@ function DailyBarChart() {
         {DAILY_PROGRESS.map(d => (
           <div key={d.day} className="flex-1 flex flex-col items-center">
             <div className="w-full bg-white/[0.04] rounded-t relative" style={{ height: 60 }}>
-              <div className={`absolute bottom-0 left-0 right-0 rounded-t ${d.pct === 100 ? 'bg-emerald-500' : d.pct > 0 ? 'bg-indigo-500' : 'bg-white/[0.06]'}`}
+              <div className={`absolute bottom-0 left-0 right-0 rounded-t ${d.pct === 100 ? 'bg-emerald-500' : d.pct > 0 ? 'bg-[var(--accent)]' : 'bg-white/[0.06]'}`}
                 style={{ height: `${animated ? Math.max(d.pct, 3) : 3}%`, transition: 'height 0.8s ease-out' }} />
             </div>
             <span className="text-[7px] text-slate-500 mt-1">D{d.day}</span>
@@ -201,7 +201,7 @@ function CreatingPlan() {
           <div className="flex flex-wrap gap-1.5">
             {FOCUS_AREAS.map((area, i) => (
               <FadeIn key={area} delay={2400 + i * 150}>
-                <span className="px-2 py-1 bg-indigo-600 text-white rounded-lg text-[9px] font-medium shadow-lg ">{area}</span>
+                <span className="px-2 py-1 bg-[var(--accent)] text-white rounded-lg text-[9px] font-medium shadow-lg ">{area}</span>
               </FadeIn>
             ))}
           </div>
@@ -295,7 +295,7 @@ function Sidebar({ checkedCount }: { checkedCount: number }) {
               const reached = 43 >= m;
               return (
                 <div key={m} className="flex-1 text-center">
-                  <div className={`w-6 h-6 rounded-full mx-auto mb-0.5 flex items-center justify-center text-[8px] font-bold ${reached ? 'bg-[var(--accent)] text-white ' : 'bg-white/[0.04] border border-white/[0.07] text-slate-700'}`}>{reached ? '✓' : m === 100 ? '🏆' : ''}</div>
+                  <div className={`w-6 h-6 rounded-full mx-auto mb-0.5 flex items-center justify-center text-[8px] font-bold ${reached ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : 'bg-white/[0.04] border border-white/[0.07] text-slate-700'}`}>{reached ? '✓' : m === 100 ? '🏆' : ''}</div>
                   <p className={`text-[7px] font-semibold ${reached ? 'text-slate-300' : 'text-slate-700'}`}>{m}%</p>
                 </div>
               );
@@ -321,7 +321,7 @@ function TabBar({ activeTab }: { activeTab: string }) {
     <div className="p-1 bg-white/[0.02] border border-white/[0.06] rounded-lg flex items-center gap-0.5 mb-2.5 flex-shrink-0">
       {tabs.map(tab => (
         <div key={tab.id} className={`flex items-center gap-1 px-2 py-1.5 rounded text-[8px] font-semibold flex-shrink-0 whitespace-nowrap ${
-          activeTab === tab.id ? 'bg-[var(--accent)] text-white ' : 'text-slate-500'
+          activeTab === tab.id ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : 'text-slate-500'
         }`}>
           <tab.icon className="w-3 h-3" />
           {tab.label}
@@ -407,7 +407,7 @@ function TasksView() {
         <FadeIn delay={200}>
           <div className="flex items-center gap-2 mb-2">
             {['All (7)', 'To Do (2)', 'In Progress (1)', 'Done (4)'].map((label, i) => (
-              <span key={label} className={`px-2 py-1 rounded text-[8px] font-semibold ${i === 0 ? 'bg-[var(--accent)] text-white' : 'text-slate-500'}`}>{label}</span>
+              <span key={label} className={`px-2 py-1 rounded text-[8px] font-semibold ${i === 0 ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : 'text-slate-500'}`}>{label}</span>
             ))}
           </div>
         </FadeIn>
@@ -614,7 +614,7 @@ function AiCoachView() {
                 <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[88%] px-3 py-2 rounded-xl text-[9px] leading-relaxed whitespace-pre-line ${
                     msg.role === 'user'
-                      ? 'bg-[var(--accent)] text-white rounded-br-sm'
+                      ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] rounded-br-sm'
                       : 'bg-white/[0.04] border border-white/[0.06] text-slate-300 rounded-bl-sm'
                   }`}>
                     {msg.text.split(/(\*\*.*?\*\*)/).map((part, pi) =>
@@ -823,7 +823,7 @@ function InteractiveTabBar({ activeTab, onTabChange }: { activeTab: string; onTa
       {tabs.map(tab => (
         <button key={tab.id} onClick={() => onTabChange(tab.id)}
           className={`flex items-center gap-1 px-2 py-1.5 rounded text-[8px] font-semibold flex-shrink-0 whitespace-nowrap cursor-pointer transition-all ${
-            activeTab === tab.id ? 'bg-[var(--accent)] text-white ' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'
+            activeTab === tab.id ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'
           }`}>
           <tab.icon className="w-3 h-3" />
           {tab.label}
@@ -891,7 +891,7 @@ function InteractiveView() {
             <div className="space-y-2">
               <div className="flex items-center gap-2 mb-1">
                 {['All (7)', 'To Do (2)', 'In Progress (0)', 'Done (5)'].map((label, i) => (
-                  <span key={label} className={`px-2 py-1 rounded text-[8px] font-semibold ${i === 0 ? 'bg-[var(--accent)] text-white' : 'text-slate-500'}`}>{label}</span>
+                  <span key={label} className={`px-2 py-1 rounded text-[8px] font-semibold ${i === 0 ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : 'text-slate-500'}`}>{label}</span>
                 ))}
               </div>
               {TASK_LIST.map((task, i) => {
@@ -965,7 +965,7 @@ function InteractiveView() {
                 {FULL_CHAT.map((msg, i) => (
                   <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[88%] px-3 py-2 rounded-xl text-[9px] leading-relaxed whitespace-pre-line ${
-                      msg.role === 'user' ? 'bg-[var(--accent)] text-white rounded-br-sm' : 'bg-white/[0.04] border border-white/[0.06] text-slate-300 rounded-bl-sm'
+                      msg.role === 'user' ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] rounded-br-sm' : 'bg-white/[0.04] border border-white/[0.06] text-slate-300 rounded-bl-sm'
                     }`}>
                       {msg.text.split(/(\*\*.*?\*\*)/).map((part, pi) =>
                         part.startsWith('**') && part.endsWith('**') ? <strong key={pi} className="font-semibold text-white">{part.slice(2, -2)}</strong> : <span key={pi}>{part}</span>

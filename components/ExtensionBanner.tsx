@@ -41,7 +41,7 @@ export default function ExtensionBanner() {
         Learn more <ArrowRight className="w-3.5 h-3.5" />
       </Link>
       <a href={extensionStoreUrl('app-dashboard-banner')} target="_blank" rel="noopener noreferrer"
-        className="flex-shrink-0 inline-flex items-center h-8 px-3 rounded-md text-[13px] font-semibold text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] transition-colors">
+        className="flex-shrink-0 inline-flex items-center h-8 px-3 rounded-md text-[13px] font-semibold text-[var(--on-primary)] bg-[var(--primary)] hover:bg-[var(--primary-hover)] transition-colors">
         Add to Chrome
       </a>
       <button onClick={dismiss} aria-label="Dismiss"

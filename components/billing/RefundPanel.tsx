@@ -178,7 +178,7 @@ export default function RefundPanel() {
       )}
 
       {/* ── Subscription ─────────────────────────────────────────────── */}
-      <section className="rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526] p-5 sm:p-6">
+      <section className="rounded-2xl border border-white/[0.08] bg-[var(--bg-surface)] p-5 sm:p-6">
         <div className="flex items-center gap-2.5 mb-4">
           <RotateCcw className="w-4 h-4 text-indigo-400 flex-shrink-0" />
           <h3 className="text-white font-semibold text-sm sm:text-base">Subscription refund</h3>
@@ -242,7 +242,7 @@ export default function RefundPanel() {
               <div className="flex flex-col gap-2">
               <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} rows={2} maxLength={1000}
                 placeholder="Optional: what could we have done better?"
-                className="w-full px-3.5 py-2.5 bg-slate-800/50 border border-white/[0.08] rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500/30 resize-none" />
+                className="w-full px-3.5 py-2.5 bg-white/[0.042] border border-white/[0.08] rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500/30 resize-none" />
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   onClick={requestSubscriptionRefund}
@@ -276,7 +276,7 @@ export default function RefundPanel() {
 
       {/* ── Packs ────────────────────────────────────────────────────── */}
       {refundablePacks.length > 0 && (
-        <section className="rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526] p-5 sm:p-6">
+        <section className="rounded-2xl border border-white/[0.08] bg-[var(--bg-surface)] p-5 sm:p-6">
           <div className="flex items-center gap-2.5 mb-1">
             <Package className="w-4 h-4 text-purple-400 flex-shrink-0" />
             <h3 className="text-white font-semibold text-sm sm:text-base">Credit packs</h3>

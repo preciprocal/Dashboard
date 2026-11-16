@@ -21,7 +21,7 @@ export default function CameraFeedbackToggle({
 }) {
   const on = checked && available;
   return (
-    <div className={`rounded-xl border p-3 sm:p-4 transition-colors ${on ? "border-[var(--accent-border)] bg-[var(--accent-subtle)]" : "border-slate-700 bg-slate-800/60"}`}>
+    <div className={`rounded-xl border p-3 sm:p-4 transition-colors ${on ? "border-[var(--accent-border)] bg-[var(--accent-subtle)]" : "border-[var(--border)] bg-white/[0.042]"}`}>
       <div className="flex items-start gap-3">
         <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--bg-raised)]">
           <ScanFace className="h-4 w-4 text-[var(--accent)]" />

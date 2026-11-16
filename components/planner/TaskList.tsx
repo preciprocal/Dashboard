@@ -160,7 +160,7 @@ export default function TaskList({ plan, onTaskUpdate }: TaskListProps) {
                   onClick={() => setFilter(btn.value)}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                     filter === btn.value
-                      ? 'bg-[var(--accent)] text-white'
+                      ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
@@ -176,7 +176,7 @@ export default function TaskList({ plan, onTaskUpdate }: TaskListProps) {
       {filteredTasks.length === 0 ? (
         <div className="glass-card">
           <div className="text-center py-16 px-6">
-            <div className="w-16 h-16 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <div className="w-16 h-16 bg-white/[0.042] rounded-2xl flex items-center justify-center mx-auto mb-6">
               <ListTodo className="w-8 h-8 text-slate-400" />
             </div>
             <h3 className="text-xl font-semibold text-white mb-2">

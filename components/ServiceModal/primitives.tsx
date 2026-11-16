@@ -91,7 +91,7 @@ export function FadeIn({ delay = 0, children, className = '' }: {
 
 // ─── Animated progress bar ────────────────────────────────────────────────────
 
-export function AnimatedBar({ value, color = 'bg-purple-500', delay = 0 }: {
+export function AnimatedBar({ value, color = 'bg-[var(--accent)]', delay = 0 }: {
   value: number; color?: string; delay?: number;
 }) {
   const [width, setWidth] = useState(0);

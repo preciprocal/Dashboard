@@ -83,7 +83,7 @@ export default function DefaultResumeBanner() {
         Settings
       </Link>
       <button onClick={makeDefault} disabled={saving}
-        className="flex-shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[13px] font-semibold text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-60">
+        className="flex-shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[13px] font-semibold text-[var(--on-primary)] bg-[var(--primary)] hover:bg-[var(--primary-hover)] transition-colors disabled:opacity-60">
         {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Make it my default
       </button>
       <button onClick={dismiss} aria-label="Dismiss"

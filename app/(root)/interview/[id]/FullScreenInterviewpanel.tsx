@@ -166,7 +166,7 @@ const VideoAvatar = ({
   return (
     <div className={`relative ${sizeClasses} mx-auto mb-2 sm:mb-3`}>
       <div
-        className={`w-full h-full bg-gradient-to-br ${gradient} rounded-full flex items-center justify-center border-2 border-slate-700 transition-all duration-300 ${isSpeaking ? "scale-105" : ""}`}
+        className={`w-full h-full bg-gradient-to-br ${gradient} rounded-full flex items-center justify-center border-2 border-[var(--border)] transition-all duration-300 ${isSpeaking ? "scale-105" : ""}`}
       >
         <span className={`text-white ${textSize} font-bold`}>{initials}</span>
       </div>
@@ -189,7 +189,7 @@ const ExitConfirmDialog = ({
   onCancel: () => void;
 }) => (
   <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-    <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+    <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-6 max-w-sm w-full shadow-2xl">
       <h2 className="text-white font-semibold text-lg mb-2">Leave interview?</h2>
       <p className="text-slate-400 text-sm mb-6 leading-relaxed">
         The interview is still in progress. If you leave now your progress may not be saved.
@@ -197,7 +197,7 @@ const ExitConfirmDialog = ({
       <div className="flex gap-3">
         <button
           onClick={onCancel}
-          className="flex-1 py-2.5 rounded-xl border border-slate-700 text-slate-300 text-sm font-medium hover:bg-slate-800 transition-colors"
+          className="flex-1 py-2.5 rounded-xl border border-[var(--border)] text-slate-300 text-sm font-medium hover:bg-white/[0.086] transition-colors"
         >
           Stay
         </button>
@@ -1195,7 +1195,7 @@ const FullScreenInterviewPanel = ({
           first rather than buried in a list of possibilities. */}
       {wastedReason && (
         <div className="absolute inset-0 z-50 bg-[var(--bg)]/95 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 sm:p-8">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-6 sm:p-8">
             <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-5">
               <MicOff className="w-6 h-6 text-amber-400" />
             </div>
@@ -1250,13 +1250,13 @@ const FullScreenInterviewPanel = ({
       )}
 
       {/* Header */}
-      <div className="bg-slate-900/95 backdrop-blur-xl border-b border-slate-800 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 flex-shrink-0">
+      <div className="bg-[var(--bg-surface)] backdrop-blur-xl border-b border-[var(--border)] px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 flex-shrink-0">
         <div className="flex items-center justify-between gap-2 sm:gap-4">
           <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0 flex-1">
             <button
               onClick={handleExitRequest}
               aria-label="Exit interview"
-              className="p-1.5 sm:p-2 rounded-lg text-slate-400 hover:text-slate-300 hover:bg-slate-800/50 transition-colors flex-shrink-0"
+              className="p-1.5 sm:p-2 rounded-lg text-slate-400 hover:text-slate-300 hover:bg-white/[0.072] transition-colors flex-shrink-0"
             >
               <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
@@ -1316,17 +1316,17 @@ const FullScreenInterviewPanel = ({
             return (
               <div
                 key={participant.id}
-                className={`bg-slate-900/60 backdrop-blur-xl rounded-2xl flex flex-col justify-center items-center p-4 sm:p-5 md:p-6 border relative overflow-hidden transition-all duration-300 ${
+                className={`bg-white/[0.024] backdrop-blur-xl rounded-2xl flex flex-col justify-center items-center p-4 sm:p-5 md:p-6 border relative overflow-hidden transition-all duration-300 ${
                   (participant as { isLead?: boolean }).isLead      ? "border-blue-500/30 shadow-lg "
                     : (participant as { isCurrentUser?: boolean }).isCurrentUser ? "border-purple-500/30 shadow-lg "
                     : "border-slate-800"
                 } ${isCurrentSpeaker ? "ring-2 ring-blue-500/50 scale-[1.02] shadow-xl " : ""}`}
               >
                 {(participant as { isLead?: boolean }).isLead && (
-                  <div className="absolute top-2 sm:top-3 md:top-4 right-2 sm:right-3 md:right-4 bg-blue-600 text-white text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-medium">Lead</div>
+                  <div className="absolute top-2 sm:top-3 md:top-4 right-2 sm:right-3 md:right-4 bg-[var(--accent)] text-white text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-medium">Lead</div>
                 )}
                 {(participant as { isCurrentUser?: boolean }).isCurrentUser && (
-                  <div className="absolute top-2 sm:top-3 md:top-4 right-2 sm:right-3 md:right-4 bg-purple-600 text-white text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-medium">You</div>
+                  <div className="absolute top-2 sm:top-3 md:top-4 right-2 sm:right-3 md:right-4 bg-[var(--accent)] text-white text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-medium">You</div>
                 )}
                 {isSelf && callStatus === CallStatus.ACTIVE && (
                   <video
@@ -1343,13 +1343,13 @@ const FullScreenInterviewPanel = ({
                     {/* Says plainly that the camera is being measured, and
                         where. Shown only while the model is actually running. */}
                     {cameraAnalysis === "running" && (
-                      <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 inline-flex items-center gap-1.5 rounded-full bg-slate-950/75 px-2.5 py-1 text-xs text-slate-200">
+                      <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 inline-flex items-center gap-1.5 rounded-full bg-[var(--bg-surface)] px-2.5 py-1 text-xs text-slate-200">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                         On-device feedback
                       </div>
                     )}
                     {/* Readability for the name over an arbitrary camera image. */}
-                    <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-950/85 to-transparent pointer-events-none" />
+                    <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/85 to-transparent pointer-events-none" />
                     <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 flex items-center gap-2 z-10">
                       <span className="text-white text-sm sm:text-base font-medium drop-shadow">
                         {participant.name}
@@ -1389,7 +1389,7 @@ const FullScreenInterviewPanel = ({
                 </div>
                 )}
                 {(participant as { isCurrentUser?: boolean }).isCurrentUser && (
-                  <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-full border-2 border-slate-950 flex items-center justify-center bg-slate-900">
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-full border-2 border-slate-950 flex items-center justify-center bg-[var(--bg-surface)]">
                     <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full ${
                       callStatus === CallStatus.ACTIVE      ? "bg-emerald-500 animate-pulse"
                         : callStatus === CallStatus.CONNECTING ? "bg-amber-500 animate-pulse"
@@ -1421,7 +1421,7 @@ const FullScreenInterviewPanel = ({
         </div>
 
         {/* Control Panel */}
-        <div className="bg-slate-900/95 backdrop-blur-xl border-t border-slate-800 px-3 sm:px-4 md:px-6 py-3 sm:py-4 flex-shrink-0">
+        <div className="bg-[var(--bg-surface)] backdrop-blur-xl border-t border-[var(--border)] px-3 sm:px-4 md:px-6 py-3 sm:py-4 flex-shrink-0">
           <div className="flex flex-col gap-3 sm:gap-4">
             {/* Status row */}
             <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 md:gap-4 text-xs sm:text-sm">
@@ -1493,7 +1493,7 @@ const FullScreenInterviewPanel = ({
                   Start Interview
                 </button>
               ) : (callStatus === CallStatus.INACTIVE && !autoStartAttempted) || callStatus === CallStatus.CONNECTING ? (
-                <div className="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 text-xs sm:text-sm">
+                <div className="px-4 sm:px-6 py-2 sm:py-2.5 bg-[var(--accent)] text-white rounded-lg font-medium flex items-center gap-2 text-xs sm:text-sm">
                   <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /><span>Connecting</span>
                 </div>
               ) : callStatus === CallStatus.ACTIVE && !isGeneratingFeedback ? (
@@ -1501,14 +1501,14 @@ const FullScreenInterviewPanel = ({
                   <button
                     onClick={() => setIsAudioOn(!isAudioOn)}
                     aria-label={isAudioOn ? "Mute microphone" : "Unmute microphone"}
-                    className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-colors ${isAudioOn ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-red-600 hover:bg-red-700 text-white'}`}
+                    className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-colors ${isAudioOn ? 'bg-[var(--bg-raised)] hover:bg-white/[0.1] text-white' : 'bg-red-600 hover:bg-red-700 text-white'}`}
                   >
                     {isAudioOn ? <Mic className="w-4 h-4 sm:w-5 sm:h-5" /> : <MicOff className="w-4 h-4 sm:w-5 sm:h-5" />}
                   </button>
                   <button
                     onClick={() => setIsVideoOn(!isVideoOn)}
                     aria-label={isVideoOn ? "Turn off camera" : "Turn on camera"}
-                    className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-colors ${isVideoOn ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-red-600 hover:bg-red-700 text-white'}`}
+                    className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-colors ${isVideoOn ? 'bg-[var(--bg-raised)] hover:bg-white/[0.1] text-white' : 'bg-red-600 hover:bg-red-700 text-white'}`}
                   >
                     {isVideoOn ? <Video className="w-4 h-4 sm:w-5 sm:h-5" /> : <VideoOff className="w-4 h-4 sm:w-5 sm:h-5" />}
                   </button>
@@ -1522,7 +1522,7 @@ const FullScreenInterviewPanel = ({
                   <button
                     onClick={() => setIsSpeakerOn(!isSpeakerOn)}
                     aria-label={isSpeakerOn ? "Mute speaker" : "Unmute speaker"}
-                    className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-colors ${isSpeakerOn ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-red-600 hover:bg-red-700 text-white'}`}
+                    className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-colors ${isSpeakerOn ? 'bg-[var(--bg-raised)] hover:bg-white/[0.1] text-white' : 'bg-red-600 hover:bg-red-700 text-white'}`}
                   >
                     {isSpeakerOn ? <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" /> : <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />}
                   </button>
@@ -1543,7 +1543,7 @@ const FullScreenInterviewPanel = ({
                   )}
                 </>
               ) : isGeneratingFeedback ? (
-                <div className="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 text-xs sm:text-sm">
+                <div className="px-4 sm:px-6 py-2 sm:py-2.5 bg-[var(--accent)] text-white rounded-lg font-medium flex items-center gap-2 text-xs sm:text-sm">
                   <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /><span>Finishing</span>
                 </div>
               ) : null}
@@ -1569,7 +1569,7 @@ const FullScreenInterviewPanel = ({
                         Try again
                       </button>
                       <button onClick={() => router.push("/")}
-                        className="px-3 py-1.5 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors">
+                        className="px-3 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 text-xs font-medium transition-colors">
                         Go home
                       </button>
                     </div>
@@ -1579,9 +1579,9 @@ const FullScreenInterviewPanel = ({
             )}
 
             {/* Live Transcript */}
-            <div className="bg-slate-800/60 backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-slate-700">
+            <div className="bg-white/[0.042] backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-[var(--border)]">
               <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
-                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-[var(--accent)] rounded-full animate-pulse"></div>
                 <span className="text-xs sm:text-sm text-slate-400 font-medium">Live Transcript</span>
               </div>
               <p className="text-white text-xs sm:text-sm line-clamp-2">

@@ -502,7 +502,7 @@ const InterviewDetailsClient = ({
           {/* Main Panel */}
           <div className="lg:col-span-2 space-y-4 sm:space-y-6 min-w-0">
             {/* Header */}
-            <div className="bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526] rounded-2xl border border-white/[0.08] hover:border-slate-700 transition-all duration-300">
+            <div className="bg-[var(--bg-surface)] rounded-2xl border border-white/[0.08] hover:border-[var(--border)] transition-all duration-300">
               <div className="p-4 sm:p-6">
                 <Link
                   href="/interview"
@@ -535,7 +535,7 @@ const InterviewDetailsClient = ({
                   </div>
                 </div>
 
-                <div className="mt-3 sm:mt-4 bg-slate-800/60 backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-slate-700">
+                <div className="mt-3 sm:mt-4 bg-white/[0.042] backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-[var(--border)]">
                   <div className="flex flex-col xs:flex-row items-start xs:items-center gap-2 xs:gap-3 min-w-0">
                     <span className="text-slate-400 text-xs sm:text-sm flex-shrink-0">Technologies:</span>
                     <div className="min-w-0 w-full xs:flex-1">
@@ -547,14 +547,14 @@ const InterviewDetailsClient = ({
             </div>
 
             {/* Video Preview */}
-            <div className="bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526] rounded-2xl border border-white/[0.08]">
+            <div className="bg-[var(--bg-surface)] rounded-2xl border border-white/[0.08]">
               <div className="p-4 sm:p-6">
                 <h3 className="text-white font-medium mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                   <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                   <span>Camera Preview</span>
                 </h3>
 
-                <div className="relative aspect-video bg-[var(--bg)] rounded-lg overflow-hidden border border-slate-800">
+                <div className="relative aspect-video bg-[var(--bg)] rounded-lg overflow-hidden border border-[var(--border)]">
                   <video
                     ref={videoRef}
                     autoPlay muted playsInline
@@ -592,28 +592,28 @@ const InterviewDetailsClient = ({
                     <button
                       onClick={toggleVideo}
                       aria-label={isVideoOn ? "Turn off camera" : "Turn on camera"}
-                      className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-all backdrop-blur-sm ${isVideoOn ? 'bg-slate-800/90 hover:bg-slate-700/90 text-white' : 'bg-red-600/90 hover:bg-red-700/90 text-white'}`}
+                      className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-all backdrop-blur-sm ${isVideoOn ? 'bg-[var(--bg-raised)] hover:bg-white/[0.1] text-white' : 'bg-red-600/90 hover:bg-red-700/90 text-white'}`}
                     >
                       {isVideoOn ? <Video className="w-4 h-4 sm:w-5 sm:h-5" /> : <VideoOff className="w-4 h-4 sm:w-5 sm:h-5" />}
                     </button>
                     <button
                       onClick={() => setIsAudioOn(!isAudioOn)}
                       aria-label={isAudioOn ? "Mute microphone" : "Unmute microphone"}
-                      className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-all backdrop-blur-sm ${isAudioOn ? 'bg-slate-800/90 hover:bg-slate-700/90 text-white' : 'bg-red-600/90 hover:bg-red-700/90 text-white'}`}
+                      className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-all backdrop-blur-sm ${isAudioOn ? 'bg-[var(--bg-raised)] hover:bg-white/[0.1] text-white' : 'bg-red-600/90 hover:bg-red-700/90 text-white'}`}
                     >
                       {isAudioOn ? <Mic className="w-4 h-4 sm:w-5 sm:h-5" /> : <MicOff className="w-4 h-4 sm:w-5 sm:h-5" />}
                     </button>
                     <button
                       onClick={toggleSpeaker}
                       aria-label={isSpeakerOn ? "Mute speaker" : "Unmute speaker"}
-                      className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-all backdrop-blur-sm ${isSpeakerOn ? 'bg-slate-800/90 hover:bg-slate-700/90 text-white' : 'bg-red-600/90 hover:bg-red-700/90 text-white'}`}
+                      className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-all backdrop-blur-sm ${isSpeakerOn ? 'bg-[var(--bg-raised)] hover:bg-white/[0.1] text-white' : 'bg-red-600/90 hover:bg-red-700/90 text-white'}`}
                     >
                       {isSpeakerOn ? <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" /> : <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />}
                     </button>
                     <button
                       onClick={() => setShowDeviceSettings(!showDeviceSettings)}
                       aria-label="Open device settings"
-                      className="p-2 sm:p-2.5 md:p-3 rounded-full bg-slate-800/90 hover:bg-slate-700/90 text-white transition-all backdrop-blur-sm"
+                      className="p-2 sm:p-2.5 md:p-3 rounded-full bg-[var(--bg-raised)] hover:bg-white/[0.1] text-white transition-all backdrop-blur-sm"
                     >
                       <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
@@ -635,7 +635,7 @@ const InterviewDetailsClient = ({
                     return (
                       <div
                         key={device.key}
-                        className={`bg-slate-800/60 backdrop-blur-xl rounded-xl p-2.5 sm:p-3 border transition-colors duration-200 ${tone.border}`}
+                        className={`bg-white/[0.042] backdrop-blur-xl rounded-xl p-2.5 sm:p-3 border transition-colors duration-200 ${tone.border}`}
                       >
                         <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2 min-w-0">
                           <span className="flex-shrink-0">{deviceIcon(tile.icon)}</span>
@@ -692,7 +692,7 @@ const InterviewDetailsClient = ({
           {/* Sidebar */}
           <div className="space-y-4 sm:space-y-6">
             {/* Interview Panel */}
-            <div className="bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526] rounded-2xl border border-white/[0.08]">
+            <div className="bg-[var(--bg-surface)] rounded-2xl border border-white/[0.08]">
               <div className="p-4 sm:p-6">
                 <h3 className="text-white font-medium mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                   <Users className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
@@ -722,7 +722,7 @@ const InterviewDetailsClient = ({
             </div>
 
             {/* Tips */}
-            <div className="bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526] rounded-2xl border border-white/[0.08]">
+            <div className="bg-[var(--bg-surface)] rounded-2xl border border-white/[0.08]">
               <div className="p-4 sm:p-6">
                 <h3 className="text-white font-medium mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                   <Headphones className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
@@ -746,7 +746,7 @@ const InterviewDetailsClient = ({
             </div>
 
             {/* Session Info */}
-            <div className="bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526] rounded-2xl border border-white/[0.08]">
+            <div className="bg-[var(--bg-surface)] rounded-2xl border border-white/[0.08]">
               <div className="p-4 sm:p-6">
                 <h3 className="text-white font-medium mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                   <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
@@ -768,7 +768,7 @@ const InterviewDetailsClient = ({
                 {feedbackId && (
                   <Link
                     href={`/interview/${interviewId}/feedback`}
-                    className="mt-3 sm:mt-4 block w-full px-4 py-2 sm:py-2.5 bg-slate-800/60 backdrop-blur-xl hover:bg-slate-700/60 text-white text-center rounded-lg text-xs sm:text-sm border border-slate-700 transition-all duration-300"
+                    className="mt-3 sm:mt-4 block w-full px-4 py-2 sm:py-2.5 bg-white/[0.042] backdrop-blur-xl hover:bg-white/[0.09] text-white text-center rounded-lg text-xs sm:text-sm border border-[var(--border)] transition-all duration-300"
                   >
                     View Previous Results
                   </Link>
@@ -791,10 +791,10 @@ const InterviewDetailsClient = ({
           }}
         >
           <div
-            className="bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-slate-800 max-w-lg w-full shadow-2xl flex flex-col max-h-[90vh] relative z-[70]"
+            className="bg-[var(--bg-surface)] backdrop-blur-xl rounded-2xl border border-[var(--border)] max-w-lg w-full shadow-2xl flex flex-col max-h-[90vh] relative z-[70]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6 border-b border-slate-800/50 flex-shrink-0">
+            <div className="p-6 border-b border-[var(--border)] flex-shrink-0">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Settings className="w-5 h-5 text-blue-400" />
@@ -808,7 +808,7 @@ const InterviewDetailsClient = ({
                     setShowSpeakerDropdown(false);
                   }}
                   aria-label="Close device settings"
-                  className="text-slate-400 hover:text-white transition-colors p-1 hover:bg-slate-800/50 rounded-lg"
+                  className="text-slate-400 hover:text-white transition-colors p-1 hover:bg-white/[0.072] rounded-lg"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -829,7 +829,7 @@ const InterviewDetailsClient = ({
                     setShowMicDropdown(false);
                     setShowSpeakerDropdown(false);
                   }}
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white text-sm text-left focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all flex items-center justify-between hover:bg-slate-800/70"
+                  className="w-full px-4 py-3 bg-white/[0.042] border border-[var(--border)] rounded-xl text-white text-sm text-left focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all flex items-center justify-between hover:bg-white/[0.086]"
                 >
                   <span className="truncate">{devices.videoInputs.find(d => d.deviceId === selectedDevices.videoInput)?.label || 'Camera 1'}</span>
                   <svg className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ml-2 ${showCameraDropdown ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -849,7 +849,7 @@ const InterviewDetailsClient = ({
                     setShowCameraDropdown(false);
                     setShowSpeakerDropdown(false);
                   }}
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white text-sm text-left focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all flex items-center justify-between hover:bg-slate-800/70"
+                  className="w-full px-4 py-3 bg-white/[0.042] border border-[var(--border)] rounded-xl text-white text-sm text-left focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all flex items-center justify-between hover:bg-white/[0.086]"
                 >
                   <span className="truncate">{devices.audioInputs.find(d => d.deviceId === selectedDevices.audioInput)?.label || 'Microphone 1'}</span>
                   <svg className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ml-2 ${showMicDropdown ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -869,7 +869,7 @@ const InterviewDetailsClient = ({
                     setShowCameraDropdown(false);
                     setShowMicDropdown(false);
                   }}
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white text-sm text-left focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all flex items-center justify-between hover:bg-slate-800/70"
+                  className="w-full px-4 py-3 bg-white/[0.042] border border-[var(--border)] rounded-xl text-white text-sm text-left focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all flex items-center justify-between hover:bg-white/[0.086]"
                 >
                   <span className="truncate">{devices.audioOutputs.find(d => d.deviceId === selectedDevices.audioOutput)?.label || 'Speaker 1'}</span>
                   <svg className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ml-2 ${showSpeakerDropdown ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -879,7 +879,7 @@ const InterviewDetailsClient = ({
               </div>
             </div>
 
-            <div className="p-6 border-t border-slate-800/50 flex-shrink-0">
+            <div className="p-6 border-t border-[var(--border)] flex-shrink-0">
               <button
                 onClick={() => {
                   setShowDeviceSettings(false);
@@ -887,7 +887,7 @@ const InterviewDetailsClient = ({
                   setShowMicDropdown(false);
                   setShowSpeakerDropdown(false);
                 }}
-                className="w-full py-3 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl"
+                className="w-full py-3 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] rounded-xl font-medium transition-all shadow-[var(--shadow-btn)] hover:shadow-[var(--shadow-btn)]"
               >
                 Done
               </button>
@@ -900,7 +900,7 @@ const InterviewDetailsClient = ({
       {showDeviceSettings && showCameraDropdown && (
         <div className="fixed inset-0 z-[100]" onClick={(e) => { e.stopPropagation(); setShowCameraDropdown(false); }}>
           <div
-            className="absolute bg-slate-900/98 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl overflow-hidden"
+            className="absolute bg-[var(--bg-surface)] backdrop-blur-xl border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden"
             style={{ top: `${dropdownPositions.camera.top}px`, left: `${dropdownPositions.camera.left}px`, width: `${dropdownPositions.camera.width}px`, maxHeight: '15rem' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -908,7 +908,7 @@ const InterviewDetailsClient = ({
               {devices.videoInputs.map((device, index) => (
                 <button key={device.deviceId}
                   onClick={(e) => { e.stopPropagation(); handleDeviceChange('videoInput', device.deviceId); setShowCameraDropdown(false); }}
-                  className={`w-full px-4 py-3 text-left text-sm transition-all ${selectedDevices.videoInput === device.deviceId ? 'bg-blue-500/20 text-blue-400 font-medium' : 'text-white hover:bg-slate-800/50'}`}
+                  className={`w-full px-4 py-3 text-left text-sm transition-all ${selectedDevices.videoInput === device.deviceId ? 'bg-blue-500/20 text-blue-400 font-medium' : 'text-white hover:bg-white/[0.072]'}`}
                 >
                   {device.label || `Camera ${index + 1}`}
                 </button>
@@ -920,7 +920,7 @@ const InterviewDetailsClient = ({
       {showDeviceSettings && showMicDropdown && (
         <div className="fixed inset-0 z-[100]" onClick={(e) => { e.stopPropagation(); setShowMicDropdown(false); }}>
           <div
-            className="absolute bg-slate-900/98 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl overflow-hidden"
+            className="absolute bg-[var(--bg-surface)] backdrop-blur-xl border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden"
             style={{ top: `${dropdownPositions.mic.top}px`, left: `${dropdownPositions.mic.left}px`, width: `${dropdownPositions.mic.width}px`, maxHeight: '15rem' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -928,7 +928,7 @@ const InterviewDetailsClient = ({
               {devices.audioInputs.map((device, index) => (
                 <button key={device.deviceId}
                   onClick={(e) => { e.stopPropagation(); handleDeviceChange('audioInput', device.deviceId); setShowMicDropdown(false); }}
-                  className={`w-full px-4 py-3 text-left text-sm transition-all ${selectedDevices.audioInput === device.deviceId ? 'bg-blue-500/20 text-blue-400 font-medium' : 'text-white hover:bg-slate-800/50'}`}
+                  className={`w-full px-4 py-3 text-left text-sm transition-all ${selectedDevices.audioInput === device.deviceId ? 'bg-blue-500/20 text-blue-400 font-medium' : 'text-white hover:bg-white/[0.072]'}`}
                 >
                   {device.label || `Microphone ${index + 1}`}
                 </button>
@@ -940,7 +940,7 @@ const InterviewDetailsClient = ({
       {showDeviceSettings && showSpeakerDropdown && (
         <div className="fixed inset-0 z-[100]" onClick={(e) => { e.stopPropagation(); setShowSpeakerDropdown(false); }}>
           <div
-            className="absolute bg-slate-900/98 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl overflow-hidden"
+            className="absolute bg-[var(--bg-surface)] backdrop-blur-xl border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden"
             style={{ top: `${dropdownPositions.speaker.top}px`, left: `${dropdownPositions.speaker.left}px`, width: `${dropdownPositions.speaker.width}px`, maxHeight: '15rem' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -948,7 +948,7 @@ const InterviewDetailsClient = ({
               {devices.audioOutputs.map((device, index) => (
                 <button key={device.deviceId}
                   onClick={(e) => { e.stopPropagation(); handleDeviceChange('audioOutput', device.deviceId); setShowSpeakerDropdown(false); }}
-                  className={`w-full px-4 py-3 text-left text-sm transition-all ${selectedDevices.audioOutput === device.deviceId ? 'bg-blue-500/20 text-blue-400 font-medium' : 'text-white hover:bg-slate-800/50'}`}
+                  className={`w-full px-4 py-3 text-left text-sm transition-all ${selectedDevices.audioOutput === device.deviceId ? 'bg-blue-500/20 text-blue-400 font-medium' : 'text-white hover:bg-white/[0.072]'}`}
                 >
                   {device.label || `Speaker ${index + 1}`}
                 </button>

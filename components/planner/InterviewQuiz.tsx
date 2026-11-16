@@ -239,8 +239,8 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
             Creating personalized questions based on your study content
           </p>
           <div className="flex justify-center space-x-2">
-            <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-            <div className="w-3 h-3 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+            <div className="w-3 h-3 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+            <div className="w-3 h-3 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
             <div className="w-3 h-3 bg-pink-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
           </div>
         </div>
@@ -267,7 +267,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
           <div className="flex gap-4 justify-center">
             <button
               onClick={fetchQuiz}
-              className="px-8 py-4 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all transform hover:scale-105 flex items-center space-x-2"
+              className="px-8 py-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] rounded-xl font-semibold shadow-[var(--shadow-btn)] hover:shadow-[var(--shadow-btn)] transition-all transform hover:scale-105 flex items-center space-x-2"
             >
               <RotateCcw className="w-5 h-5" />
               <span>Try Again</span>
@@ -275,7 +275,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
             {onClose && (
               <button
                 onClick={onClose}
-                className="px-8 py-4 bg-slate-800 text-white border-2 border-slate-600 rounded-xl font-semibold hover:bg-slate-700 transition-all"
+                className="px-8 py-4 bg-[var(--bg-raised)] text-white border-2 border-[var(--border-hover)] rounded-xl font-semibold hover:bg-white/[0.1] transition-all"
               >
                 Close
               </button>
@@ -308,7 +308,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
             Knowledge Assessment
           </h1>
           <p className="text-xl text-slate-300">
-            for <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">{metadata?.role || 'Your Interview'}</span>
+            for <span className="font-bold text-transparent bg-clip-text bg-[var(--accent)]">{metadata?.role || 'Your Interview'}</span>
           </p>
           {metadata?.company && (
             <p className="text-lg text-slate-400 mt-2">
@@ -345,7 +345,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
         </div>
 
         {/* Features */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-2xl p-8 mb-8">
+        <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-[var(--border)] rounded-2xl p-8 mb-8">
           <h3 className="text-xl font-bold text-white mb-6 flex items-center">
             <Sparkles className="w-5 h-5 mr-2 text-purple-600" />
             What to Expect
@@ -397,7 +397,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
         {/* CTA Button */}
         <button
           onClick={() => setQuizStarted(true)}
-          className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-bold py-6 px-8 rounded-2xl shadow-2xl hover:shadow-3xl transform hover:scale-[1.02] transition-all flex items-center justify-center space-x-3 text-xl"
+          className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] font-bold py-6 px-8 rounded-2xl shadow-2xl hover:shadow-3xl transform hover:scale-[1.02] transition-all flex items-center justify-center space-x-3 text-xl"
         >
           <span>Start Quiz</span>
           <ArrowRight className="w-6 h-6" />
@@ -489,7 +489,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
             const percent = total > 0 ? Math.round((correct / total) * 100) : 0;
             
             return (
-              <div key={key} className="bg-slate-800 border-2 border-slate-700 rounded-2xl p-6 hover:shadow-xl transition-shadow">
+              <div key={key} className="bg-[var(--bg-raised)] border-2 border-[var(--border)] rounded-2xl p-6 hover:shadow-xl transition-shadow">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
                     <div className={`w-12 h-12 bg-gradient-to-br from-${data.color}-500 to-${data.color}-600 rounded-xl flex items-center justify-center`}>
@@ -504,7 +504,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
                     <p className={`text-3xl font-bold text-${data.color}-400`}>{percent}%</p>
                   </div>
                 </div>
-                <div className="relative h-4 bg-slate-700 rounded-full overflow-hidden">
+                <div className="relative h-4 bg-white/[0.08] rounded-full overflow-hidden">
                   <div 
                     className={`absolute inset-y-0 left-0 bg-gradient-to-r from-${data.color}-500 to-${data.color}-600 transition-all duration-1000 rounded-full`}
                     style={{ width: `${percent}%` }}
@@ -519,7 +519,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
         </div>
 
         {/* Question Results */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-2xl p-8 mb-10">
+        <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-[var(--border)] rounded-2xl p-8 mb-10">
           <h3 className="text-2xl font-bold text-white mb-6">
             Question-by-Question Results
           </h3>
@@ -534,7 +534,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
                 }`}
               >
                 <span className="text-sm">{index + 1}</span>
-                <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-slate-700 text-white text-xs px-3 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-white/[0.08] text-white text-xs px-3 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                   Q{index + 1}: {isCorrect ? '✓' : '✗'}
                 </div>
               </div>
@@ -546,7 +546,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
         <div className="flex flex-col sm:flex-row gap-4">
           <button
             onClick={handleRetake}
-            className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-5 px-6 rounded-2xl border-2 border-slate-600 transition-all hover:shadow-xl flex items-center justify-center space-x-3 text-lg"
+            className="flex-1 bg-[var(--bg-raised)] hover:bg-white/[0.1] text-white font-bold py-5 px-6 rounded-2xl border-2 border-[var(--border-hover)] transition-all hover:shadow-xl flex items-center justify-center space-x-3 text-lg"
           >
             <RotateCcw className="w-6 h-6" />
             <span>Generate New Quiz</span>
@@ -554,7 +554,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
           {onClose && (
             <button
               onClick={onClose}
-              className="flex-1 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-bold py-5 px-6 rounded-2xl shadow-xl hover:shadow-2xl transition-all transform hover:scale-[1.02] flex items-center justify-center space-x-3 text-lg"
+              className="flex-1 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] font-bold py-5 px-6 rounded-2xl shadow-[var(--shadow-btn)] hover:shadow-2xl transition-all transform hover:scale-[1.02] flex items-center justify-center space-x-3 text-lg"
             >
               <Award className="w-6 h-6" />
               <span>Back to Dashboard</span>
@@ -591,13 +591,13 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
           </div>
           <div className="text-right">
             <p className="text-sm font-semibold text-slate-400">Score</p>
-            <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
+            <p className="text-2xl font-bold text-transparent bg-clip-text bg-[var(--accent)]">
               {score}/{currentQuestion + (showResult ? 1 : 0)}
             </p>
           </div>
         </div>
         
-        <div className="relative h-3 bg-slate-700 rounded-full overflow-hidden">
+        <div className="relative h-3 bg-white/[0.08] rounded-full overflow-hidden">
           <div
             className="absolute inset-y-0 left-0 bg-[var(--accent)] transition-all duration-500 rounded-full"
             style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
@@ -606,7 +606,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
       </div>
 
       {/* Question Card */}
-      <div className="bg-slate-800 border-2 border-slate-700 rounded-3xl p-8 md:p-10 shadow-xl">
+      <div className="bg-[var(--bg-raised)] border-2 border-[var(--border)] rounded-3xl p-8 md:p-10 shadow-xl">
         {/* Category Header */}
         <div className="flex items-center justify-between flex-wrap gap-3 mb-8">
           <div className="flex items-center space-x-3">
@@ -620,7 +620,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
               )}
             </div>
           </div>
-          <span className="px-4 py-2 bg-slate-700 text-slate-300 border border-slate-600 rounded-xl text-sm font-bold">
+          <span className="px-4 py-2 bg-white/[0.08] text-slate-300 border border-[var(--border-hover)] rounded-xl text-sm font-bold">
             {question.difficulty.toUpperCase()}
           </span>
         </div>
@@ -648,7 +648,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
               } else if (isSelected && !isCorrect) {
                 buttonClass += 'border-red-500 bg-gradient-to-r from-red-900/30 to-rose-900/30 shadow-xl';
               } else {
-                buttonClass += 'border-slate-600 opacity-40';
+                buttonClass += 'border-[var(--border-hover)] opacity-40';
               }
             }
 
@@ -664,7 +664,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold flex-shrink-0 ${
                       showResult && isCorrectOption ? 'bg-green-500 text-white' :
                       showResult && isSelected && !isCorrect ? 'bg-red-500 text-white' :
-                      isSelected ? 'bg-[var(--accent)] text-white' :
+                      isSelected ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' :
                       'bg-slate-700 text-slate-400'
                     }`}>
                       {String.fromCharCode(65 + index)}
@@ -739,7 +739,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
         ) : (
           <button
             onClick={handleContinue}
-            className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-bold py-6 px-6 rounded-2xl shadow-xl hover:shadow-2xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-3 text-lg"
+            className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] font-bold py-6 px-6 rounded-2xl shadow-[var(--shadow-btn)] hover:shadow-2xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center space-x-3 text-lg"
           >
             <span>{currentQuestion < questions.length - 1 ? 'Next Question' : 'See Results'}</span>
             <ArrowRight className="w-6 h-6" />

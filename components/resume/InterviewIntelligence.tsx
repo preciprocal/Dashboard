@@ -21,8 +21,8 @@ const ROUND_LABELS: Record<string, string> = {
 
 function NotAvailable({ message, sub }: { message: string; sub?: string }) {
   return (
-    <div className="bg-slate-800/30 border border-white/[0.05] rounded-xl p-6 text-center">
-      <div className="w-10 h-10 bg-slate-800/60 border border-white/[0.06] rounded-xl flex items-center justify-center mx-auto mb-3">
+    <div className="bg-white/[0.035] border border-white/[0.05] rounded-xl p-6 text-center">
+      <div className="w-10 h-10 bg-white/[0.042] border border-white/[0.06] rounded-xl flex items-center justify-center mx-auto mb-3">
         <HelpCircle className="w-5 h-5 text-slate-500" />
       </div>
       <p className="text-slate-400 text-sm font-medium">{message}</p>
@@ -172,11 +172,11 @@ export default function InterviewIntelligence({
       </div>
 
       {/* ── Tab bar ── */}
-      <div className="flex gap-1 p-1.5 bg-slate-800/50 border border-white/[0.06] rounded-xl overflow-x-auto scrollbar-hide">
+      <div className="flex gap-1 p-1.5 bg-white/[0.042] border border-white/[0.06] rounded-xl overflow-x-auto scrollbar-hide">
         {tabs.map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap cursor-pointer ${
-              activeTab === tab.id ? 'bg-[var(--accent)] text-white' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
+              activeTab === tab.id ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
             }`}>
             {tab.icon}
             <span>{tab.label}</span>
@@ -196,7 +196,7 @@ export default function InterviewIntelligence({
             {rounds.map((round, i) => {
               const isExp = expandedRound === i;
               return (
-                <div key={i} className="bg-slate-800/40 border border-white/[0.06] rounded-xl overflow-hidden">
+                <div key={i} className="bg-white/[0.042] border border-white/[0.06] rounded-xl overflow-hidden">
                   <button onClick={() => setExpandedRound(isExp ? null : i)} className="w-full p-3.5 flex items-center gap-3 text-left cursor-pointer">
                     <div className="w-9 h-9 rounded-lg bg-[var(--accent-subtle)] border border-[var(--accent-border)] text-indigo-200 flex items-center justify-center font-semibold text-sm flex-shrink-0">{i + 1}</div>
                     <div className="flex-1 min-w-0">
@@ -232,7 +232,7 @@ export default function InterviewIntelligence({
           <p className="text-xs text-slate-400 mb-4">{jobDescription ? 'Drawn from the job description' : 'Common for this kind of role'}, with an example of each</p>
           <div className="space-y-2.5">
             {questionThemes.map((q, i) => (
-              <div key={i} className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3.5">
+              <div key={i} className="bg-white/[0.042] border border-white/[0.06] rounded-xl p-3.5">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-sm font-semibold text-white">{q.theme}</p>
                   {q.round && <span className="text-[11px] px-2 py-0.5 rounded-md bg-white/[0.05] text-slate-400">{q.round}</span>}
@@ -274,7 +274,7 @@ export default function InterviewIntelligence({
               <div className="flex items-center gap-2 mb-4"><BookOpen className="w-4 h-4 text-indigo-300" /><h3 className="text-sm font-semibold text-white">Your prep priorities</h3></div>
               <div className="space-y-3">
                 {fit.prepPriorities.map((p, i) => (
-                  <div key={i} className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3.5">
+                  <div key={i} className="bg-white/[0.042] border border-white/[0.06] rounded-xl p-3.5">
                     <h4 className="text-sm font-semibold text-white mb-1">{p.area}</h4>
                     <p className="text-xs text-slate-400">{p.reason}</p>
                     {p.howToPrepare && <p className="text-xs text-slate-300 mt-2">{p.howToPrepare}</p>}

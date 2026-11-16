@@ -192,7 +192,7 @@ function FToggle({ value, onChange, label, desc }: {
         <p className={`text-sm font-medium transition-colors ${value ? 'text-white' : 'text-slate-300 group-hover:text-white'}`}>{label}</p>
         {desc && <p className="text-xs text-slate-400 mt-0.5">{desc}</p>}
       </div>
-      <div className={`relative w-10 h-5 rounded-full flex-shrink-0 transition-colors duration-200 ${value ? 'bg-[var(--accent)]' : 'bg-slate-700'}`}>
+      <div className={`relative w-10 h-5 rounded-full flex-shrink-0 transition-colors duration-200 ${value ? 'bg-[var(--accent)]' : 'bg-white/[0.08]'}`}>
         <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-200 ${value ? 'translate-x-5' : 'translate-x-0.5'}`} />
       </div>
     </button>

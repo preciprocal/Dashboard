@@ -404,7 +404,7 @@ export default function JobApplicationPage() {
             <React.Fragment key={s.num}>
               <div className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
                 step === s.num 
-                  ? 'bg-[var(--accent)] text-white shadow-lg scale-105' 
+                  ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] shadow-lg scale-105' 
                   : step > s.num
                   ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
                   : 'bg-slate-200 dark:bg-slate-700 text-slate-400'
@@ -431,9 +431,9 @@ export default function JobApplicationPage() {
 
         {/* Step 1: Job Description Input */}
         {step === 1 && (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8">
+          <div className="bg-white dark:bg-[var(--bg-raised)] rounded-2xl shadow-xl p-8">
             <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 bg-gradient-to-br from-purple-100 to-indigo-100 dark:from-purple-900/30 dark:to-indigo-900/30 rounded-xl">
+              <div className="p-3 bg-[var(--accent)] dark:from-purple-900/30 dark:to-indigo-900/30 rounded-xl">
                 <Upload className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               </div>
               <div>
@@ -460,7 +460,7 @@ Software Engineer at TechCorp
 We're looking for a skilled software engineer...
 Required: React, Node.js, Python, AWS..."
               rows={16}
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-[var(--bg-surface)] border-2 border-slate-300 dark:border-[var(--border-hover)] rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
             />
             
             <div className="flex items-center justify-between mt-4">
@@ -496,7 +496,7 @@ Required: React, Node.js, Python, AWS..."
         {step === 2 && (
           <div className="space-y-6">
             {/* Extracted Job Details */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6">
+            <div className="bg-white dark:bg-[var(--bg-raised)] rounded-2xl shadow-xl p-6">
               <div className="flex items-center gap-2 mb-4">
                 <CheckCircle2 className="w-5 h-5 text-green-500" />
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">
@@ -505,25 +505,25 @@ Required: React, Node.js, Python, AWS..."
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                <div className="p-3 bg-slate-50 dark:bg-[var(--bg-surface)] rounded-lg">
                   <p className="text-xs text-slate-400 dark:text-slate-400 mb-1">Role</p>
                   <p className="font-semibold text-slate-900 dark:text-white">
                     {extractedData.jobTitle || 'Not specified'}
                   </p>
                 </div>
-                <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                <div className="p-3 bg-slate-50 dark:bg-[var(--bg-surface)] rounded-lg">
                   <p className="text-xs text-slate-400 dark:text-slate-400 mb-1">Company</p>
                   <p className="font-semibold text-slate-900 dark:text-white">
                     {extractedData.companyName || 'Not specified'}
                   </p>
                 </div>
-                <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                <div className="p-3 bg-slate-50 dark:bg-[var(--bg-surface)] rounded-lg">
                   <p className="text-xs text-slate-400 dark:text-slate-400 mb-1">Industry</p>
                   <p className="font-semibold text-slate-900 dark:text-white">
                     {extractedData.companyType || 'General'}
                   </p>
                 </div>
-                <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                <div className="p-3 bg-slate-50 dark:bg-[var(--bg-surface)] rounded-lg">
                   <p className="text-xs text-slate-400 dark:text-slate-400 mb-1">Tech Stack</p>
                   <p className="font-semibold text-slate-900 dark:text-white">
                     {extractedData.techStack?.length || 0} technologies
@@ -554,7 +554,7 @@ Required: React, Node.js, Python, AWS..."
             </div>
 
             {/* Resume Selection */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6">
+            <div className="bg-white dark:bg-[var(--bg-raised)] rounded-2xl shadow-xl p-6">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
                 Select Resume to Tailor
               </h3>
@@ -567,7 +567,7 @@ Required: React, Node.js, Python, AWS..."
                   </p>
                   <button 
                     onClick={() => router.push('/resume/upload')}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--primary)] text-[var(--on-primary)] rounded-lg hover:bg-[var(--primary-hover)] transition-colors"
                   >
                     <Upload className="w-4 h-4" />
                     Upload Resume
@@ -608,7 +608,7 @@ Required: React, Node.js, Python, AWS..."
             </div>
 
             {/* Tone Selection */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6">
+            <div className="bg-white dark:bg-[var(--bg-raised)] rounded-2xl shadow-xl p-6">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
                 Cover Letter Tone
               </h3>
@@ -673,7 +673,7 @@ Required: React, Node.js, Python, AWS..."
 
             {/* Progress Indicators */}
             {isProcessing && (
-              <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4 space-y-2">
+              <div className="bg-slate-50 dark:bg-[var(--bg-surface)] rounded-xl p-4 space-y-2">
                 <div className="flex items-center gap-3">
                   {progress.resumeTailoring ? (
                     <CheckCircle2 className="w-5 h-5 text-green-500" />
@@ -718,7 +718,7 @@ Required: React, Node.js, Python, AWS..."
               </div>
 
               {/* Tailored Resume */}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden">
+              <div className="bg-white dark:bg-[var(--bg-raised)] rounded-2xl shadow-xl overflow-hidden">
                 <div className="bg-[var(--accent)] p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -785,7 +785,7 @@ Required: React, Node.js, Python, AWS..."
                     </div>
                   )}
 
-                  <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4 max-h-96 overflow-y-auto">
+                  <div className="bg-slate-50 dark:bg-[var(--bg-surface)] rounded-xl p-4 max-h-96 overflow-y-auto">
                     <pre className="text-sm text-slate-900 dark:text-white whitespace-pre-wrap font-mono">
                       {tailoredResume}
                     </pre>
@@ -794,7 +794,7 @@ Required: React, Node.js, Python, AWS..."
               </div>
 
               {/* Cover Letter */}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden">
+              <div className="bg-white dark:bg-[var(--bg-raised)] rounded-2xl shadow-xl overflow-hidden">
                 <div className="bg-[var(--accent)] p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -845,7 +845,7 @@ Required: React, Node.js, Python, AWS..."
                 </div>
 
                 <div className="p-6">
-                  <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4 max-h-96 overflow-y-auto">
+                  <div className="bg-slate-50 dark:bg-[var(--bg-surface)] rounded-xl p-4 max-h-96 overflow-y-auto">
                     <pre className="text-sm text-slate-900 dark:text-white whitespace-pre-wrap font-sans leading-relaxed">
                       {coverLetter}
                     </pre>
@@ -875,7 +875,7 @@ Required: React, Node.js, Python, AWS..."
                         `CoverLetter_${extractedData.companyName || 'Tailored'}.txt`
                       );
                     }}
-                    className="px-6 py-3 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
+                    className="px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] rounded-xl font-semibold transition-all shadow-[var(--shadow-btn)] hover:shadow-[var(--shadow-btn)] flex items-center gap-2"
                   >
                     <Download className="w-5 h-5" />
                     Download Both
@@ -887,7 +887,7 @@ Required: React, Node.js, Python, AWS..."
             {/* Right Column: AI Customizer */}
             {showCustomizer && (
               <div className="lg:col-span-1">
-                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden sticky top-6">
+                <div className="bg-white dark:bg-[var(--bg-raised)] rounded-2xl shadow-xl overflow-hidden sticky top-6">
                   <div className="bg-[var(--accent)] p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -907,7 +907,7 @@ Required: React, Node.js, Python, AWS..."
                   </div>
 
                   {/* Chat History */}
-                  <div className="h-96 overflow-y-auto p-4 space-y-3 bg-slate-50 dark:bg-slate-900">
+                  <div className="h-96 overflow-y-auto p-4 space-y-3 bg-slate-50 dark:bg-[var(--bg-surface)]">
                     {customizationHistory.map((msg, i) => (
                       <div
                         key={i}
@@ -928,7 +928,7 @@ Required: React, Node.js, Python, AWS..."
                           <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
                         </div>
                         {msg.type === 'user' && (
-                          <div className="w-8 h-8 rounded-full bg-slate-300 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-slate-300 dark:bg-white/[0.08] flex items-center justify-center flex-shrink-0">
                             <UserIcon className="w-4 h-4 text-slate-500 dark:text-slate-300" />
                           </div>
                         )}
@@ -939,7 +939,7 @@ Required: React, Node.js, Python, AWS..."
                         <div className="w-8 h-8 rounded-full bg-[var(--accent)] flex items-center justify-center">
                           <Loader2 className="w-4 h-4 text-white animate-spin" />
                         </div>
-                        <div className="bg-white dark:bg-slate-800 rounded-xl px-3 py-2 border border-slate-200 dark:border-slate-700">
+                        <div className="bg-white dark:bg-[var(--bg-raised)] rounded-xl px-3 py-2 border border-slate-200 dark:border-[var(--border)]">
                           <p className="text-sm text-slate-500 dark:text-slate-400">
                             Applying changes...
                           </p>
@@ -950,14 +950,14 @@ Required: React, Node.js, Python, AWS..."
                   </div>
 
                   {/* Quick Prompts */}
-                  <div className="p-3 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                  <div className="p-3 border-t border-slate-200 dark:border-[var(--border)] bg-white dark:bg-[var(--bg-raised)]">
                     <p className="text-xs text-slate-400 dark:text-slate-400 mb-2">Quick prompts:</p>
                     <div className="flex flex-wrap gap-2">
                       {quickPrompts.map((prompt, i) => (
                         <button
                           key={i}
                           onClick={() => setCustomizationPrompt(prompt.text)}
-                          className="px-2 py-1 bg-slate-100 dark:bg-slate-700 hover:bg-purple-100 dark:hover:bg-purple-900/30 text-xs text-slate-500 dark:text-slate-300 rounded-lg transition-colors flex items-center gap-1"
+                          className="px-2 py-1 bg-slate-100 dark:bg-white/[0.08] hover:bg-purple-100 dark:hover:bg-purple-900/30 text-xs text-slate-500 dark:text-slate-300 rounded-lg transition-colors flex items-center gap-1"
                         >
                           <prompt.icon className="w-3 h-3" />
                           {prompt.text}
@@ -967,7 +967,7 @@ Required: React, Node.js, Python, AWS..."
                   </div>
 
                   {/* Input Box */}
-                  <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                  <div className="p-4 border-t border-slate-200 dark:border-[var(--border)] bg-white dark:bg-[var(--bg-raised)]">
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -976,7 +976,7 @@ Required: React, Node.js, Python, AWS..."
                         onKeyPress={(e) => e.key === 'Enter' && !isCustomizing && handleCustomize()}
                         placeholder="Tell me what to change..."
                         disabled={isCustomizing}
-                        className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50"
+                        className="flex-1 px-3 py-2 bg-slate-50 dark:bg-[var(--bg-surface)] border border-slate-300 dark:border-[var(--border-hover)] rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50"
                       />
                       <button
                         onClick={handleCustomize}

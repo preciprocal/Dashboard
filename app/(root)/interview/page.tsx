@@ -426,7 +426,7 @@ export default function InterviewsDashboard() {
 
                   {showFilterMenu && (
                     <div className="absolute right-0 top-full mt-2 w-52
-                                    bg-[#0d1526]/98 border border-white/[0.08]
+                                    bg-[var(--bg-raised)] border border-white/[0.08]
                                     rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)]
                                     z-20 overflow-hidden">
                       {filterOptions.map(opt => (

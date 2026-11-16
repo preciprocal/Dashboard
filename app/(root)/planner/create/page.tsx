@@ -81,7 +81,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
           </p>
         </div>
         <Link href="/pricing"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-semibold transition-all">
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] text-sm font-semibold transition-all">
           Upgrade to Pro <ArrowRight className="w-4 h-4" />
         </Link>
         <Link href="/planner" className="block text-sm text-slate-400 hover:text-slate-300 transition-colors">
@@ -273,7 +273,7 @@ export default function CreatePlanPage() {
                     ? <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 flex-shrink-0" />
                     : index === currentStep
                     ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-400 animate-spin flex-shrink-0" />
-                    : <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border-2 border-slate-700 flex-shrink-0" />}
+                    : <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border-2 border-[var(--border)] flex-shrink-0" />}
                   <span className="text-xs sm:text-sm text-slate-400">{step.message}</span>
                 </div>
               ))}
@@ -350,7 +350,7 @@ export default function CreatePlanPage() {
                     </div>
                     <div className="flex-1">
                       <p className="text-xs text-slate-400 mb-0.5">Time until target</p>
-                      <p className="text-sm font-semibold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                      <p className="text-sm font-semibold bg-[var(--accent)] bg-clip-text text-transparent">
                         {calculateDaysUntilInterview()} {calculateDaysUntilInterview() === 1 ? 'day' : 'days'} to prepare
                       </p>
                     </div>
@@ -472,7 +472,7 @@ export default function CreatePlanPage() {
           )}
 
           <button type="submit" disabled={isGenerating}
-            className="w-full flex items-center justify-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base ">
+            className="w-full flex items-center justify-center gap-2 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base ">
             <Sparkles className="w-4 h-4" />
             <span>Generate Preparation Plan</span>
           </button>

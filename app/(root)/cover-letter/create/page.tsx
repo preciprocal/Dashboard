@@ -103,7 +103,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
   return (
     <div className="space-y-3 animate-fade-in-up">
       <div className="relative overflow-hidden rounded-2xl border border-white/[0.08]
-                      bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526]">
+                      bg-[var(--bg-surface)]">
         <div className="absolute -top-24 -right-24 w-56 h-56 rounded-full
                         bg-indigo-500/[0.06] blur-3xl pointer-events-none" />
         <div className="relative p-6">
@@ -677,7 +677,7 @@ export default function CoverLetterGeneratorPage() {
                       </button>
                       {showToneMenu && (
                         <div className="absolute left-0 right-0 top-full mt-2
-                                       bg-[#0d1526]/98 border border-white/[0.08]
+                                       bg-[var(--bg-raised)] border border-white/[0.08]
                                        rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)]
                                        z-20 overflow-hidden">
                           {['professional', 'enthusiastic', 'formal', 'friendly', 'confident'].map(t => (
@@ -832,7 +832,7 @@ export default function CoverLetterGeneratorPage() {
                         </button>
                         {showDownloadMenu && (
                           <div className="absolute right-0 top-full mt-2 w-48
-                                         bg-[#0d1526]/98 border border-white/[0.08]
+                                         bg-[var(--bg-raised)] border border-white/[0.08]
                                          rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)]
                                          z-20 overflow-hidden">
                             <button onClick={() => handleDownload('pdf')}

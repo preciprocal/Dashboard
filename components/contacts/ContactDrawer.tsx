@@ -183,7 +183,7 @@ export default function ContactDrawer({ contact, onClose, onChange, onDeleted, o
               )}
             </div>
             <div className="grid grid-cols-2 gap-2 mt-2">
-              <Link href={outreachHref(contact)} className="inline-flex items-center justify-center gap-2 h-9 px-3 rounded-[var(--r-md)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[13px] font-semibold text-white transition-colors">
+              <Link href={outreachHref(contact)} className="inline-flex items-center justify-center gap-2 h-9 px-3 rounded-[var(--r-md)] bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[13px] font-semibold text-[var(--on-primary)] transition-colors">
                 <Send className="w-4 h-4" />Write a message
               </Link>
               <Link href="/templates/outreach" className="inline-flex items-center justify-center gap-2 h-9 px-3 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--bg-raised)] text-[13px] font-medium text-slate-200 hover:border-[var(--border-hover)] hover:text-white transition-colors">

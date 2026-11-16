@@ -101,7 +101,7 @@ export default function FileUploader({ onFileSelect, accept = DEFAULT_ACCEPT }: 
           <div className="space-y-4 cursor-pointer">
             {file ? (
               <div
-                className="flex items-center justify-between p-4 bg-slate-800/60 border border-white/[0.06] rounded-lg hover:bg-slate-800 transition-colors"
+                className="flex items-center justify-between p-4 bg-white/[0.042] border border-white/[0.06] rounded-lg hover:bg-white/[0.086] transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center space-x-3">

@@ -377,7 +377,7 @@ export default function JobsPage() {
           <div role="radiogroup" aria-label="Apply mode" className="flex p-0.5 rounded-full bg-white/[0.035] ring-1 ring-inset ring-white/[0.06]">
             {[{ v: false, label: 'Review each step' }, { v: true, label: 'Auto-apply' }].map(o => (
               <button key={o.label} role="radio" aria-checked={autoMode === o.v} onClick={() => chooseMode(o.v)}
-                className={`h-8 px-3.5 rounded-full text-[12.5px] font-medium inline-flex items-center gap-1.5 transition-all duration-200 ${autoMode === o.v ? 'bg-[var(--accent)] text-white shadow-[0_4px_12px_-4px_rgba(91,108,255,0.8)]' : 'text-slate-400 hover:text-white'}`}>
+                className={`h-8 px-3.5 rounded-full text-[12.5px] font-medium inline-flex items-center gap-1.5 transition-all duration-200 ${autoMode === o.v ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] shadow-[0_4px_12px_-4px_rgba(91,108,255,0.8)]' : 'text-slate-400 hover:text-white'}`}>
                 {o.v && <Zap className="w-3.5 h-3.5" />}{o.label}
               </button>
             ))}

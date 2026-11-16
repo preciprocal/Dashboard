@@ -208,9 +208,9 @@ const AuthForm = ({ type }: { type: FormType }) => {
   const isSignIn = type === "sign-in";
 
   return (
-    <div className="min-h-screen flex bg-[#050810]">
+    <div className="min-h-screen flex bg-[var(--bg)]">
       {/* Left Side - Branding, styled after the preciprocal.com hero */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-[#050810]">
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-[var(--bg)]">
         {/* Spotlight glows */}
         <div className="pointer-events-none absolute -top-40 -left-32 w-[560px] h-[560px] rounded-full bg-indigo-500/[0.12] blur-[120px]" />
         <div className="pointer-events-none absolute -bottom-48 -right-24 w-[520px] h-[520px] rounded-full bg-purple-500/[0.10] blur-[120px]" />
@@ -228,7 +228,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
         />
 
         {/* Fade the glows out before the panel edge so the split isn't visible */}
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-48 bg-gradient-to-r from-transparent to-[#050810]" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-48 bg-gradient-to-r from-transparent to-[var(--bg)]" />
 
         <div className="relative z-10 flex flex-col justify-between w-full px-14 xl:px-20 py-12">
           {/* Brand */}
@@ -253,7 +253,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
             <h2 className="text-[44px] xl:text-[52px] font-black tracking-[-0.03em] leading-[1.02] text-white">
               Tired of AI taking your job?
               <br />
-              <span className="inline-block pb-1 bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
+              <span className="inline-block pb-1 bg-[var(--accent)] bg-clip-text text-transparent">
                 Use AI to take it back.
               </span>
             </h2>
@@ -283,7 +283,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                 },
               ].map(({ icon: Icon, title, body }) => (
                 <div key={title} className="group flex items-start gap-4 p-5 transition-colors hover:bg-white/[0.02]">
-                  <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-400/20 flex items-center justify-center transition-colors group-hover:border-indigo-400/40">
+                  <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-[var(--accent-subtle)] border border-indigo-400/20 flex items-center justify-center transition-colors group-hover:border-indigo-400/40">
                     <Icon className="w-[18px] h-[18px] text-indigo-300" strokeWidth={1.75} />
                   </div>
                   <div>
@@ -311,7 +311,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
       </div>
 
       {/* Right Side - Auth Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[#050810]">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[var(--bg)]">
         <div className="w-full max-w-md">
           <div className="lg:hidden text-center mb-8">
             <div className="flex items-center justify-center space-x-3 mb-4">
@@ -343,10 +343,10 @@ const AuthForm = ({ type }: { type: FormType }) => {
               onClick={handleGoogleAuth}
               type="button"
               disabled={isGoogleLoading}
-              className="w-full flex items-center justify-center space-x-3 py-3 px-4 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group"
+              className="w-full flex items-center justify-center space-x-3 py-3 px-4 bg-[var(--bg-surface)] hover:bg-white/[0.086] border border-[var(--border)] rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group"
             >
               {isGoogleLoading ? (
-                <div className="w-5 h-5 border-2 border-slate-700 border-t-purple-500 rounded-full animate-spin"></div>
+                <div className="w-5 h-5 border-2 border-[var(--border)] border-t-purple-500 rounded-full animate-spin"></div>
               ) : (
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -369,10 +369,10 @@ const AuthForm = ({ type }: { type: FormType }) => {
 
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-800"></div>
+              <div className="w-full border-t border-[var(--border)]"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-[#050810] text-slate-400 font-medium">
+              <span className="px-4 bg-[var(--bg)] text-slate-400 font-medium">
                 Or continue with email
               </span>
             </div>
@@ -389,7 +389,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                     {...form.register("name")}
                     type="text"
                     placeholder="Bruce Wayne"
-                    className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                    className="w-full px-4 py-3 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
                   />
                 </div>
               )}
@@ -402,7 +402,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                   {...form.register("email")}
                   type="email"
                   placeholder="bruce@wayneenterprises.com"
-                  className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                  className="w-full px-4 py-3 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
                 />
               </div>
 
@@ -415,7 +415,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                     {...form.register("password")}
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
-                    className="w-full px-4 py-3 pr-12 bg-slate-900 border border-slate-800 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                    className="w-full px-4 py-3 pr-12 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
                   />
                   <button
                     type="button"
@@ -448,7 +448,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="w-4 h-4 text-purple-600 bg-slate-900 border-slate-700 rounded cursor-pointer accent-purple-600"
+                      className="w-4 h-4 text-purple-600 bg-[var(--bg-surface)] border-[var(--border)] rounded cursor-pointer accent-purple-600"
                       style={{ colorScheme: "dark" }}
                     />
                     <span className="ml-2 text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
@@ -471,7 +471,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                   <input
                     type="checkbox"
                     {...form.register("acceptedTerms")}
-                    className="mt-0.5 w-4 h-4 flex-shrink-0 bg-slate-900 border-slate-700 rounded cursor-pointer accent-purple-600"
+                    className="mt-0.5 w-4 h-4 flex-shrink-0 bg-[var(--bg-surface)] border-[var(--border)] rounded cursor-pointer accent-purple-600"
                     style={{ colorScheme: "dark" }}
                   />
                   <span className="ml-2 text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
@@ -503,7 +503,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
               <Button
                 type="submit"
                 disabled={isLoading || !acceptedTerms}
-                className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-semibold py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border-0 shadow-lg hover:shadow-xl"
+                className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] font-semibold py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border-0 shadow-[var(--shadow-btn)] hover:shadow-[var(--shadow-btn)]"
               >
                 {isLoading ? (
                   <div className="flex items-center justify-center space-x-2">

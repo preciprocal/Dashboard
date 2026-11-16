@@ -129,7 +129,7 @@ function FormattedMessage({ content }: { content: string }) {
           const isCopied = copiedBlocks.has(segment.blockIndex);
           return (
             <div key={idx} className="relative group">
-              <div className="flex items-center justify-between px-4 py-2 bg-slate-800/90 rounded-t-lg border border-slate-700">
+              <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-raised)] rounded-t-lg border border-[var(--border)]">
                 <span className="text-xs font-mono text-slate-400 uppercase">
                   {segment.language}
                 </span>
@@ -150,7 +150,7 @@ function FormattedMessage({ content }: { content: string }) {
                   )}
                 </button>
               </div>
-              <pre className="bg-slate-950 rounded-b-lg border border-t-0 border-slate-700 p-4 overflow-x-auto">
+              <pre className="bg-[var(--bg-surface)] rounded-b-lg border border-t-0 border-[var(--border)] p-4 overflow-x-auto">
                 <code className="text-sm font-mono text-slate-200 leading-relaxed">
                   {segment.content}
                 </code>
@@ -337,10 +337,10 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
   };
 
   return (
-    <div className="bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-800 flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 300px)', minHeight: '500px' }}>
+    <div className="bg-white/[0.024] backdrop-blur-xl rounded-2xl border border-[var(--border)] flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 300px)', minHeight: '500px' }}>
       
       {/* Header - Dark Mode */}
-      <div className="p-4 border-b border-slate-800">
+      <div className="p-4 border-b border-[var(--border)]">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-[var(--accent)] rounded-lg flex items-center justify-center shadow-lg ">
             <Sparkles className="w-5 h-5 text-white" />
@@ -364,12 +364,12 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
             <div
               className={`max-w-[85%] rounded-lg ${
                 message.role === 'user'
-                  ? 'bg-[var(--accent)] text-white p-4 shadow-lg '
+                  ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] p-4 shadow-lg '
                   : 'bg-slate-800/60 backdrop-blur-xl text-slate-300 border border-slate-700 p-5'
               }`}
             >
               {message.role === 'assistant' && (
-                <div className="flex items-center gap-2 mb-3 pb-3 border-b border-slate-700">
+                <div className="flex items-center gap-2 mb-3 pb-3 border-b border-[var(--border)]">
                   <div className="w-6 h-6 bg-[var(--accent)] rounded flex items-center justify-center">
                     <Sparkles className="w-3.5 h-3.5 text-white" />
                   </div>
@@ -388,7 +388,7 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
               </div>
               
               {message.metadata?.responseTime && (
-                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-700">
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border)]">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
                   <p className="text-xs text-slate-500">
                     {((message.metadata.responseTime as number) / 1000).toFixed(2)}s
@@ -401,7 +401,7 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
 
         {isLoading && (
           <div className="flex justify-start">
-            <div className="max-w-[85%] rounded-lg p-5 bg-slate-800/60 backdrop-blur-xl border border-slate-700">
+            <div className="max-w-[85%] rounded-lg p-5 bg-white/[0.042] backdrop-blur-xl border border-[var(--border)]">
               <div className="flex items-center gap-3">
                 <Loader2 className="w-5 h-5 animate-spin text-purple-400" />
                 <div>
@@ -422,7 +422,7 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
 
       {/* Suggested Prompts - Dark Mode */}
       {messages.length === 1 && (
-        <div className="p-4 border-t border-slate-800 bg-slate-800/30">
+        <div className="p-4 border-t border-[var(--border)] bg-white/[0.035]">
           <p className="text-xs font-medium text-slate-400 mb-3 uppercase tracking-wider">
             Quick Start
           </p>
@@ -433,7 +433,7 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
                 <button
                   key={index}
                   onClick={() => handleSend(prompt.text)}
-                  className="text-left p-3 rounded-lg bg-slate-800/60 backdrop-blur-xl border border-slate-700 hover:border-purple-500/30 transition-all group"
+                  className="text-left p-3 rounded-lg bg-white/[0.042] backdrop-blur-xl border border-[var(--border)] hover:border-purple-500/30 transition-all group"
                 >
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
@@ -456,7 +456,7 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
       )}
 
       {/* Input - Dark Mode */}
-      <div className="p-4 border-t border-slate-800 bg-slate-900/40">
+      <div className="p-4 border-t border-[var(--border)] bg-white/[0.024]">
         <div className="flex items-end gap-3">
           <div className="flex-1 relative">
             <textarea
@@ -466,14 +466,14 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
               onKeyPress={handleKeyPress}
               placeholder="Ask your AI coach anything..."
               rows={1}
-              className="w-full px-4 py-2.5 rounded-lg bg-slate-800/60 backdrop-blur-xl border border-slate-700 text-white placeholder-slate-600 resize-none max-h-32 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+              className="w-full px-4 py-2.5 rounded-lg bg-white/[0.042] backdrop-blur-xl border border-[var(--border)] text-white placeholder-slate-600 resize-none max-h-32 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
               disabled={isLoading}
             />
           </div>
           <button
             onClick={() => handleSend()}
             disabled={!input.trim() || isLoading}
-            className="p-2.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 shadow-lg "
+            className="p-2.5 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 shadow-[var(--shadow-btn)] "
           >
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -484,9 +484,9 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
         </div>
         <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
           <span>Press</span>
-          <kbd className="px-1.5 py-0.5 bg-slate-800/60 border border-slate-700 rounded text-xs font-mono text-slate-400">Enter</kbd>
+          <kbd className="px-1.5 py-0.5 bg-white/[0.042] border border-[var(--border)] rounded text-xs font-mono text-slate-400">Enter</kbd>
           <span>to send,</span>
-          <kbd className="px-1.5 py-0.5 bg-slate-800/60 border border-slate-700 rounded text-xs font-mono text-slate-400">Shift+Enter</kbd>
+          <kbd className="px-1.5 py-0.5 bg-white/[0.042] border border-[var(--border)] rounded text-xs font-mono text-slate-400">Shift+Enter</kbd>
           <span>for new line</span>
         </p>
       </div>

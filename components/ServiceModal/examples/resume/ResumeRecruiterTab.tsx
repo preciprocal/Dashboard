@@ -171,7 +171,7 @@ export function ResumeRecruiterTab() {
               <p className="text-[7.5px] text-amber-400/80 italic leading-snug mb-1.5">{item.notes}</p>
               <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden flex">
                 <div className={`h-full ${item.barColor} rounded-l-full`} style={{ width: `${item.score}%` }} />
-                <div className="h-full bg-slate-700/50 flex-1 rounded-r-full" />
+                <div className="h-full bg-white/[0.06] flex-1 rounded-r-full" />
               </div>
             </div>
           ))}

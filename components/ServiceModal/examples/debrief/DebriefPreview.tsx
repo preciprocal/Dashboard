@@ -92,7 +92,7 @@ function LoadingCard({ message, sub }: { message: string; sub: string }) {
         <p className="text-[9px] text-slate-500 max-w-[220px] leading-relaxed mx-auto">{sub}</p>
         <div className="flex items-center justify-center gap-1.5 mt-3">
           {[0, 1, 2].map(i => (
-            <div key={i} className="w-1.5 h-1.5 rounded-full bg-violet-500"
+            <div key={i} className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]"
               style={{ animation: 'dbpulse 1.2s ease-in-out infinite', animationDelay: `${i * 0.2}s`, opacity: 0.3 }} />
           ))}
         </div>
@@ -632,7 +632,7 @@ function InteractivePhase() {
         {tabs.map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)}
             className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[9px] font-semibold transition-all cursor-pointer ${
-              activeTab === t.id ? 'bg-[var(--accent)] text-white ' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'
+              activeTab === t.id ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]'
             }`}>
             <t.icon className="w-3 h-3" /> {t.label}
           </button>

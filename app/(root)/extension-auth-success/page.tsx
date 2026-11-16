@@ -37,7 +37,7 @@ export default function ExtensionAuthSuccess() {
   }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] p-4">
       <div className="glass-card hover-lift max-w-md w-full">
         <div className="p-8 text-center">
           {/* Success Icon */}
@@ -55,7 +55,7 @@ export default function ExtensionAuthSuccess() {
           </p>
 
           {/* Instructions */}
-          <div className="glass-card bg-slate-800/30 p-5 rounded-xl mb-6 border border-slate-700/50">
+          <div className="glass-card bg-white/[0.035] p-5 rounded-xl mb-6 border border-[var(--border)]">
             <div className="flex items-start gap-3 text-left">
               <div className="flex-shrink-0 mt-1">
                 <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
@@ -101,7 +101,7 @@ export default function ExtensionAuthSuccess() {
 
           {/* Progress Bar */}
           <div className="mt-6">
-            <div className="w-full bg-slate-800 rounded-full h-1 overflow-hidden">
+            <div className="w-full bg-[var(--bg-raised)] rounded-full h-1 overflow-hidden">
               <div 
                 className="h-full bg-gradient-to-r from-purple-600 via-blue-600 to-green-600 rounded-full transition-all duration-1000 ease-linear"
                 style={{ 

@@ -181,7 +181,7 @@ export default function ResumePreview({ resumePath, onViewPdf, onDownloadPdf }: 
     <div className="h-full flex flex-col overflow-hidden min-w-0">
 
       {/* Canvas area */}
-      <div ref={containerRef} className="flex-1 min-h-0 relative overflow-hidden bg-slate-900/60">
+      <div ref={containerRef} className="flex-1 min-h-0 relative overflow-hidden bg-white/[0.024]">
 
         {status === 'loading' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10">
@@ -207,7 +207,7 @@ export default function ResumePreview({ resumePath, onViewPdf, onDownloadPdf }: 
 
         {!resumePath && status === 'idle' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-10">
-            <div className="w-10 h-10 rounded-xl bg-slate-800/60 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-white/[0.042] flex items-center justify-center">
               <FileText className="w-5 h-5 text-slate-600" />
             </div>
             <p className="text-[11px] text-slate-600">No preview available</p>
@@ -276,7 +276,7 @@ export default function ResumePreview({ resumePath, onViewPdf, onDownloadPdf }: 
 
       {/* Pagination */}
       {showPagination && (
-        <div className="flex items-center justify-center gap-2 py-2 flex-shrink-0 bg-slate-900/40">
+        <div className="flex items-center justify-center gap-2 py-2 flex-shrink-0 bg-white/[0.024]">
           <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
             className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.04]
                        border border-white/[0.08] text-slate-400 hover:bg-white/[0.08]
@@ -288,7 +288,7 @@ export default function ResumePreview({ resumePath, onViewPdf, onDownloadPdf }: 
               const p = total <= 5 ? i + 1 : Math.max(1, Math.min(total - 4, page - 2)) + i;
               return (
                 <button key={p} onClick={() => setPage(p)}
-                  className={`rounded-full transition-all ${p === page ? 'w-4 h-1.5 bg-indigo-500' : 'w-1.5 h-1.5 bg-white/20 hover:bg-white/40'}`} />
+                  className={`rounded-full transition-all ${p === page ? 'w-4 h-1.5 bg-[var(--accent)]' : 'w-1.5 h-1.5 bg-white/20 hover:bg-white/40'}`} />
               );
             })}
           </div>

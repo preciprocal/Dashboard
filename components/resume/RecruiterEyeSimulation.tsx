@@ -179,7 +179,7 @@ export default function RecruiterEyeSimulation({
         <p className="text-white font-semibold mb-1">Simulation failed</p>
         <p className="text-slate-400 text-sm mb-5 max-w-sm mx-auto">{error}</p>
         <button onClick={() => runSimulation(true)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium bg-slate-800/60 border border-white/10 text-white hover:bg-slate-700/60 transition-colors cursor-pointer">
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium bg-white/[0.042] border border-white/10 text-white hover:bg-white/[0.09] transition-colors cursor-pointer">
           <RefreshCw className="w-4 h-4" /> Try Again
         </button>
       </div>
@@ -243,11 +243,11 @@ export default function RecruiterEyeSimulation({
             </div>
           </div>
           <div className="space-y-3">
-            <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3.5">
+            <div className="bg-white/[0.042] border border-white/[0.06] rounded-xl p-3.5">
               <p className="text-[11px] text-purple-400 font-semibold uppercase tracking-wider mb-1.5">Company Hiring Culture</p>
               <p className="text-xs text-slate-300 leading-relaxed">{sim.companyProfile.hiringCulture}</p>
             </div>
-            <div className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3.5">
+            <div className="bg-white/[0.042] border border-white/[0.06] rounded-xl p-3.5">
               <p className="text-[11px] text-purple-400 font-semibold uppercase tracking-wider mb-1.5">Hiring Manager Persona</p>
               <p className="text-xs text-slate-300 leading-relaxed">{sim.companyProfile.hiringManagerPersona}</p>
             </div>
@@ -263,7 +263,7 @@ export default function RecruiterEyeSimulation({
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-[11px] text-slate-500">Sources:</span>
                 {sim.companyProfile.sources.map((s, i) => (
-                  <span key={i} className="text-[11px] px-1.5 py-0.5 rounded bg-slate-800/50 border border-white/[0.05] text-slate-400">{s}</span>
+                  <span key={i} className="text-[11px] px-1.5 py-0.5 rounded bg-white/[0.042] border border-white/[0.05] text-slate-400">{s}</span>
                 ))}
               </div>
             )}
@@ -278,7 +278,7 @@ export default function RecruiterEyeSimulation({
       }`}>
         <div className="flex items-start gap-3">
           <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
-            sim.simulationMode === 'company-research' ? 'bg-purple-500/15' : sim.simulationMode === 'role-specific' ? 'bg-blue-500/15' : 'bg-slate-700/50'
+            sim.simulationMode === 'company-research' ? 'bg-purple-500/15' : sim.simulationMode === 'role-specific' ? 'bg-blue-500/15' : 'bg-white/[0.06]'
           }`}>
             {sim.simulationMode === 'multi-perspective'
               ? <Users className="w-4 h-4 text-slate-400" />
@@ -317,7 +317,7 @@ export default function RecruiterEyeSimulation({
             {sim.perspectives.map((p, idx) => (
               <button key={idx} onClick={() => setSelectedPerspective(idx)}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                  selectedPerspective === idx ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
+                  selectedPerspective === idx ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
                 }`}>
                 <span>{p.icon}</span><span className="hidden sm:inline">{p.role}</span>
               </button>
@@ -372,11 +372,11 @@ export default function RecruiterEyeSimulation({
             <div className="text-right flex-shrink-0"><div className="text-2xl font-bold text-white">{sim.firstImpression.score}</div><div className="text-[11px] text-slate-400">Score</div></div>
           </div>
           <div className="grid grid-cols-2 gap-2.5">
-            <div className="bg-slate-800/50 border border-white/[0.06] rounded-xl p-3 flex items-center gap-2.5">
+            <div className="bg-white/[0.042] border border-white/[0.06] rounded-xl p-3 flex items-center gap-2.5">
               <Clock className="w-4 h-4 text-indigo-400 flex-shrink-0" />
               <div><p className="text-[11px] text-slate-400">Total review time</p><p className="text-sm font-semibold text-white">{sim.timeToReview}s</p></div>
             </div>
-            <div className="bg-slate-800/50 border border-white/[0.06] rounded-xl p-3 flex items-center gap-2.5">
+            <div className="bg-white/[0.042] border border-white/[0.06] rounded-xl p-3 flex items-center gap-2.5">
               <Eye className="w-4 h-4 text-indigo-400 flex-shrink-0" />
               <div><p className="text-[11px] text-slate-400">First glance</p><p className="text-sm font-semibold text-white">{sim.firstImpression.timeSpentInSeconds}s</p></div>
             </div>
@@ -424,7 +424,7 @@ export default function RecruiterEyeSimulation({
             {(calibrated || sim.eyeTrackingHeatmap).map((pt, i) => {
               const cal = calibrated?.[i];
               return (
-                <div key={i} className="bg-slate-800/40 border border-white/[0.06] rounded-xl p-3.5">
+                <div key={i} className="bg-white/[0.042] border border-white/[0.06] rounded-xl p-3.5">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-white">{pt.section}</span>
                     <div className="flex items-center gap-3">
@@ -442,7 +442,7 @@ export default function RecruiterEyeSimulation({
                     </div>
                   </div>
                   <p className={`text-xs mb-2 ${getAttentionText(pt.attentionScore)}`}>{pt.notes}</p>
-                  <div className="h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
                     <div className={`h-full ${getAttentionColor(pt.attentionScore)} rounded-full transition-all duration-500`} style={{ width: `${pt.attentionScore}%` }} />
                   </div>
                   {cal && (

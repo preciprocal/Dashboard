@@ -121,7 +121,7 @@ export default async function InterviewResultsPage({ params }: Props) {
   ) as "technical" | "behavioral" | "system-design" | "coding";
 
   return (
-    <div className="min-h-screen" style={{ background: "#090d1a" }}>
+    <div className="min-h-screen" style={{ background: "var(--sheet)" }}>
       <div className="max-w-3xl mx-auto px-4 py-12 space-y-8">
 
         {/* Header */}

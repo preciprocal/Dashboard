@@ -257,7 +257,7 @@ function TabBar<T extends string>({ tabs, active, onChange }: {
         <button key={t.id} onClick={() => onChange(t.id)}
           className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-semibold whitespace-nowrap transition-all duration-150
                       ${active === t.id
-                        ? 'bg-[var(--accent)] text-white '
+                        ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]'
                         : 'text-slate-400 hover:text-slate-300 hover:bg-white/[0.04]'}`}
         >
           <t.icon className="w-3.5 h-3.5" />{t.label}
@@ -288,7 +288,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
   return (
     <div className="space-y-3 animate-fade-in-up">
       <div className="relative overflow-hidden rounded-2xl border border-white/[0.08]
-                      bg-gradient-to-br from-[#0d1526] via-[#111c35] to-[#0d1526]">
+                      bg-[var(--bg-surface)]">
         <div className="absolute -top-24 -right-24 w-56 h-56 rounded-full
                         bg-violet-500/[0.06] blur-3xl pointer-events-none" />
         <div className="relative p-6">
@@ -316,7 +316,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/pricing" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)]   transition-all group">
+            <Link href="/pricing" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-[var(--on-primary)] bg-[var(--primary)] hover:bg-[var(--primary-hover)]   transition-all group">
               Get More <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
             <span className="text-[11px] text-slate-500">Cancel anytime · Instant access</span>
@@ -410,7 +410,7 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
           Analyse all {entries.length} debrief entries and identify what&apos;s actually holding you back.
         </p>
         <p className="text-xs text-amber-400 mb-6">Brutally honest. No sugarcoating.</p>
-        <button onClick={runAnalysis} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-[13px] font-semibold  transition-all duration-200">
+        <button onClick={runAnalysis} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] text-[13px] font-semibold  transition-all duration-200">
           <Zap className="w-4 h-4" /> Analyse My Interviews
         </button>
       </SectionCard>
@@ -907,7 +907,7 @@ export default function InterviewDebriefPage() {
           {/* Log form */}
           {showForm && (
             <div className="glass-card overflow-hidden animate-fade-in-up" style={{ animationDelay: '120ms' }}>
-              <div className="px-5 py-4 border-b border-white/[0.06] bg-gradient-to-r from-violet-600/[0.10] to-indigo-600/[0.10]">
+              <div className="px-5 py-4 border-b border-white/[0.06] bg-[var(--accent-subtle)]">
                 <h2 className="text-[14px] font-bold text-white flex items-center gap-2">
                   <Edit3 className="w-4 h-4 text-violet-400" />
                   {editingId ? 'Edit Entry' : 'New Debrief Entry'}
@@ -1061,7 +1061,7 @@ export default function InterviewDebriefPage() {
 
                 <div className="flex items-center gap-3 pt-1">
                   <button onClick={handleSave} disabled={isSaving}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-[13px] font-semibold transition-all duration-150 disabled:opacity-50">
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] text-[13px] font-semibold transition-all duration-150 disabled:opacity-50">
                     {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                     {isSaving ? 'Saving…' : editingId ? 'Update Entry' : 'Save to Journal'}
                   </button>
