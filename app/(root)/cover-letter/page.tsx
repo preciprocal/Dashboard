@@ -1,5 +1,6 @@
 'use client';
 import PageHeader from '@/components/PageHeader';
+import FeatureEmpty from '@/components/ui/feature-empty';
 import { Pen as HeaderIcon } from 'lucide-react';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -11,7 +12,7 @@ import ErrorPage from '@/components/Error';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toast } from 'sonner';
 
-import { FileText, AlertCircle, RefreshCw, Plus, Copy, Download, X, FileDown } from 'lucide-react';
+import { FileText, AlertCircle, RefreshCw, Plus, Copy, Download, X, FileDown, Briefcase, PenLine } from 'lucide-react';
 import { SeeExampleButton } from '@/components/ServiceModal';
 import LetterLibrary from '@/components/cover-letter/LetterLibrary';
 
@@ -76,30 +77,16 @@ function DownloadMenu({
 
 function EmptyDashboard() {
   return (
-    <div className="glass-card p-12 text-center">
-      <div className="w-16 h-16 bg-white/[0.03] border border-white/[0.07] rounded-2xl
-                      flex items-center justify-center mx-auto mb-6">
-        <FileText className="w-7 h-7 text-slate-500" />
-      </div>
-      <h3 className="text-xl font-bold text-white mb-2">Welcome to Cover Letter Generator</h3>
-      <p className="text-sm text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
-        Generate professional, personalised cover letters powered by AI. Stand out from the competition.
-      </p>
-
-
-      <div className="flex flex-wrap items-center justify-center gap-3">
-        <Link
-          href="/cover-letter/create"
-          className="btn-primary"
-        >
-          <Plus className="w-4 h-4 shrink-0" /> Generate First Letter
-        </Link>
-        <SeeExampleButton
-          serviceId="cover-letter"
-        />
-      </div>
-      <p className="text-xs text-slate-500 mt-4">Upload your resume for personalised letters</p>
-    </div>
+    <FeatureEmpty icon={FileText} title="Cover letters written from your resume"
+      body="Add the role and paste the job description. The letter is written from your own experience, in the tone you pick, and saved here for every application."
+      primary={{ href: '/cover-letter/create', label: 'Write your first letter', icon: Plus }}
+      secondary={<SeeExampleButton serviceId="cover-letter" />}
+      note="Add your resume in Profile so letters can cite your real experience."
+      steps={[
+        { icon: Briefcase, title: 'Add the job', text: 'The role, the company and the job description.' },
+        { icon: PenLine, title: 'Get a letter in your words', text: 'Drawn from your resume, without invented employers or numbers.' },
+        { icon: Download, title: 'Edit and download', text: 'Copy it, or save it as PDF or Word.' },
+      ]} />
   );
 }
 

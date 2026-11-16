@@ -8,9 +8,9 @@ import { useRouter } from 'next/navigation';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { SkillLevel } from '@/types/planner';
 import {
-  Sparkles, Calendar, Briefcase, Target, TrendingUp,
-  Loader2, CheckCircle2, Search, X, Lock, ArrowRight, Shield, History,
+  Sparkles, Calendar, Loader2, CheckCircle2, Search, X, Lock, ArrowRight, Shield, History,
 } from 'lucide-react';
+import { FormSection, Field } from '@/components/profile/FormKit';
 import Link from 'next/link';
 import UsersFeedback from '@/components/UserFeedback';
 import { toast } from 'sonner';
@@ -245,7 +245,7 @@ export default function CreatePlanPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
+        <Loader2 className="w-6 h-6 animate-spin text-[var(--text-4)]" />
       </div>
     );
   }
@@ -257,14 +257,14 @@ export default function CreatePlanPage() {
         <div className="max-w-md w-full">
           <div className="glass-card p-6 sm:p-8">
             <div className="text-center mb-5 sm:mb-6">
-              <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[var(--accent)] mb-3 sm:mb-4">
-                <Sparkles className="w-7 h-7 sm:w-8 sm:h-8 text-white animate-pulse" />
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] mb-4">
+                <Sparkles className="w-5 h-5 text-[var(--text-1)] animate-pulse" />
               </div>
               <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">Creating Your Plan</h2>
               <p className="text-slate-400 text-xs sm:text-sm">{PROCESSING_STEPS[currentStep]?.message}</p>
             </div>
             <div className="w-full h-1.5 bg-white/[0.05] rounded-full overflow-hidden mb-5 sm:mb-6">
-              <div className="h-full bg-[var(--accent)] transition-all duration-500"
+              <div className="h-full bg-emerald-400/80 rounded-full transition-all duration-500"
                 style={{ width: `${PROCESSING_STEPS[currentStep]?.progress}%` }} />
             </div>
             <div className="space-y-2 sm:space-y-2.5">
@@ -273,7 +273,7 @@ export default function CreatePlanPage() {
                   {index < currentStep
                     ? <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 flex-shrink-0" />
                     : index === currentStep
-                    ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-400 animate-spin flex-shrink-0" />
+                    ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-sky-300 animate-spin flex-shrink-0" />
                     : <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border-2 border-[var(--border)] flex-shrink-0" />}
                   <span className="text-xs sm:text-sm text-slate-400">{step.message}</span>
                 </div>
@@ -289,11 +289,14 @@ export default function CreatePlanPage() {
     return <UpgradeGate used={plansUsed} limit={plansLimit} />;
   }
 
-  return (
-    <div className="h-[calc(100dvh-113px)] flex flex-col overflow-hidden px-4 sm:px-0">
+  const days = calculateDaysUntilInterview();
+  const today = new Date().toISOString().split('T')[0];
+  const maxDay = new Date(Date.now() + 90 * 86_400_000).toISOString().split('T')[0];
+  const segment = (on: boolean) => `flex-1 h-9 rounded-md text-[13px] font-medium capitalize transition-colors ${on ? 'bg-white/[0.1] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]' : 'text-[var(--text-4)] hover:text-[var(--text-1)]'}`;
 
+  return (
+    <div className="space-y-4 pt-4">
       <PageHeader
-        className="flex-shrink-0 mb-4"
         title="New Preparation Plan" description="An AI study plan built around your interview date" icon={HeaderIcon}
         actions={<>
           <span className="btn-pill"><Shield /> {usageLoading ? <span aria-hidden="true" className="inline-block w-10 h-3 rounded bg-current opacity-25 animate-pulse" /> : plansUnlimited ? 'Unlimited' : `${plansLeft} left`}</span>
@@ -301,180 +304,116 @@ export default function CreatePlanPage() {
         </>}
       />
 
-      {/* Form */}
-      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
-        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6 pb-4">
-
-          {/* Basic Information */}
-          <div className="glass-card p-4 sm:p-6">
-            <div className="flex items-center gap-2 mb-4 sm:mb-5">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 bg-white/[0.04] border border-white/[0.08] rounded-lg flex items-center justify-center">
-                <Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-300" />
+      <form onSubmit={handleSubmit} className="glass-card px-5 sm:px-7 py-6">
+        <FormSection id="pl-goal" title="The goal" desc="What you are preparing for and when. The plan fits the days you have."
+          done={[formData.role.trim(), formData.interviewDate].filter(Boolean).length} total={2}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Role or goal" htmlFor="pl-role">
+              <input id="pl-role" type="text" value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })}
+                placeholder="e.g. Data Analyst, CPA exam" className="field" required />
+            </Field>
+            <Field label="Company or institution" hint="optional" htmlFor="pl-company">
+              <input id="pl-company" type="text" value={formData.company} onChange={e => setFormData({ ...formData, company: e.target.value })}
+                placeholder="e.g. Stripe" className="field" />
+            </Field>
+            <Field label="Interview or target date" hint="within 90 days">
+              <DateInput value={formData.interviewDate} onChange={v => setFormData({ ...formData, interviewDate: v })} min={today} max={maxDay} required />
+            </Field>
+            <Field label="Your level">
+              <div role="radiogroup" aria-label="Skill level" className="flex gap-1 p-1 rounded-[var(--r-md)] ring-1 ring-inset ring-white/[0.07] bg-white/[0.02]">
+                {(['beginner', 'intermediate', 'advanced'] as SkillLevel[]).map(level => (
+                  <button key={level} type="button" role="radio" aria-checked={formData.skillLevel === level}
+                    onClick={() => setFormData({ ...formData, skillLevel: level })} className={segment(formData.skillLevel === level)}>
+                    {level}
+                  </button>
+                ))}
               </div>
-              <h2 className="text-sm sm:text-base font-semibold text-white">Basic Information</h2>
-            </div>
-            <div className="space-y-3 sm:space-y-4">
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">
-                  Role / Goal <span className="text-red-400">*</span>
-                </label>
-                <input type="text" value={formData.role}
-                  onChange={e => setFormData({ ...formData, role: e.target.value })}
-                  placeholder="e.g., Senior Frontend Engineer, CPA Exam, Medical Boards"
-                  className="w-full px-3 sm:px-3.5 py-2 sm:py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/40 transition-all text-xs sm:text-sm" required />
-              </div>
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">
-                  Company / Institution <span className="text-slate-500 text-xs">(Optional)</span>
-                </label>
-                <input type="text" value={formData.company}
-                  onChange={e => setFormData({ ...formData, company: e.target.value })}
-                  placeholder="e.g., Google, Harvard, General"
-                  className="w-full px-3 sm:px-3.5 py-2 sm:py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/40 transition-all text-xs sm:text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">
-                  Target Date <span className="text-red-400">*</span>
-                </label>
-                <div className="relative group">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none z-10 group-focus-within:text-indigo-400 transition-colors" />
-                  <DateInput value={formData.interviewDate} onChange={v => setFormData({ ...formData, interviewDate: v })} min={new Date().toISOString().split('T')[0]} max={new Date(Date.now() + 90 * 86_400_000).toISOString().split('T')[0]}  required inputClassName="pl-10 pr-4 py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white placeholder-slate-600 hover:bg-white/[0.05] hover:border-white/[0.12] focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/40 focus:bg-white/[0.05] transition-all text-sm cursor-pointer" />
-                </div>
-                {formData.interviewDate && (
-                  <div className="mt-2 flex items-center gap-3 px-3 py-2.5 bg-indigo-500/[0.06] border border-indigo-500/15 rounded-lg">
-                    <div className="flex-shrink-0 w-9 h-9 rounded-full bg-[var(--accent)] flex items-center justify-center shadow-lg ">
-                      <Calendar className="w-4 h-4 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-xs text-slate-400 mb-0.5">Time until target</p>
-                      <p className="text-sm font-semibold bg-[var(--accent)] bg-clip-text text-transparent">
-                        {calculateDaysUntilInterview()} {calculateDaysUntilInterview() === 1 ? 'day' : 'days'} to prepare
-                      </p>
-                    </div>
-                    <div className="flex-shrink-0 text-right">
-                      <p className="text-xs text-slate-500 mb-0.5">Target Date</p>
-                      <p className="text-xs font-medium text-slate-300">
-                        {new Date(formData.interviewDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">
-                  Skill Level <span className="text-red-400">*</span>
-                </label>
-                <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
-                  {(['beginner', 'intermediate', 'advanced'] as SkillLevel[]).map(level => (
-                    <button key={level} type="button" onClick={() => setFormData({ ...formData, skillLevel: level })}
-                      aria-pressed={formData.skillLevel === level}
-                      className={`choice ${formData.skillLevel === level ? 'choice-active' : ''}`}>
-                      <span className="capitalize">{level}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+            </Field>
           </div>
+          {formData.interviewDate && (
+            <p className="flex items-center gap-2 text-[13px] text-[var(--text-2)]">
+              <Calendar className="w-4 h-4 text-[var(--text-4)]" />
+              <span><span className="text-white font-semibold tabular-nums">{days}</span> {days === 1 ? 'day' : 'days'} to prepare, until {new Date(`${formData.interviewDate}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
+            </p>
+          )}
+        </FormSection>
 
-          {/* Focus Areas */}
-          <div className="glass-card p-4 sm:p-6">
-            <div className="flex items-center gap-2 mb-2 sm:mb-3">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 bg-white/[0.04] border border-white/[0.08] rounded-lg flex items-center justify-center">
-                <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-300" />
-              </div>
-              <h2 className="text-sm sm:text-base font-semibold text-white">Focus Areas</h2>
-            </div>
-            <p className="text-xs sm:text-sm text-slate-400 mb-3 sm:mb-4">Select topics you&apos;d like to prioritize in your preparation</p>
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search focus areas..."
-                className="w-full pl-10 pr-10 py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/40 transition-all text-sm" />
-              {searchQuery && (
-                <button type="button" onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-            {formData.focusAreas.length > 0 && (
-              <div className="mb-3 flex items-center gap-2 text-sm">
-                <span className="text-slate-400">Selected:</span>
-                <span className="px-2 py-0.5 bg-indigo-500/20 border border-indigo-500/30 rounded text-indigo-400 font-medium">{formData.focusAreas.length}</span>
-              </div>
+        <FormSection id="pl-focus" title="Focus areas" desc="Topics to put first. Leave empty and the plan picks them from the role.">
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-5)]" />
+            <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search topics, e.g. SQL or system design" className="field !pl-10 !pr-10" />
+            {searchQuery && (
+              <button type="button" onClick={clearSearch} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-4)] hover:text-white"><X className="w-4 h-4" /></button>
             )}
-            <div className="space-y-6 max-h-96 overflow-y-auto scrollbar-hide">
-              {Object.entries(filteredCategories).length > 0 ? (
-                Object.entries(filteredCategories).map(([category, areas]) => (
-                  <div key={category}>
-                    <h3 className="text-sm font-semibold text-slate-400 mb-3 flex items-center gap-2">
-                      <div className="h-px flex-1 bg-white/[0.06]" /><span>{category}</span><div className="h-px flex-1 bg-white/[0.06]" />
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                      {areas.map(area => (
-                        <button key={area} type="button" onClick={() => toggleFocusArea(area)}
-                          className={`px-3 py-2 rounded-lg text-xs font-medium transition-all text-left ${formData.focusAreas.includes(area)
-                            ? 'bg-indigo-600 text-white shadow-lg '
-                            : 'bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] border border-white/[0.08]'}`}>
-                          {area}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8">
-                  <Target className="w-12 h-12 text-slate-500 mx-auto mb-3" />
-                  <p className="text-slate-400 text-sm">No focus areas found matching &quot;{searchQuery}&quot;</p>
-                  <button type="button" onClick={clearSearch} className="mt-3 text-indigo-400 hover:text-indigo-300 text-sm font-medium">Clear search</button>
-                </div>
-              )}
-            </div>
           </div>
-
-          {/* Additional Details */}
-          <div className="glass-card p-4 sm:p-6">
-            <div className="flex items-center gap-2 mb-4 sm:mb-5">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 bg-white/[0.04] border border-white/[0.08] rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-300" />
-              </div>
-              <h2 className="text-sm sm:text-base font-semibold text-white">Additional Details</h2>
-            </div>
-            <div className="space-y-3 sm:space-y-4">
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">
-                  Existing Skills <span className="text-slate-500 text-xs">(Optional)</span>
-                </label>
-                <input type="text" value={formData.existingSkills}
-                  onChange={e => setFormData({ ...formData, existingSkills: e.target.value })}
-                  placeholder="React, Python, AWS (comma separated)"
-                  className="w-full px-3 sm:px-3.5 py-2 sm:py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/40 transition-all text-xs sm:text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-slate-300 mb-1.5">
-                  Areas to Improve <span className="text-slate-500 text-xs">(Optional)</span>
-                </label>
-                <input type="text" value={formData.weakAreas}
-                  onChange={e => setFormData({ ...formData, weakAreas: e.target.value })}
-                  placeholder="System design, Dynamic programming"
-                  className="w-full px-3 sm:px-3.5 py-2 sm:py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/40 transition-all text-xs sm:text-sm" />
-              </div>
-            </div>
-          </div>
-
-          {error && (
-            <div className="bg-red-500/[0.06] border border-red-500/20 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3">
-              <p className="text-red-400 text-xs sm:text-sm">{error}</p>
+          {formData.focusAreas.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[12px] text-[var(--text-4)] mr-1">{formData.focusAreas.length} selected</span>
+              {formData.focusAreas.map(a => (
+                <button key={a} type="button" onClick={() => toggleFocusArea(a)} className="inline-flex items-center gap-1 h-7 pl-2.5 pr-2 rounded-full text-[12px] text-white bg-white/[0.1] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)] hover:bg-white/[0.14]">
+                  {a}<X className="w-3 h-3 text-[var(--text-3)]" />
+                </button>
+              ))}
+              <button type="button" onClick={() => setFormData(p => ({ ...p, focusAreas: [] }))} className="text-[12px] text-[var(--text-4)] hover:text-white ml-1">Clear all</button>
             </div>
           )}
+          <div className="max-h-[420px] overflow-y-auto scrollbar-hide rounded-xl ring-1 ring-inset ring-white/[0.06] divide-y divide-white/[0.05]">
+            {Object.entries(filteredCategories).length > 0 ? (
+              Object.entries(filteredCategories).map(([category, areas]) => (
+                <div key={category} className="px-4 py-3.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-4)] mb-2.5">{category}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {areas.map(area => {
+                      const on = formData.focusAreas.includes(area);
+                      return (
+                        <button key={area} type="button" onClick={() => toggleFocusArea(area)} aria-pressed={on}
+                          className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12.5px] font-medium transition-colors ${on ? 'bg-white/[0.1] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]' : 'text-[var(--text-3)] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.07)] hover:text-white hover:bg-white/[0.04]'}`}>
+                          {on && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}{area}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-10">
+                <p className="text-[13px] text-[var(--text-3)]">No topics match &quot;{searchQuery}&quot;</p>
+                <button type="button" onClick={clearSearch} className="mt-2 text-[12.5px] text-[var(--text-2)] hover:text-white">Clear search</button>
+              </div>
+            )}
+          </div>
+        </FormSection>
 
-          <button type="submit" disabled={isGenerating}
-            className="w-full flex items-center justify-center gap-2 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base ">
-            <Sparkles className="w-4 h-4" />
-            <span>Generate Preparation Plan</span>
+        <FormSection id="pl-know" title="What you know" desc="Optional. The plan spends less time on what you already know and more on what you name here.">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Skills you have" hint="comma separated" htmlFor="pl-skills">
+              <input id="pl-skills" type="text" value={formData.existingSkills} onChange={e => setFormData({ ...formData, existingSkills: e.target.value })}
+                placeholder="SQL, Python, Tableau" className="field" />
+            </Field>
+            <Field label="Areas to improve" hint="comma separated" htmlFor="pl-weak">
+              <input id="pl-weak" type="text" value={formData.weakAreas} onChange={e => setFormData({ ...formData, weakAreas: e.target.value })}
+                placeholder="Window functions, product sense" className="field" />
+            </Field>
+          </div>
+        </FormSection>
+
+        {error && (
+          <div className="mt-2 mb-4 flex items-start gap-2 rounded-xl px-4 py-3 bg-rose-500/[0.08] ring-1 ring-inset ring-rose-500/20">
+            <p className="text-[13px] text-rose-200">{error}</p>
+          </div>
+        )}
+
+        <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3 pt-5 border-t border-white/[0.06]">
+          <p className="text-[12.5px] text-[var(--text-4)]">
+            {formData.role.trim() && formData.interviewDate
+              ? <>A {days}-day plan for <span className="text-[var(--text-2)]">{formData.role.trim()}</span>{formData.focusAreas.length ? `, focused on ${formData.focusAreas.length} topic${formData.focusAreas.length === 1 ? '' : 's'}` : ''}.</>
+              : 'Add the role and date to build your plan.'}
+          </p>
+          <button type="submit" disabled={isGenerating || !formData.role.trim() || !formData.interviewDate} className="btn-primary justify-center">
+            <Sparkles className="w-4 h-4" /> Build my plan
           </button>
-        </form>
-      </div>
+        </div>
+      </form>
 
       <UsersFeedback page="planner" forceOpen={showFeedback} onClose={() => setShowFeedback(false)} />
     </div>

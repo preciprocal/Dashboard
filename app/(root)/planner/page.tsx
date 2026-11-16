@@ -1,6 +1,7 @@
 // app/planner/page.tsx
 'use client';
 import PageHeader from '@/components/PageHeader';
+import FeatureEmpty from '@/components/ui/feature-empty';
 import { Calendar as HeaderIcon } from 'lucide-react';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -266,26 +267,15 @@ export default function PlannerPage() {
             <p className="text-[12.5px] text-[var(--text-3)] mt-1">{searchQuery ? 'Try a different role or company.' : 'Change the filter to see your other plans.'}</p>
           </div>
         ) : (
-          <div className="glass-card p-8 sm:p-10">
-            <div className="max-w-xl">
-              <span className="w-11 h-11 rounded-xl bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] flex items-center justify-center"><Calendar className="w-5 h-5 text-[var(--accent)]" /></span>
-              <h3 className="text-[18px] font-semibold text-white mt-4">Plan your prep, day by day</h3>
-              <p className="text-[13.5px] text-[var(--text-3)] mt-1.5 leading-relaxed">Tell us the role, company and interview date. You get a schedule of topics, practice tasks and behavioral questions for each day, and you tick tasks off as you go.</p>
-              <ul className="mt-5 grid gap-2.5 sm:grid-cols-3">
-                {[
-                  { icon: Target, text: 'A plan sized to your timeline' },
-                  { icon: CheckCircle2, text: 'Progress and a daily streak' },
-                  { icon: Clock, text: 'Tasks with time estimates' },
-                ].map(({ icon: Icon, text }) => (
-                  <li key={text} className="flex items-center gap-2.5 rounded-xl bg-white/[0.025] ring-1 ring-inset ring-white/[0.05] px-3 py-2.5 text-[12.5px] text-[var(--text-2)]"><Icon className="w-4 h-4 text-[var(--accent)] flex-shrink-0" />{text}</li>
-                ))}
-              </ul>
-              <div className="mt-6 flex flex-wrap items-center gap-3">
-                <Link href="/planner/create" className="btn-primary"><Plus className="w-4 h-4" /> Create a plan</Link>
-                <SeeExampleButton serviceId="planner" />
-              </div>
-            </div>
-          </div>
+          <FeatureEmpty icon={Calendar} title="Plan your prep, day by day"
+            body="Tell us the role, company and interview date. You get a schedule of topics, practice tasks and behavioral questions for each day, and you tick tasks off as you go."
+            primary={{ href: '/planner/create', label: 'Create a plan', icon: Plus }}
+            secondary={<SeeExampleButton serviceId="planner" />}
+            steps={[
+              { icon: Target, title: 'Set the role and date', text: 'The plan is sized to the days you have until the interview.' },
+              { icon: Clock, title: 'Follow each day', text: 'Topics, practice tasks and behavioral questions, each with a time estimate.' },
+              { icon: CheckCircle2, title: 'Tick tasks off', text: 'Track progress and keep a daily streak going.' },
+            ]} />
         )
       ) : (
         <div className="glass-card overflow-hidden divide-y divide-white/[0.06]">

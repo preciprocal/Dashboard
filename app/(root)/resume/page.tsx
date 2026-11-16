@@ -1,6 +1,7 @@
 'use client';
 import PageHeader from '@/components/PageHeader';
-import { FileText as HeaderIcon } from 'lucide-react';
+import FeatureEmpty from '@/components/ui/feature-empty';
+import { FileText as HeaderIcon, Sparkles } from 'lucide-react';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -203,18 +204,16 @@ export default function ResumeDashboard() {
           <ResumeLibrary resumes={resumes} onDelete={handleDelete} deletingId={deletingId} />
         </div>
       ) : !resumesError ? (
-        <div className="glass-card p-12 text-center">
-          <div className="w-16 h-16 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-6"><FileText className="w-7 h-7 text-slate-500" /></div>
-          <h3 className="text-xl font-bold text-white mb-2">Welcome to Resume Analysis</h3>
-          <p className="text-sm text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">Get AI-powered insights, ATS optimization, and personalized recommendations to improve your resume</p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <Link href="/resume/upload" className="btn-primary">
-              <Upload className="w-4 h-4" /><span>Upload Resume</span>
-            </Link>
-            <SeeExampleButton serviceId="resume" />
-          </div>
-          <p className="text-xs text-slate-500 mt-4">Supports PDF, DOC, and DOCX formats</p>
-        </div>
+        <FeatureEmpty icon={FileText} title="See how your resume reads"
+          body="Upload your resume to get an ATS score, line by line fixes and a check against the jobs you want."
+          primary={{ href: '/resume/upload', label: 'Upload resume', icon: Upload }}
+          secondary={<SeeExampleButton serviceId="resume" />}
+          note="PDF, DOC or DOCX."
+          steps={[
+            { icon: Upload, title: 'Upload it', text: 'Your file stays private to your account.' },
+            { icon: FileText, title: 'Read the analysis', text: 'An ATS score with the fixes that matter most.' },
+            { icon: Sparkles, title: 'Improve it', text: 'Rewrite lines in the Writer and compare against a job description.' },
+          ]} />
       ) : null}
 
       <style dangerouslySetInnerHTML={{ __html: `
