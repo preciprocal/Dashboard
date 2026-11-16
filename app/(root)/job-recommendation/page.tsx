@@ -88,26 +88,12 @@ interface JobTypeOption {
 }
 
 const JOB_SEARCH_FACTS = [
-  "💼 Hidden job market represents 70-80% of all job openings",
-  "🎯 Referrals account for 30-50% of all hires across industries",
-  "⚡ Applying within the first 96 hours increases your chances by 8x",
-  "📊 Only 25% of applicants get interviews - stand out with customization",
-  "🚀 Job seekers who negotiate salary increase their offer by 7.4% on average",
-  "💡 Companies with employee referral programs fill positions 55% faster",
-  "🔍 75% of hiring managers use LinkedIn to research candidates",
-  "📈 Personalized applications get 3x more responses than generic ones",
-  "✨ Following up after applying increases callback rates by 30%",
-  "🎨 Including relevant projects in your application boosts interest by 45%",
-  "📞 Networking leads to job offers 85% of the time vs 15% from job boards",
-  "💪 Skills-based hiring is growing 63% faster than traditional hiring",
-  "🏆 Cultural fit questions are asked in 89% of modern interviews",
-  "📧 Cold emails to hiring managers have 8-10% response rates",
-  "🌟 Tuesday at 10 AM is statistically the best time to apply for jobs",
-  "🎯 Customizing your resume for each role increases ATS pass rate by 60%",
-  "💼 Remote job postings receive 2.5x more applications than on-site roles",
-  "🚀 Tech roles are typically filled in 42 days on average",
-  "📊 84% of companies use AI-powered recruitment tools",
-  "⚡ Video introductions increase application engagement by 12x",
+  "Tailor your resume to each posting: mirror the skills it names that you really have.",
+  "A referral from someone at the company usually gets your application read sooner.",
+  "Apply soon after a role is posted, before the pile of applications grows.",
+  "Check E-Verify and past H-1B approvals before you apply if you will need sponsorship.",
+  "A short, specific note to the hiring manager beats a long generic one.",
+  "Keep a list of the questions you are asked, and practise them before the next round.",
 ];
 
 const JOB_TYPE_OPTIONS: JobTypeOption[] = [
@@ -355,14 +341,14 @@ function JobRecommendationsPage() {
 
   const getMatchScoreColor = (score: number): string => {
     if (score >= 85) return 'text-emerald-400';
-    if (score >= 70) return 'text-blue-400';
+    if (score >= 70) return 'text-sky-400';
     if (score >= 60) return 'text-amber-400';
     return 'text-slate-400';
   };
 
   const getMatchScoreBgColor = (score: number): string => {
     if (score >= 85) return 'bg-emerald-500/10 border-emerald-500/30';
-    if (score >= 70) return 'bg-blue-500/10 border-blue-500/30';
+    if (score >= 70) return 'bg-sky-500/10 border-sky-500/30';
     if (score >= 60) return 'bg-amber-500/10 border-amber-500/30';
     return 'bg-slate-500/10 border-slate-500/30';
   };
@@ -570,7 +556,7 @@ function JobRecommendationsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by job title or company..."
-              className="w-full pl-11 pr-4 py-3 glass-input border border-white/10 rounded-xl text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-11 pr-4 py-3 glass-input border border-white/10 rounded-xl text-white placeholder-slate-400 focus:ring-2 focus:ring-white/20"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && selectedResumeId) {
                   fetchJobRecommendations();
@@ -631,11 +617,11 @@ function JobRecommendationsPage() {
                         onClick={() => setFilters({ ...filters, jobType: option.value })}
                         className={`p-3 rounded-lg border transition-all ${
                           isSelected
-                            ? 'glass-button-primary border-blue-500/50'
+                            ? 'bg-white/[0.1] border-white/[0.18] text-white'
                             : 'glass-button border-white/10 hover:border-white/20'
                         }`}
                       >
-                        <Icon className={`w-4 h-4 mx-auto mb-1 ${isSelected ? 'text-blue-400' : 'text-slate-400'}`} />
+                        <Icon className={`w-4 h-4 mx-auto mb-1 ${isSelected ? 'text-[var(--text-2)]' : 'text-slate-400'}`} />
                         <span className={`text-xs font-medium ${isSelected ? 'text-white' : 'text-slate-300'}`}>
                           {option.label}
                         </span>
@@ -671,7 +657,7 @@ function JobRecommendationsPage() {
                     value={filters.location}
                     onChange={(e) => setFilters({ ...filters, location: e.target.value })}
                     placeholder="e.g., New York, Remote"
-                    className="w-full px-3 py-2 glass-input border border-white/10 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 glass-input border border-white/10 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-white/20"
                   />
                 </div>
               </div>
@@ -695,7 +681,7 @@ function JobRecommendationsPage() {
         <div className="fixed inset-0 bg-[var(--bg)]/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="glass-card max-w-md w-full p-6 sm:p-8">
             <div className="text-center mb-6 sm:mb-8">
-              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-[var(--accent)] rounded-lg mb-4">
+              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-white/[0.06] rounded-lg mb-4">
                 <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-white animate-pulse" />
               </div>
               <h3 className="text-base sm:text-lg font-medium text-white mb-2 sm:mb-3">
@@ -708,7 +694,7 @@ function JobRecommendationsPage() {
 
             <div className="relative w-full h-1.5 bg-[var(--bg-raised)] rounded-full overflow-hidden mb-4 sm:mb-6">
               <div 
-                className="absolute top-0 left-0 h-full bg-[var(--accent)] transition-all duration-500"
+                className="absolute top-0 left-0 h-full bg-white/80 transition-all duration-500"
                 style={{ 
                   width: `${
                     jobSearchSteps
@@ -728,7 +714,7 @@ function JobRecommendationsPage() {
                     idx < loadingStep 
                       ? 'text-emerald-400' 
                       : idx === loadingStep 
-                      ? 'text-blue-400' 
+                      ? 'text-[var(--text-2)]' 
                       : 'text-slate-500'
                   }`}
                 >
@@ -751,7 +737,7 @@ function JobRecommendationsPage() {
         <div className="glass-card hover-lift">
           <div className="p-4 sm:p-6">
             <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="w-5 h-5 text-blue-400" />
+              <Sparkles className="w-5 h-5 text-[var(--text-2)]" />
               <h3 className="text-lg font-semibold text-white">Resume Analysis</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -759,7 +745,7 @@ function JobRecommendationsPage() {
                 <p className="text-xs text-slate-400">Target Roles</p>
                 <div className="flex flex-wrap gap-1.5">
                   {analysis.jobTitles.slice(0, 3).map((title, idx) => (
-                    <span key={idx} className="px-2.5 py-1 bg-blue-500/10 text-blue-300 rounded-md text-xs border border-blue-500/20">
+                    <span key={idx} className="px-2.5 py-1 bg-white/[0.05] text-[var(--text-1)] rounded-md text-xs border border-white/[0.08]">
                       {title}
                     </span>
                   ))}
@@ -769,7 +755,7 @@ function JobRecommendationsPage() {
                 <p className="text-xs text-slate-400">Top Skills</p>
                 <div className="flex flex-wrap gap-1.5">
                   {analysis.skills.slice(0, 5).map((skill, idx) => (
-                    <span key={idx} className="px-2.5 py-1 bg-purple-500/10 text-purple-300 rounded-md text-xs border border-purple-500/20">
+                    <span key={idx} className="px-2.5 py-1 bg-white/[0.05] text-[var(--text-1)] rounded-md text-xs border border-white/[0.08]">
                       {skill}
                     </span>
                   ))}
@@ -792,8 +778,8 @@ function JobRecommendationsPage() {
           <div className="glass-card">
             <div className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-2 sm:mb-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                  <Target className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/[0.05] rounded-lg flex items-center justify-center">
+                  <Target className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--text-2)]" />
                 </div>
                 <span className="text-xl sm:text-2xl font-semibold text-white">{filteredJobs.length}</span>
               </div>
@@ -818,8 +804,8 @@ function JobRecommendationsPage() {
           <div className="glass-card">
             <div className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-2 sm:mb-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/[0.05] rounded-lg flex items-center justify-center">
+                  <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--text-2)]" />
                 </div>
                 <span className="text-xl sm:text-2xl font-semibold text-white">
                   {filteredJobs.filter(j => j.matchScore >= 70 && j.matchScore < 85).length}
@@ -832,8 +818,8 @@ function JobRecommendationsPage() {
           <div className="glass-card">
             <div className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-2 sm:mb-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
-                  <Award className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/[0.05] rounded-lg flex items-center justify-center">
+                  <Award className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--text-2)]" />
                 </div>
                 <span className="text-xl sm:text-2xl font-semibold text-white">
                   {Math.round(filteredJobs.reduce((acc, j) => acc + j.matchScore, 0) / filteredJobs.length)}%
@@ -875,7 +861,7 @@ function JobRecommendationsPage() {
                   </div>
                   <div className="flex items-center gap-2 text-slate-400">
                     <Briefcase className="w-4 h-4 flex-shrink-0" />
-                    <span className="font-medium text-blue-300">{job.jobType}</span>
+                    <span className="font-medium text-[var(--text-1)]">{job.jobType}</span>
                   </div>
                   {job.salary && (
                     <div className="flex items-center gap-2 text-slate-400">
@@ -902,7 +888,7 @@ function JobRecommendationsPage() {
                       {job.requirements.slice(0, 6).map((req, idx) => (
                         <span
                           key={`req-${job.id}-${idx}`}
-                          className="px-3 py-1 bg-blue-500/10 text-blue-300 rounded-lg text-xs border border-blue-500/20 font-medium"
+                          className="px-3 py-1 bg-white/[0.05] text-[var(--text-1)] rounded-lg text-xs border border-white/[0.08] font-medium"
                         >
                           {req}
                         </span>
@@ -942,8 +928,8 @@ function JobRecommendationsPage() {
       {!isLoading && hasSearched && !error && filteredJobs.length === 0 && jobs.length > 0 && (
         <div className="glass-card hover-lift">
           <div className="p-8 sm:p-12 text-center">
-            <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Search className="w-8 h-8 text-blue-400" />
+            <div className="w-16 h-16 bg-white/[0.05] rounded-full flex items-center justify-center mx-auto mb-6">
+              <Search className="w-8 h-8 text-[var(--text-2)]" />
             </div>
             <h3 className="text-xl sm:text-2xl font-bold text-white mb-3">No Jobs Match Your Filters</h3>
             <p className="text-sm text-slate-400 mb-6 max-w-md mx-auto">
@@ -983,10 +969,10 @@ function JobRecommendationsPage() {
       {!isLoading && !hasSearched && !error && selectedResumeId && (
         <div className="glass-card hover-lift">
           <div className="p-8 sm:p-12 text-center">
-            <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Target className="w-8 h-8 text-purple-400" />
+            <div className="w-16 h-16 bg-white/[0.05] rounded-full flex items-center justify-center mx-auto mb-6">
+              <Target className="w-8 h-8 text-[var(--text-2)]" />
             </div>
-            <h3 className="text-xl sm:text-2xl font-bold text-white mb-3">Ready to Find Your Dream Job?</h3>
+            <h3 className="text-xl sm:text-2xl font-bold text-white mb-3">Find roles that fit your resume</h3>
             <p className="text-sm text-slate-400 mb-6 max-w-md mx-auto">
               Our AI will analyze your resume and match you with the best job opportunities tailored to your skills and experience
             </p>

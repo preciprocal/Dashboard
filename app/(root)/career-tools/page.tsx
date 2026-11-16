@@ -2,6 +2,7 @@
 import PageHeader, { Breadcrumbs, crumbsFor } from '@/components/PageHeader';
 
 import React, { useState, useEffect } from 'react';
+import AutoTextarea from '@/components/ui/auto-textarea';
 import { useRouter } from 'next/navigation';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import {
@@ -184,7 +185,7 @@ function LinkedInResults({ data }: { data: LinkedInResult }) {
             <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold mb-2">Keywords added</p>
             <div className="flex flex-wrap gap-1.5">
               {data.about.keywordsAdded.map((kw, i) => (
-                <span key={i} className="text-xs px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full">{kw}</span>
+                <span key={i} className="text-xs px-2 py-0.5 bg-white/[0.05] text-[var(--text-2)] ring-1 ring-inset ring-white/[0.08] rounded-full">{kw}</span>
               ))}
             </div>
           </div>
@@ -276,9 +277,9 @@ function OutreachResults({ data, platform }: { data: OutreachResult; platform: s
               </div>
             )}
             {'bestFor' in activeMsg && (activeMsg as OutreachVersion & { bestFor: string }).bestFor && (
-              <div className="flex items-start gap-2 p-2.5 bg-blue-500/[0.06] border border-blue-500/15 rounded-lg">
-                <Target className="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-blue-300 leading-relaxed"><span className="font-semibold">Best when: </span>{(activeMsg as OutreachVersion & { bestFor: string }).bestFor}</p>
+              <div className="flex items-start gap-2 p-2.5 bg-white/[0.02] ring-1 ring-inset ring-white/[0.07] rounded-lg">
+                <Target className="w-3.5 h-3.5 text-[var(--text-3)] flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-[var(--text-2)] leading-relaxed"><span className="font-semibold">Best when: </span>{(activeMsg as OutreachVersion & { bestFor: string }).bestFor}</p>
               </div>
             )}
             {platform === 'email' && activeMsg.subject && (
@@ -314,9 +315,9 @@ function OutreachResults({ data, platform }: { data: OutreachResult; platform: s
       {data.followUpTemplate && (
         <ResultCard>
           <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3"><RefreshCw className="w-3.5 h-3.5 text-blue-400" /> Follow-up Template</h3>
-          <div className="flex items-center gap-2 p-2.5 bg-blue-500/[0.06] border border-blue-500/15 rounded-lg mb-3">
-            <Info className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
-            <p className="text-xs text-blue-300">{data.followUpTemplate.timing}</p>
+          <div className="flex items-center gap-2 p-2.5 bg-white/[0.02] ring-1 ring-inset ring-white/[0.07] rounded-lg mb-3">
+            <Info className="w-3.5 h-3.5 text-[var(--text-3)] flex-shrink-0" />
+            <p className="text-xs text-[var(--text-2)]">{data.followUpTemplate.timing}</p>
           </div>
           {platform === 'email' && data.followUpTemplate.subject && (
             <div className="px-3 py-2.5 bg-white/[0.03] rounded-lg border border-white/[0.07] mb-3">
@@ -392,72 +393,21 @@ function EmptyState({ icon: Icon, title, sub }: { icon: React.ElementType; title
 // ─── UpgradeGate ──────────────────────────────────────────────────────────────
 
 function UpgradeGate({ feature, used, limit }: { feature: 'linkedin' | 'outreach'; used: number; limit: number }) {
-  const [activeStat, setActiveStat] = useState(0);
   const isLI = feature === 'linkedin';
-
-  const STATS_MAP = {
-    linkedin: [
-      { num: '95%',  line: 'of recruiters use LinkedIn as their main sourcing tool' },
-      { num: '40×',  line: 'more opportunities for job seekers with optimised profiles' },
-      { num: '71%',  line: 'higher chance of an interview with a comprehensive profile' },
-      { num: '6 sec', line: 'is all a recruiter spends scanning your profile - make it count' },
-    ],
-    outreach: [
-      { num: '80%',  line: 'of jobs are filled through networking, not applications' },
-      { num: '5×',   line: 'more likely to get hired through a referral than cold applying' },
-      { num: '57%',  line: 'of candidates skip follow-ups - the ones who don\'t win more offers' },
-      { num: '48%',  line: 'of top hires come from employee referrals' },
-    ],
-  };
-  const STRIP_MAP = {
-    linkedin: [{ num: '95%', label: 'recruiters on LinkedIn' }, { num: '40×', label: 'more opportunities' }, { num: '6 sec', label: 'profile scan time' }],
-    outreach: [{ num: '80%', label: 'jobs via networking' }, { num: '5×', label: 'referral hire rate' }, { num: '48%', label: 'hires from referrals' }],
-  };
-
-  const STATS = STATS_MAP[feature];
-
-  useEffect(() => {
-    const t = setInterval(() => setActiveStat(i => (i + 1) % STATS.length), 4000);
-    return () => clearInterval(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [feature]);
-
   return (
-    <div className="space-y-3 animate-fade-in-up">
-      <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--bg-surface)]">
-        <div className={`absolute -top-24 -right-24 w-56 h-56 rounded-full pointer-events-none blur-3xl ${isLI ? 'bg-blue-500/[0.06]' : 'bg-emerald-500/[0.06]'}`} />
-        <div className="relative p-6">
-          <div className="inline-flex items-center gap-1.5 bg-amber-500/[0.08] border border-amber-500/20 rounded-full px-3 py-1 mb-4">
-            <Sparkles className="w-3 h-3 text-amber-400" />
-            <span className="text-xs font-semibold text-amber-400">{used}/{limit} {isLI ? 'optimisations' : 'messages'} used</span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-2">
-            {isLI ? "Your profile is your pitch. Make recruiters stop scrolling." : "The best opportunities don't get posted. They get messaged."}
-          </h2>
-          <p className="text-sm text-slate-400 mb-6 max-w-md">
-            {isLI ? "You've used your free LinkedIn optimisations. Recruiters spend 6 seconds on your profile - an AI-optimised one makes every second count." : "You've used your free outreach messages. 80% of jobs are filled through networking - don't go silent now."}
-          </p>
-          <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06] rounded-xl px-5 py-4 mb-6 min-h-[64px]">
-            <span className={`text-3xl font-black flex-shrink-0 w-16 text-center ${isLI ? 'text-blue-400' : 'text-emerald-400'}`}>{STATS[activeStat].num}</span>
-            <span className="text-sm text-slate-400 leading-snug">{STATS[activeStat].line}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link href="/pricing" className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-[var(--on-primary)] transition-all group ${isLI ? 'bg-[var(--primary)] hover:bg-[var(--primary-hover)] ' : 'bg-emerald-600 hover:bg-emerald-500 '}`}>
-              Get More <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-            <span className="text-[11px] text-slate-500">Cancel anytime · Instant access</span>
-          </div>
-        </div>
+    <section className="glass-card p-6 sm:p-8 animate-fade-in-up">
+      <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11.5px] font-medium text-[var(--text-2)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" aria-hidden="true" />{used} of {limit} {isLI ? 'optimisations' : 'messages'} used this month
+      </span>
+      <h2 className="font-display text-[22px] sm:text-[26px] font-semibold tracking-[-0.02em] text-white mt-4">
+        {isLI ? "You have used this month's LinkedIn optimisations" : "You have used this month's outreach messages"}
+      </h2>
+      <p className="text-[13.5px] text-[var(--text-3)] mt-2 max-w-lg">Your limit resets on your billing date. Upgrade for more now.</p>
+      <div className="flex flex-wrap gap-2 mt-6">
+        <Link href="/pricing" className="btn-primary">See plans <ArrowRight className="w-4 h-4" /></Link>
+        {!isLI && <Link href="/templates/outreach" className="btn-secondary">Browse outreach templates</Link>}
       </div>
-      <div className="grid grid-cols-3 gap-2.5">
-        {STRIP_MAP[feature].map(s => (
-          <div key={s.num} className="glass-card py-4 text-center">
-            <p className={`text-xl font-black ${isLI ? 'text-blue-400' : 'text-emerald-400'}`}>{s.num}</p>
-            <p className="text-xs text-slate-400 mt-1">{s.label}</p>
-          </div>
-        ))}
-      </div>
-    </div>
+    </section>
   );
 }
 
@@ -486,7 +436,7 @@ function ToolTabs({ active, setActive }: { active: 'linkedin' | 'outreach'; setA
 // Shared form-control size and style (globals.css .field), so every input,
 // select and textarea on this page matches the rest of the app.
 const inp = 'field';
-const ta = `${inp} resize-none`;
+const ta = inp;
 
 function FormField({ label, children, optional, required, hint }: { label: string; children: React.ReactNode; optional?: boolean; required?: boolean; hint?: string }) {
   return (
@@ -531,8 +481,8 @@ function LinkedInForm({ headline, setHeadline, about, setAbout, experience, setE
     <div className="space-y-4">
       {error && <ErrorBanner message={error} />}
       <FormField label="Current Headline"><input type="text" value={headline} onChange={e => setHeadline(e.target.value)} placeholder="e.g. Software Engineer at Acme | React | Node.js" className={inp} /></FormField>
-      <FormField label="About / Summary"><textarea rows={5} value={about} onChange={e => setAbout(e.target.value)} placeholder="Paste your current About section, or leave blank if you don't have one…" className={ta} /></FormField>
-      <FormField label="Most Recent Experience" optional><textarea rows={2} value={experience} onChange={e => setExperience(e.target.value)} placeholder="e.g. Built microservices at Scale AI, led a team of 5…" className={ta} /></FormField>
+      <FormField label="About / Summary"><AutoTextarea rows={5} value={about} onChange={e => setAbout(e.target.value)} placeholder="Paste your current About section, or leave blank if you don't have one…" className={ta} /></FormField>
+      <FormField label="Most Recent Experience" optional><AutoTextarea rows={2} value={experience} onChange={e => setExperience(e.target.value)} placeholder="e.g. Built microservices at Scale AI, led a team of 5…" className={ta} /></FormField>
       <div className="grid grid-cols-2 gap-3">
         <FormField label="Target Role"><input type="text" value={targetRole} onChange={e => setTargetRole(e.target.value)} placeholder="e.g. Senior SWE" className={inp} /></FormField>
         <FormField label="Target Industry"><input type="text" value={industry} onChange={e => setIndustry(e.target.value)} placeholder="e.g. Fintech" className={inp} /></FormField>
@@ -595,17 +545,17 @@ function OutreachForm({ type, setType, recipName, setRecipName, recipRole, setRe
         </div>
         <FormField label="Company" required><input type="text" value={company} onChange={e => setCompany(e.target.value)} placeholder="e.g. Stripe" className={inp} /></FormField>
         <FormField label="What do you know about them?" hint="recent post, mutual connection, shared project…">
-          <textarea rows={2} value={context} onChange={e => setContext(e.target.value)} placeholder="saw their post about Stripe's infra migration, mutual connection with John from MIT…" className={ta} />
+          <AutoTextarea rows={2} value={context} onChange={e => setContext(e.target.value)} placeholder="saw their post about Stripe's infra migration, mutual connection with John from MIT…" className={ta} />
         </FormField>
       </div>
       {(type === 'job-inquiry' || type === 'follow-up') && (
         <div className="space-y-2.5">
           <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Job Context</p>
           <FormField label="Job Title"><input type="text" value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="Senior Backend Engineer" className={inp} /></FormField>
-          <FormField label="Job Description" optional hint="excerpt or key requirements"><textarea rows={3} value={jobDesc} onChange={e => setJobDesc(e.target.value)} placeholder="Paste key requirements or responsibilities…" className={ta} /></FormField>
+          <FormField label="Job Description" optional hint="excerpt or key requirements"><AutoTextarea rows={3} value={jobDesc} onChange={e => setJobDesc(e.target.value)} placeholder="Paste key requirements or responsibilities…" className={ta} /></FormField>
         </div>
       )}
-      <FormField label="Your Background" optional hint="uses your profile if blank"><textarea rows={2} value={background} onChange={e => setBackground(e.target.value)} placeholder="e.g. 4 years building fintech APIs at JPMorgan, now targeting product-led startups…" className={ta} /></FormField>
+      <FormField label="Your Background" optional hint="uses your profile if blank"><AutoTextarea rows={2} value={background} onChange={e => setBackground(e.target.value)} placeholder="e.g. 4 years building fintech APIs at JPMorgan, now targeting product-led startups…" className={ta} /></FormField>
       <SubmitButton onClick={onSubmit} loading={loading} disabled={!ready} loadingLabel="Crafting messages…" label="Generate Outreach" gradient="from-emerald-600 to-teal-600 hover:bg-emerald-500" shadow="" />
     </div>
   );
