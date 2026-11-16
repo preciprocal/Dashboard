@@ -107,7 +107,7 @@ export default async function CreateInterviewPage({
           <div className="overflow-y-auto glass-scrollbar pb-4">
             <div className="glass-card p-5 sm:p-6">
               {practiceApp && (
-                <div className="mb-5 rounded-xl border border-violet-500/25 bg-violet-500/[0.06] px-4 py-3">
+                <div className="mb-5 rounded-xl border border-[var(--accent-border)] bg-[var(--accent-subtle)] px-4 py-3">
                   <p className="text-sm font-semibold text-white">
                     Practising for your {practiceStage ?? 'interview'}{practiceApp.company ? ` at ${practiceApp.company}` : ''}
                   </p>
@@ -148,9 +148,9 @@ export default async function CreateInterviewPage({
             <Link
               href="/pricing"
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
-                         bg-[var(--accent)]
-                         hover:bg-[var(--accent-hover)]
-                         text-white text-sm font-semibold
+                         bg-[var(--primary)]
+                         hover:bg-[var(--primary-hover)]
+                         text-[var(--on-primary)] text-sm font-semibold
                          
                          transition-all duration-200"
             >
@@ -194,7 +194,7 @@ export default async function CreateInterviewPage({
             {/* Pro benefits */}
             <div className="glass-card p-4">
               <p className="text-xs font-bold text-white mb-3 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> Pro Plan Benefits
+                <Sparkles className="w-3.5 h-3.5 text-[#a9b0f7]" /> Pro Plan Benefits
               </p>
               <div className="space-y-2">
                 {[

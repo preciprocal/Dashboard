@@ -256,7 +256,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
             </div>
             <div>
               <p className="text-[13px] font-bold text-white">AI Job Analysis</p>
-              <p className="text-[11px] text-indigo-400">Powered by AI</p>
+              <p className="text-[11px] text-[#a9b0f7]">Powered by AI</p>
             </div>
           </div>
           {(uploadedFile || formData.jobDescription) && (
@@ -277,7 +277,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
             <label htmlFor="jobDescFile"
               className="group cursor-pointer flex flex-col items-center justify-center gap-2 p-5 border-2 border-dashed border-white/[0.08] hover:border-indigo-500/40 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] transition-all">
               <div className="w-9 h-9 bg-indigo-500/[0.08] rounded-xl flex items-center justify-center group-hover:bg-indigo-500/15 transition-colors">
-                <span className="text-indigo-400 text-lg">📎</span>
+                <span className="text-[#a9b0f7] text-lg">📎</span>
               </div>
               <div className="text-center">
                 <p className="text-[12px] font-semibold text-white">{uploadedFile ? 'Change file' : 'Drop file or browse'}</p>
@@ -317,7 +317,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
         {(isProcessingFile || isAnalyzing) && (
           <div className="mt-3 flex items-center justify-center gap-2.5 p-3 bg-indigo-500/[0.07] border border-indigo-500/20 rounded-xl">
             <span className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-            <span className="text-[12px] text-indigo-300 font-medium">
+            <span className="text-[12px] text-[#a9b0f7] font-medium">
               {isProcessingFile ? 'Processing file…' : 'AI analysing…'}
             </span>
           </div>
@@ -356,7 +356,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
               <p className="text-[11px] text-emerald-400 font-semibold mb-2">Technologies detected</p>
               <div className="flex flex-wrap gap-1.5">
                 {aiAnalysis.techstack.slice(0, 6).map(tech => (
-                  <span key={tech} className="px-2 py-0.5 bg-indigo-500/15 border border-indigo-500/25 text-indigo-300 rounded-lg text-xs font-semibold">{tech}</span>
+                  <span key={tech} className="px-2 py-0.5 bg-indigo-500/15 border border-indigo-500/25 text-[#a9b0f7] rounded-lg text-xs font-semibold">{tech}</span>
                 ))}
                 {aiAnalysis.techstack.length > 6 && (
                   <span className="px-2 py-0.5 bg-white/[0.04] text-slate-400 rounded-lg text-xs">+{aiAnalysis.techstack.length - 6}</span>
@@ -395,7 +395,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
                 <div className="absolute left-0 right-0 top-full mt-2 bg-[var(--bg-raised)] border border-white/[0.08] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] z-20 overflow-hidden">
                   {(['entry','mid','senior'] as const).map(l => (
                     <button key={l} type="button" onClick={() => { setFormData(p => ({ ...p, level: l })); setShowLevelMenu(false); }}
-                      className={`w-full px-4 py-2.5 text-left text-[12px] font-medium transition-colors ${formData.level === l ? 'bg-indigo-500/15 text-indigo-300' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'}`}>
+                      className={`w-full px-4 py-2.5 text-left text-[12px] font-medium transition-colors ${formData.level === l ? 'bg-white/[0.08] text-white' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'}`}>
                       {levelLabel[l]}
                     </button>
                   ))}
@@ -435,7 +435,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
                 <div className="absolute left-0 right-0 top-full mt-2 bg-[var(--bg-raised)] border border-white/[0.08] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] z-20 overflow-hidden">
                   {(['technical','behavioural','mixed'] as const).map(t => (
                     <button key={t} type="button" onClick={() => { setFormData(p => ({ ...p, type: t })); setShowTypeMenu(false); }}
-                      className={`w-full px-4 py-2.5 text-left text-[12px] font-medium transition-colors ${formData.type === t ? 'bg-indigo-500/15 text-indigo-300' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'}`}>
+                      className={`w-full px-4 py-2.5 text-left text-[12px] font-medium transition-colors ${formData.type === t ? 'bg-white/[0.08] text-white' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'}`}>
                       {typeLabel[t]}
                     </button>
                   ))}

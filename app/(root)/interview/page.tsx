@@ -2,24 +2,18 @@
 import PageHeader from '@/components/PageHeader';
 import { Video as HeaderIcon } from 'lucide-react';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
-import ProfileInterviewCard from '@/components/ProfileInterviewCard';
+import InterviewLibrary from '@/components/interview/InterviewLibrary';
 import { SeeExampleButton } from '@/components/ServiceModal';
-import {
-  Target, LayoutGrid, List, Filter,
-  CheckCircle, AlertCircle, RefreshCw, Award, Clock,
-  Plus, ChevronDown,
-} from 'lucide-react';
+import { Target, AlertCircle, RefreshCw, Plus } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SortOption = 'all' | 'high-scores' | 'needs-improvement' | 'recent' | 'technical' | 'behavioral';
-type ViewMode   = 'grid' | 'list';
 
 interface InterviewFeedback {
   strengths: string[];
@@ -52,12 +46,6 @@ interface Interview {
   questions?: { question: string; answer: string; score: number; feedback: string }[];
 }
 
-interface InterviewStats {
-  averageScore: number;
-  totalInterviews: number;
-  totalHours: number;
-  completionRate: number;
-}
 
 interface CriticalError {
   code: string;
@@ -94,45 +82,6 @@ function toDate(val: RawDateField, fallback = new Date()): Date {
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-
-function StatCard({ icon: Icon, value, label, accentClass }: {
-  icon: React.ElementType;
-  value: string | number;
-  label: string;
-  accentClass: string;
-}) {
-  return (
-    <div className="glass-card p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center
-                         ${accentClass.replace('text-', 'bg-').replace('-400', '-500/10')}`}>
-          <Icon className={`w-4 h-4 ${accentClass}`} />
-        </div>
-        <span className="text-2xl font-bold text-white tabular-nums">{value}</span>
-      </div>
-      <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">{label}</p>
-    </div>
-  );
-}
-
-function EmptyFiltered({ onClear }: { onClear: () => void }) {
-  return (
-    <div className="glass-card p-12 text-center">
-      <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl
-                      flex items-center justify-center mx-auto mb-4">
-        <Target className="w-5 h-5 text-slate-500" />
-      </div>
-      <p className="text-[14px] font-semibold text-slate-400 mb-2">No interviews match this filter</p>
-      <p className="text-[12px] text-slate-500 mb-5">Try a different filter or start a new session</p>
-      <button
-        onClick={onClear}
-        className="text-[12px] text-slate-400 hover:text-white underline transition-colors"
-      >
-        Clear filter
-      </button>
-    </div>
-  );
-}
 
 function EmptyDashboard() {
   return (
@@ -174,12 +123,6 @@ export default function InterviewsDashboard() {
   const [interviews,        setInterviews]        = useState<Interview[]>([]);
   const [loadingInterviews, setLoadingInterviews] = useState(true);
   const [loadingStep,       setLoadingStep]       = useState(0);
-  const [sortFilter,        setSortFilter]        = useState<SortOption>('all');
-  const [viewMode,          setViewMode]          = useState<ViewMode>('grid');
-  const [showFilterMenu,    setShowFilterMenu]    = useState(false);
-  const [stats,             setStats]             = useState<InterviewStats>({
-    averageScore: 0, totalInterviews: 0, totalHours: 0, completionRate: 0,
-  });
   const [criticalError,  setCriticalError]  = useState<CriticalError | null>(null);
   const [interviewsError,setInterviewsError]= useState('');
 
@@ -192,16 +135,6 @@ export default function InterviewsDashboard() {
     { name: 'Organising interviews…',       weight: 1 },
     { name: 'Done!',                        weight: 1 },
   ];
-
-  // Close filter on outside click
-  useEffect(() => {
-    const handle = (e: MouseEvent) => {
-      if (showFilterMenu && !(e.target as HTMLElement).closest('.filter-dropdown'))
-        setShowFilterMenu(false);
-    };
-    if (showFilterMenu) document.addEventListener('mousedown', handle);
-    return () => document.removeEventListener('mousedown', handle);
-  }, [showFilterMenu]);
 
   useEffect(() => {
     if (!loading && !user) router.push('/sign-in');
@@ -256,14 +189,6 @@ export default function InterviewsDashboard() {
       setInterviews(withFeedback);
 
       setLoadingStep(4);
-      const completed = withFeedback.filter(i => i.feedback && (i.score ?? 0) > 0);
-      setStats({
-        averageScore:   completed.length ? Math.round(completed.reduce((s, i) => s + (i.score || 0), 0) / completed.length) : 0,
-        totalInterviews: withFeedback.length,
-        totalHours:      Math.round(withFeedback.length * 0.75),
-        completionRate:  Math.round((completed.length / withFeedback.length) * 100),
-      });
-
       setLoadingStep(5);
       setLoadingStep(6);
 
@@ -280,38 +205,6 @@ export default function InterviewsDashboard() {
   }, [user]);
 
   useEffect(() => { if (user) loadInterviews(); }, [user, loadInterviews]);
-
-  const filteredInterviews = useMemo(() => {
-    const arr = [...interviews];
-    switch (sortFilter) {
-      case 'high-scores':       return arr.filter(i => (i.score || 0) >= 80).sort((a, b) => (b.score || 0) - (a.score || 0));
-      case 'needs-improvement': return arr.filter(i => (i.score || 0) < 70);
-      case 'technical':         return arr.filter(i => ['technical','coding','system-design'].includes(i.type));
-      case 'behavioral':        return arr.filter(i => i.type === 'behavioral');
-      default:                  return arr.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
-    }
-  }, [interviews, sortFilter]);
-
-  const filterCount = (opt: SortOption): number => {
-    switch (opt) {
-      case 'high-scores':       return interviews.filter(i => (i.score || 0) >= 80).length;
-      case 'needs-improvement': return interviews.filter(i => (i.score || 0) < 70).length;
-      case 'technical':         return interviews.filter(i => ['technical','coding','system-design'].includes(i.type)).length;
-      case 'behavioral':        return interviews.filter(i => i.type === 'behavioral').length;
-      default:                  return interviews.length;
-    }
-  };
-
-  const filterLabel = (opt: SortOption): string => ({
-    all:               `All (${filterCount('all')})`,
-    'high-scores':     `High Scores (${filterCount('high-scores')})`,
-    'needs-improvement':`Needs Work (${filterCount('needs-improvement')})`,
-    technical:         `Technical (${filterCount('technical')})`,
-    behavioral:        `Behavioral (${filterCount('behavioral')})`,
-    recent:            `Recent (${filterCount('recent')})`,
-  }[opt] ?? 'All');
-
-  const filterOptions: SortOption[] = ['all','high-scores','needs-improvement','technical','behavioral','recent'];
 
   // ── Guards ────────────────────────────────────────────────────
   if (criticalError) {
@@ -342,8 +235,8 @@ export default function InterviewsDashboard() {
           <Link
             href="/sign-in"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-                       bg-[var(--accent)] text-white
-                       text-[13px] font-semibold hover:bg-[var(--accent-hover)]
+                       bg-[var(--primary)] text-[var(--on-primary)]
+                       text-[13px] font-semibold hover:bg-[var(--primary-hover)]
                        transition-all duration-150"
           >
             Go to sign in
@@ -358,7 +251,7 @@ export default function InterviewsDashboard() {
     <div className="space-y-4 pt-4">
 
       <PageHeader
-        title="Interview Practice" description="Mock interviews with AI feedback and scores" icon={HeaderIcon}
+        title="Interview Practice" description="Mock interviews with feedback, and what to practise next" icon={HeaderIcon}
         actions={<>
           <SeeExampleButton serviceId="interview" />
           <Link href="/interview/create" className="btn-primary"><Plus /> New Interview</Link>
@@ -386,107 +279,7 @@ export default function InterviewsDashboard() {
       )}
 
       {interviews.length > 0 ? (
-        <div className="space-y-4">
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-in-up" style={{ animationDelay: '60ms' }}>
-            <StatCard icon={Target}      value={stats.totalInterviews}  label="Total Interviews" accentClass="text-blue-400"    />
-            <StatCard icon={CheckCircle} value={`${stats.averageScore}%`} label="Average Score"  accentClass="text-emerald-400" />
-            <StatCard icon={Clock}       value={`${stats.totalHours}h`} label="Practice Time"    accentClass="text-violet-400"  />
-            <StatCard icon={Award}       value={`${stats.completionRate}%`} label="Completion"   accentClass="text-amber-400"   />
-          </div>
-
-          {/* Controls bar */}
-          <div className="glass-card p-4 animate-fade-in-up" style={{ animationDelay: '120ms' }}>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h2 className="text-[14px] font-bold text-white">Your Interviews</h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {filteredInterviews.length} of {interviews.length}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {/* Filter dropdown */}
-                <div className="relative filter-dropdown">
-                  <button
-                    type="button"
-                    onClick={() => setShowFilterMenu(!showFilterMenu)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg
-                               bg-white/[0.04] border border-white/[0.07]
-                               text-[12px] font-medium text-slate-400 hover:text-slate-200
-                               transition-colors min-w-[180px] justify-between"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <Filter className="w-3.5 h-3.5" />
-                      {filterLabel(sortFilter)}
-                    </span>
-                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${showFilterMenu ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {showFilterMenu && (
-                    <div className="absolute right-0 top-full mt-2 w-52
-                                    bg-[var(--bg-raised)] border border-white/[0.08]
-                                    rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)]
-                                    z-20 overflow-hidden">
-                      {filterOptions.map(opt => (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => { setSortFilter(opt); setShowFilterMenu(false); }}
-                          className={`w-full px-4 py-2.5 text-left text-[12px] font-medium transition-colors
-                                      ${sortFilter === opt
-                                        ? 'bg-indigo-500/15 text-indigo-300'
-                                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'}`}
-                        >
-                          {filterLabel(opt)}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* View toggle */}
-                <div className="flex items-center gap-0.5 p-1 bg-white/[0.03] border border-white/[0.07] rounded-lg">
-                  {(['grid', 'list'] as ViewMode[]).map(mode => (
-                    <button
-                      key={mode}
-                      onClick={() => setViewMode(mode)}
-                      aria-label={`${mode} view`}
-                      className={`p-1.5 rounded transition-all duration-150
-                                  ${viewMode === mode
-                                    ? 'bg-white/[0.10] text-white'
-                                    : 'text-slate-500 hover:text-slate-300'}`}
-                    >
-                      {mode === 'grid'
-                        ? <LayoutGrid className="w-3.5 h-3.5" />
-                        : <List className="w-3.5 h-3.5" />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Interview grid / list */}
-          {filteredInterviews.length > 0 ? (
-            <div className={viewMode === 'grid'
-              ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4'
-              : 'space-y-3'}>
-              {filteredInterviews.map((interview, idx) => (
-                <div
-                  key={`interview-${interview.id}-${idx}`}
-                  className="animate-fade-in-up"
-                  style={{ animationDelay: `${idx * 60}ms` }}
-                >
-                  <ProfileInterviewCard interview={interview} />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyFiltered onClear={() => setSortFilter('all')} />
-          )}
-        </div>
+        <InterviewLibrary interviews={interviews} />
       ) : !interviewsError ? (
         <EmptyDashboard />
       ) : null}

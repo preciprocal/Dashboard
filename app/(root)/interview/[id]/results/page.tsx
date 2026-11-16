@@ -163,9 +163,9 @@ export default async function InterviewResultsPage({ params }: Props) {
             <Link
               href="/sign-up"
               className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl
-                         bg-[var(--accent)]
-                         hover:bg-[var(--accent-hover)]
-                         text-white text-sm font-semibold
+                         bg-[var(--primary)]
+                         hover:bg-[var(--primary-hover)]
+                         text-[var(--on-primary)] text-sm font-semibold
                          
                          transition-all duration-200"
             >

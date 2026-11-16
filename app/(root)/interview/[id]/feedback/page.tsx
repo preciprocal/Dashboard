@@ -200,7 +200,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
   const getGradeBadge = (score: number): { grade: string; color: string } => {
     if (score >= 95) return { grade: "A+", color: "bg-emerald-500 shadow-emerald-500/30" };
     if (score >= 85) return { grade: "A", color: "bg-blue-500 shadow-blue-500/30" };
-    if (score >= 75) return { grade: "B+", color: "bg-violet-500 shadow-violet-500/30" };
+    if (score >= 75) return { grade: "B+", color: "bg-sky-500 shadow-sky-500/30" };
     if (score >= 65) return { grade: "B", color: "bg-amber-500 shadow-amber-500/30" };
     if (score >= 55) return { grade: "C", color: "bg-orange-500 shadow-orange-500/30" };
     return { grade: "D", color: "bg-red-500 shadow-red-500/30" };
@@ -346,8 +346,8 @@ export default async function InterviewFeedbackPage({ params }: Props) {
       <div className="glass-card">
         <div className="p-4 sm:p-6">
           <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
-              <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-[var(--accent-subtle)] rounded-lg flex items-center justify-center">
+              <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-[#a9b0f7]" />
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-semibold text-white">Performance Benchmark</h3>
@@ -448,8 +448,8 @@ export default async function InterviewFeedbackPage({ params }: Props) {
                 </div>
                 <div className="glass-card p-4 sm:p-5 border border-white/5 mb-4 sm:mb-5">
                   <div className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Brain className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400" />
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 bg-[var(--accent-subtle)] rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Brain className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#a9b0f7]" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="font-medium text-white text-xs sm:text-sm mb-1.5 sm:mb-2">AI Assessment</h4>
@@ -558,8 +558,8 @@ export default async function InterviewFeedbackPage({ params }: Props) {
       <div className="glass-card">
         <div className="p-4 sm:p-6 border-b border-white/5">
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
-              <Brain className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-[var(--accent-subtle)] rounded-lg flex items-center justify-center">
+              <Brain className="w-4 h-4 sm:w-5 sm:h-5 text-[#a9b0f7]" />
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-semibold text-white">AI Assessment Summary</h3>
@@ -582,7 +582,7 @@ export default async function InterviewFeedbackPage({ params }: Props) {
               <p className="text-xs text-slate-400">Readiness Level</p>
             </div>
             <div className="glass-card p-3 sm:p-4 border border-white/5 text-center">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-purple-500/10 rounded-lg flex items-center justify-center mx-auto mb-2">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-[var(--accent-subtle)] rounded-lg flex items-center justify-center mx-auto mb-2">
                 <span className="text-base sm:text-lg">{feedback.totalScore > industryBenchmark.industryAverage ? '⭐' : '📊'}</span>
               </div>
               <p className="text-sm sm:text-base font-semibold text-white mb-1">
