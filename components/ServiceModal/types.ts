@@ -8,7 +8,10 @@ export type ServiceId =
   | 'debrief'
   | 'career-tools'
   | 'job-tracker'
-  | 'templates';
+  | 'templates'
+  | 'salary'
+  | 'contacts'
+  | 'jobs';
 
 export type ResumeInitialTab = 'analysis' | 'benchmark' | 'recruiter' | 'intel' | 'writer';
 

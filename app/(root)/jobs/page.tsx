@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { Search, MapPin, Loader2, ShieldCheck, Landmark, Briefcase, Zap, FolderCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import PageHeader from '@/components/PageHeader';
+import { SeeExampleButton } from '@/components/ServiceModal';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { AppSelect } from '@/components/ui/select';
@@ -310,7 +311,7 @@ export default function JobsPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Jobs" icon={Briefcase} description="Open roles from employers' own job boards, checked before you apply." />
+      <PageHeader title="Jobs" icon={Briefcase} description="Open roles from employers' own job boards, checked before you apply." actions={<SeeExampleButton serviceId="jobs" />} />
 
       {/* Search and filters */}
       <section className="space-y-3">

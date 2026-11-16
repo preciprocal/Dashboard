@@ -10,6 +10,7 @@ import {
   Search, Filter, SlidersHorizontal, X, ArrowLeft,
 } from 'lucide-react';
 import { FadeIn, TypingText } from '../../primitives';
+import { demoClick } from '../../DemoCursor';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -110,6 +111,7 @@ function MiniCard({ app, onFindContacts, onEdit, highlight }: { app: typeof APPS
 
       <div className="grid grid-cols-2 gap-1.5 mt-auto">
         <button
+          {...(highlight ? demoClick(3) : {})}
           onClick={onFindContacts}
           className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-[8px] font-semibold transition-all cursor-pointer ${highlight ? 'text-white bg-[var(--accent)] border border-purple-500  animate-pulse' : 'text-purple-400 bg-purple-500/[0.07] border border-purple-500/20 hover:bg-purple-500/15 hover:border-purple-500/35 hover:text-purple-300'}`}
         >
@@ -250,7 +252,7 @@ export function JobTrackerExamplePreview({ step }: { step: number }) {
                   </div>
                 </FadeIn>
               ) : (
-                <button className="w-full py-2 bg-[var(--accent)] rounded-xl text-[10px] font-semibold text-white flex items-center justify-center gap-1.5">
+                <button {...demoClick(0)} className="w-full py-2 bg-[var(--accent)] rounded-xl text-[10px] font-semibold text-white flex items-center justify-center gap-1.5">
                   <CheckCircle2 className="w-3 h-3" /> Save Application
                 </button>
               )}
@@ -316,6 +318,7 @@ export function JobTrackerExamplePreview({ step }: { step: number }) {
                 {CONTACTS.map((c, i) => (
                   <FadeIn key={c.email} delay={200 + i * 120}>
                     <button
+                      {...(i === 1 ? demoClick(5) : {})}
                       onClick={() => setActiveContact(i)}
                       className={`w-full text-left px-3 py-2.5 border-b border-white/[0.04] transition-colors ${activeContact === i ? 'bg-purple-500/[0.10] border-l-2 border-l-purple-500' : 'hover:bg-white/[0.03]'}`}
                     >

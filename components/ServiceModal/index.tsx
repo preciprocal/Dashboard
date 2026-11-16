@@ -7,6 +7,7 @@ import { X, Play, ArrowRight } from 'lucide-react';
 
 import type { ServiceId, ServiceExampleModalProps, ResumeInitialTab } from './types';
 import { SERVICE_EXAMPLES } from './serviceConfig';
+import DemoCursor from './DemoCursor';
 
 // ─── Smooth progress hook ─────────────────────────────────────────────────────
 
@@ -71,6 +72,7 @@ function useSmoothProgress(currentStep: number, totalSteps: number, stepDuration
 function ServiceExampleModal({ serviceId, isOpen, onClose, initialTab }: ServiceExampleModalProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const previewRef = useRef<HTMLDivElement | null>(null);
 
   const service = SERVICE_EXAMPLES.find(s => s.id === serviceId);
 
@@ -181,7 +183,11 @@ function ServiceExampleModal({ serviceId, isOpen, onClose, initialTab }: Service
 
         {/* Animated preview area */}
         <div className="px-6 pb-5 pt-2 min-h-[520px] overflow-y-auto" style={{ maxHeight: 'calc(90vh - 160px)' }}>
-          {service.renderPreview(currentStep, smoothProgress, initialTab)}
+          {/* The cursor shows what each step clicks (DemoCursor). */}
+          <div ref={previewRef} className="relative">
+            {service.renderPreview(currentStep, smoothProgress, initialTab)}
+            <DemoCursor step={currentStep} stepDuration={stepDuration} playing={isPlaying} rootRef={previewRef} />
+          </div>
         </div>
 
         {/* Footer */}

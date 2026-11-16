@@ -6,6 +6,7 @@
 import { CircleDollarSign } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import SalaryView from '@/components/salary/SalaryView';
+import { SeeExampleButton } from '@/components/ServiceModal';
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? '';
 
@@ -17,6 +18,7 @@ export default async function SalaryPage({ searchParams }: { searchParams: Promi
         title="Market Pay"
         description="What an occupation pays in your area, and where your offer sits."
         icon={<CircleDollarSign strokeWidth={1.75} aria-hidden="true" />}
+        actions={<SeeExampleButton serviceId="salary" />}
       />
       <SalaryView
         initialTitle={one(q.title).slice(0, 200)}

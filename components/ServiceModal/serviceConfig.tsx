@@ -1,7 +1,7 @@
 // components/ServiceExampleModal/serviceConfig.tsx
 'use client';
 
-import { FileText, Pen, Video, Calendar, Sparkles, BookOpen, Briefcase } from 'lucide-react';
+import { FileText, Pen, Video, Calendar, Sparkles, BookOpen, Briefcase, CircleDollarSign, Users, Search } from 'lucide-react';
 import type { ServiceExample, ResumeInitialTab } from './types';
 import { ResumeExamplePreview } from './examples/resume/ResumePreview';
 import { CoverLetterExamplePreview } from './examples/cover-letter/CoverLetterPreview';
@@ -10,6 +10,9 @@ import { PlannerExamplePreview } from './examples/planner/PlannerPreview';
 import { CareerToolsExamplePreview } from './examples/career-tools/CareerToolsPreview';
 import { DebriefExamplePreview } from './examples/debrief/DebriefPreview';
 import { JobTrackerExamplePreview } from './examples/job-tracker/JobTrackerPreview';
+import { SalaryExamplePreview } from './examples/salary/SalaryPreview';
+import { ContactsExamplePreview } from './examples/contacts/ContactsPreview';
+import { JobsExamplePreview } from './examples/jobs/JobsPreview';
 
 // Resume + cover-letter + interview + planner + career-tools + debrief + job-tracker
 export const SERVICE_EXAMPLES: ServiceExample[] = [
@@ -39,7 +42,7 @@ export const SERVICE_EXAMPLES: ServiceExample[] = [
     icon: Pen,
     gradient: 'from-blue-600 to-cyan-600',
     steps: [
-      { label: 'Filling in job details…', duration: 2200 },
+      { label: 'Filling in job details…', duration: 3000 },
       { label: 'Researching company…', duration: 1500 },
       { label: 'Generating cover letter…', duration: 2000 },
       { label: 'Cover letter ready!', duration: 3000 },
@@ -88,10 +91,10 @@ export const SERVICE_EXAMPLES: ServiceExample[] = [
     icon: Sparkles,
     gradient: 'from-violet-600 to-purple-600',
     steps: [
-      { label: 'Filling LinkedIn details…', duration: 2500 },
+      { label: 'Filling LinkedIn details…', duration: 3900 },
       { label: 'Optimising profile…', duration: 2000 },
       { label: 'LinkedIn results ready!', duration: 5000 },
-      { label: 'Setting up cold outreach…', duration: 4000 },
+      { label: 'Setting up cold outreach…', duration: 4200 },
       { label: 'Generating messages…', duration: 2000 },
       { label: 'Outreach ready!', duration: 5000 },
     ],
@@ -104,7 +107,7 @@ export const SERVICE_EXAMPLES: ServiceExample[] = [
     icon: BookOpen,
     gradient: 'from-violet-600 to-indigo-600',
     steps: [
-      { label: 'Logging interview details…', duration: 6000 },
+      { label: 'Logging interview details…', duration: 7000 },
       { label: 'Saving to journal…',         duration: 2500 },
       { label: 'Journal entries loaded!',     duration: 5000 },
       { label: 'Calculating stats…',          duration: 5000 },
@@ -130,5 +133,51 @@ export const SERVICE_EXAMPLES: ServiceExample[] = [
       { label: 'Ready to send! Click any card.', duration: 4000 },
     ],
     renderPreview: (step) => <JobTrackerExamplePreview step={step} />,
+  },
+  {
+    id: 'jobs',
+    title: 'Jobs',
+    subtitle: 'Open roles with your skill match, and the full details in one place',
+    icon: Search,
+    gradient: 'from-indigo-500 to-violet-500',
+    steps: [
+      { label: 'Finding open roles…', duration: 1800 },
+      { label: 'Scoring your skill match…', duration: 2600 },
+      { label: 'Opening the details…', duration: 3000 },
+      { label: 'Saving it to your tracker…', duration: 2600 },
+      { label: 'Saved. Apply when you are ready.', duration: 3000 },
+    ],
+    renderPreview: (step) => <JobsExamplePreview step={step} />,
+  },
+  {
+    id: 'salary',
+    title: 'Market Pay',
+    subtitle: 'What a role pays in your area, and where an offer sits',
+    icon: CircleDollarSign,
+    gradient: 'from-indigo-500 to-violet-500',
+    steps: [
+      { label: 'Entering a title and location…', duration: 3000 },
+      { label: 'Reading the wage tables…', duration: 1500 },
+      { label: 'Pay for this role and area…', duration: 3200 },
+      { label: 'Placing your offer on the range…', duration: 3600 },
+      { label: 'Kept under recent searches', duration: 3000 },
+    ],
+    renderPreview: (step) => <SalaryExamplePreview step={step} />,
+  },
+  {
+    id: 'contacts',
+    title: 'Contacts',
+    subtitle: 'Keep track of who you met, and when to follow up',
+    icon: Users,
+    gradient: 'from-indigo-500 to-violet-500',
+    steps: [
+      { label: 'Adding a contact…', duration: 3600 },
+      { label: 'Contact saved', duration: 2000 },
+      { label: 'Setting a follow-up…', duration: 2800 },
+      { label: 'Logging what happened…', duration: 3000 },
+      { label: 'Timeline updated', duration: 2600 },
+      { label: 'Follow-up due today', duration: 4000 },
+    ],
+    renderPreview: (step) => <ContactsExamplePreview step={step} />,
   },
 ];

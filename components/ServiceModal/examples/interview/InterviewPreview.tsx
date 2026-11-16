@@ -9,6 +9,7 @@ import {
   MessageSquare, Star, TrendingUp, Zap,
 } from 'lucide-react';
 import { FadeIn, ScoreRing, AnimatedBar } from '../../primitives';
+import { demoClick } from '../../DemoCursor';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -131,7 +132,7 @@ function WaitingRoom({ step }: { step: number }) {
 
             {step >= 1 && (
               <FadeIn delay={400}>
-                <div className="mt-2.5 w-full py-2.5 rounded-lg text-center text-[10px] font-semibold bg-emerald-600 text-white flex items-center justify-center gap-2">
+                <div {...demoClick(1)} className="mt-2.5 w-full py-2.5 rounded-lg text-center text-[10px] font-semibold bg-emerald-600 text-white flex items-center justify-center gap-2">
                   <ArrowRight className="w-3.5 h-3.5" /> Join Interview
                 </div>
               </FadeIn>
@@ -383,7 +384,7 @@ function LiveInterview() {
                 { icon: <PhoneOff className="w-3 h-3" />, bg: 'bg-red-600' },
                 { icon: <Volume2 className="w-3 h-3" />, bg: 'bg-[var(--bg-raised)]' },
               ].map((b, i) => (
-                <div key={i} className={`p-1.5 rounded-full ${b.bg} text-white`}>{b.icon}</div>
+                <div key={i} {...(i === 2 ? demoClick(4) : {})} className={`p-1.5 rounded-full ${b.bg} text-white`}>{b.icon}</div>
               ))}
             </div>
           </div>

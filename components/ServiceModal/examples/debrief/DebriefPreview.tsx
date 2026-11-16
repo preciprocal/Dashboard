@@ -10,6 +10,7 @@ import {
   ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { FadeIn, TypingText } from '../../primitives';
+import { demoClick } from '../../DemoCursor';
 
 // ─── Scrollbar ────────────────────────────────────────────────────────────────
 
@@ -260,7 +261,7 @@ function LogFormPhase({ onSave, isLoading }: { onSave: () => void; isLoading: bo
 
           {/* Save button */}
           <FadeIn delay={5800}>
-            <button onClick={onSave} disabled={isLoading}
+            <button {...demoClick(0)} onClick={onSave} disabled={isLoading}
               className="w-full py-2 rounded-xl text-center text-[10px] font-semibold bg-[var(--accent)] text-white flex items-center justify-center gap-1.5 hover:brightness-110 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60">
               {isLoading ? <><Loader2 className="w-3 h-3 animate-spin" /> Saving…</> : <><Save className="w-3 h-3" /> Save to Journal</>}
             </button>

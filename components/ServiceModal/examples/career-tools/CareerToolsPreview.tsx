@@ -9,6 +9,7 @@ import {
    Mail, Loader2,
 } from 'lucide-react';
 import { FadeIn, TypingText, ScoreRing } from '../../primitives';
+import { demoClick } from '../../DemoCursor';
 
 // ─── Scrollbar ────────────────────────────────────────────────────────────────
 
@@ -126,6 +127,7 @@ function LinkedInForm({ onGenerate, isLoading }: { onGenerate: () => void; isLoa
 
           <FadeIn delay={3200}>
             <button
+              {...demoClick(0)}
               onClick={onGenerate}
               disabled={isLoading}
               className="w-full py-2 rounded-xl text-center text-[10px] font-semibold bg-[var(--accent)] text-white flex items-center justify-center gap-1.5 hover:brightness-110 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
@@ -380,6 +382,7 @@ function OutreachForm({ onGenerate, isLoading }: { onGenerate: () => void; isLoa
 
           <FadeIn delay={3200}>
             <button
+              {...demoClick(3)}
               onClick={onGenerate}
               disabled={isLoading}
               className="w-full py-2 rounded-xl text-center text-[10px] font-semibold bg-emerald-600 text-white flex items-center justify-center gap-1.5 hover:brightness-110 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"

@@ -8,6 +8,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Contact as ContactIcon, Plus, Search, X, Loader2, List, Columns3, AlertCircle, Database } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import { SeeExampleButton } from '@/components/ServiceModal';
 import { AppSelect } from '@/components/ui/select';
 import {
   CONTACT_STATUSES, RELATIONSHIPS, RELATIONSHIP_LABELS, STATUS_LABELS, isDue, lastContactLabel,
@@ -148,7 +149,7 @@ export default function ContactsView() {
         title="Contacts"
         description={headerDescription}
         icon={ContactIcon}
-        actions={<button onClick={() => setForm({ contact: null })} disabled={setupRequired} className="btn-primary"><Plus /> Add contact</button>}
+        actions={<><SeeExampleButton serviceId="contacts" /><button onClick={() => setForm({ contact: null })} disabled={setupRequired} className="btn-primary"><Plus /> Add contact</button></>}
       />
 
       {setupRequired && (

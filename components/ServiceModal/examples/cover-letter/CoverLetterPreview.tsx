@@ -5,6 +5,7 @@ import {
   Briefcase, FileText, Loader2, Wand2, Save, Copy, Download,
   ChevronRight, } from 'lucide-react';
 import { FadeIn, TypingText } from '../../primitives';
+import { demoClick } from '../../DemoCursor';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -69,7 +70,7 @@ export function CoverLetterExamplePreview({ step }: { step: number }) {
 
             {/* Generate button */}
             <FadeIn delay={step >= 0 ? 2000 : 99999}>
-              <div className="w-full py-2.5 rounded-xl text-center text-[11px] font-semibold bg-[var(--accent)] text-white">
+              <div {...demoClick(0)} className="w-full py-2.5 rounded-xl text-center text-[11px] font-semibold bg-[var(--accent)] text-white">
                 {step === 2 ? (
                   <span className="flex items-center justify-center gap-1.5">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating…

@@ -9,6 +9,7 @@ import {
   Circle, Youtube, Code, FileText, ExternalLink,
 } from 'lucide-react';
 import { FadeIn, TypingText } from '../../primitives';
+import { demoClick } from '../../DemoCursor';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -221,7 +222,7 @@ function CreatingPlan() {
       </FadeIn>
 
       <FadeIn delay={3500}>
-        <div className="w-full py-2.5 rounded-xl text-center text-[11px] font-semibold bg-[var(--accent)] text-white flex items-center justify-center gap-2 ">
+        <div {...demoClick(1)} className="w-full py-2.5 rounded-xl text-center text-[11px] font-semibold bg-[var(--accent)] text-white flex items-center justify-center gap-2 ">
           <Sparkles className="w-3.5 h-3.5" /> Generate Preparation Plan
         </div>
       </FadeIn>
@@ -320,7 +321,7 @@ function TabBar({ activeTab }: { activeTab: string }) {
   return (
     <div className="p-1 bg-white/[0.02] border border-white/[0.06] rounded-lg flex items-center gap-0.5 mb-2.5 flex-shrink-0">
       {tabs.map(tab => (
-        <div key={tab.id} className={`flex items-center gap-1 px-2 py-1.5 rounded text-[8px] font-semibold flex-shrink-0 whitespace-nowrap ${
+        <div key={tab.id} {...demoClick(({ tasks: 2, analytics: 3, chat: 4, quiz: 5 } as Record<string, number>)[tab.id] ?? -1)} className={`flex items-center gap-1 px-2 py-1.5 rounded text-[8px] font-semibold flex-shrink-0 whitespace-nowrap ${
           activeTab === tab.id ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : 'text-slate-500'
         }`}>
           <tab.icon className="w-3 h-3" />

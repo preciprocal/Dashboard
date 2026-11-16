@@ -8,6 +8,7 @@ import { ResumeAnalysisTab } from './ResumeAnalysisTab';
 import { ResumeBenchmarkTab } from './ResumeBenchmarkTab';
 import { ResumeRecruiterTab } from './ResumeRecruiterTab';
 import { ResumeIntelTab } from './ResumeIntelTab';
+import { demoClick } from '../../DemoCursor';
 import { ResumeWriterTab } from './ResumeWriterTab';
 
 type ResumeTab = 'analysis' | 'benchmark' | 'recruiter' | 'intel' | 'writer';
@@ -77,7 +78,7 @@ function TabBar({
           (tab.id === 'writer' && step === 5)
         );
         return (
-          <button key={tab.id} data-tab-btn onClick={() => { if (!locked && isComplete) onTabChange(tab.id); }}
+          <button key={tab.id} data-tab-btn {...demoClick(({ analysis: 0, benchmark: 1, recruiter: 2, intel: 3, writer: 4 } as Record<string, number>)[tab.id] ?? -1)} onClick={() => { if (!locked && isComplete) onTabChange(tab.id); }}
             className={`relative z-10 flex-1 py-1 text-center text-[8px] font-medium rounded transition-colors duration-200 ${
               locked && !isActive ? 'cursor-not-allowed opacity-40' :
               isComplete ? 'cursor-pointer' : 'cursor-default'
