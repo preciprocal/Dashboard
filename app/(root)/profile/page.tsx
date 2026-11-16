@@ -11,7 +11,7 @@ import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader'
 import ErrorPage from '@/components/Error';
 import {
   MapPin, User, Bookmark, Phone, Edit, Save, X,
-  Globe, Briefcase, TrendingUp, Clock, FileText, Zap, AlertCircle,
+  Globe, Briefcase, FileText, Zap, AlertCircle,
   RefreshCw, Upload, Trash2, FileBadge,
 } from "lucide-react";
 import JobApplicationProfile from "@/components/profile/JobApplication";
@@ -19,6 +19,7 @@ import ProfileSaved from "@/components/profile/Saved";
 import { NotificationService } from "@/lib/services/notification-services";
 import ResumePicker, { type ResumeOption } from '@/components/apply/ResumePicker';
 import { DEFAULT_RESUME_EVENT } from '@/components/DefaultResumeBanner';
+import ReadinessStrip from '@/components/profile/ReadinessStrip';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -74,25 +75,6 @@ function convertToDate(val: TimestampLike | string | Date | undefined): Date {
 // Shared form-control size and style (globals.css .field), so every input,
 // select and textarea on this page matches the rest of the app.
 const inp = 'field';
-
-// ─── Stat card ────────────────────────────────────────────────────────────────
-
-function StatCard({ icon: Icon, value, label, accentClass }: {
-  icon: React.ElementType; value: string | number; label: string; accentClass: string;
-}) {
-  return (
-    <div className="glass-card p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center
-                         ${accentClass.replace('text-', 'bg-').replace('-400', '-500/10')}`}>
-          <Icon className={`w-4 h-4 ${accentClass}`} />
-        </div>
-        <span className="text-2xl font-bold text-white tabular-nums">{value}</span>
-      </div>
-      <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">{label}</p>
-    </div>
-  );
-}
 
 // ─── File upload row ──────────────────────────────────────────────────────────
 
@@ -689,30 +671,10 @@ const ProfilePage = () => {
             )}
           </div>
 
-          {/* Stats row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-in-up" style={{ animationDelay: '60ms' }}>
-            <StatCard icon={FileText}   value={stats.totalInterviews}                                label="Interviews"   accentClass="text-blue-400"    />
-            <StatCard icon={TrendingUp} value={stats.averageScore}                                   label="Avg Score"    accentClass="text-emerald-400" />
-            <StatCard icon={Zap}        value={stats.currentStreak}                                  label="Streak"       accentClass="text-amber-400"   />
-            <StatCard icon={Clock}      value={stats.hoursSpent > 0 ? `${stats.hoursSpent}h` : '0h'} label="Hours Spent" accentClass="text-violet-400"  />
-          </div>
-
-          {/* Performance metrics */}
-          <div className="glass-card p-5 animate-fade-in-up" style={{ animationDelay: '120ms' }}>
-            <h3 className="text-sm font-bold text-white mb-4">Performance Metrics</h3>
-            <div className="grid grid-cols-3 gap-4">
-              {[
-                { value: `${stats.successRate}%`,    label: 'Success Rate',    accentClass: 'text-emerald-400' },
-                { value: `${stats.completionRate}%`, label: 'Completion Rate', accentClass: 'text-blue-400'    },
-                { value: stats.longestStreak,        label: 'Longest Streak',  accentClass: 'text-violet-400'  },
-              ].map(m => (
-                <div key={m.label} className="text-center">
-                  <p className={`text-2xl font-bold tabular-nums ${m.accentClass}`}>{m.value}</p>
-                  <p className="text-xs text-slate-400 mt-1 uppercase tracking-wide font-semibold">{m.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+          {/* What is left before applying is smooth: answers, resume, dates, links */}
+          <ReadinessStrip links={[userProfile?.linkedIn, userProfile?.github, userProfile?.website]}
+            onOpenAutoApply={() => setActiveTab('auto-apply')}
+            onEditProfile={() => { setIsEditing(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
         </>
       )}
 

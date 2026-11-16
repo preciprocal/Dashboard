@@ -83,18 +83,18 @@ function SectionCard({ children, className = '' }: { children: React.ReactNode; 
 }
 
 function SectionHeader({
-  icon: Icon, iconColor, iconBg, title, subtitle,
+  icon: Icon, title, subtitle,
 }: {
-  icon: React.ElementType; iconColor: string; iconBg: string; title: string; subtitle: string;
+  icon: React.ElementType; iconColor?: string; iconBg?: string; title: string; subtitle: string;
 }) {
   return (
     <div className="px-5 py-4 border-b border-white/[0.06] flex items-center gap-3">
-      <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${iconBg}`}>
-        <Icon className={`w-4 h-4 ${iconColor}`} />
+      <div className="w-9 h-9 rounded-[10px] flex items-center justify-center bg-white/[0.04] ring-1 ring-inset ring-white/[0.07] flex-shrink-0">
+        <Icon className="w-4 h-4 text-[var(--accent)]" />
       </div>
-      <div>
-        <h3 className="text-sm font-semibold text-white">{title}</h3>
-        <p className="text-slate-400 text-xs mt-0.5">{subtitle}</p>
+      <div className="min-w-0">
+        <h3 className="text-[14px] font-semibold text-white">{title}</h3>
+        <p className="text-[12.5px] text-[var(--text-3)] mt-0.5">{subtitle}</p>
       </div>
     </div>
   );
@@ -410,75 +410,67 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="space-y-5 px-4 sm:px-0 pb-12">
+    <div className="space-y-6 px-4 sm:px-0 pt-4 pb-12">
 
       {/* ── Page Header ── */}
-      <div className="glass-card p-5">
-        {/* Same breadcrumb bar as every other page header (PageHeader). */}
-        <div className="-mx-5 -mt-5 mb-5 px-5 rounded-t-[var(--r-2xl)] border-b border-white/[0.06] bg-white/[0.015] py-2"><Breadcrumbs crumbs={crumbsFor('/settings', 'Settings')} className="" /></div>
-
+      <header>
+        <Breadcrumbs crumbs={crumbsFor('/settings', 'Settings')} className="mb-2.5" />
         <div className="flex items-center gap-4">
           <div className="relative flex-shrink-0">
             {avatarUrl ? (
-              <Image src={avatarUrl} alt="Profile" width={52} height={52} className="rounded-xl object-cover" />
+              <Image src={avatarUrl} alt="Profile" width={48} height={48} className="rounded-xl object-cover" />
             ) : (
-              <div className="w-[52px] h-[52px] rounded-xl bg-[var(--accent)] flex items-center justify-center text-white font-semibold text-lg">
-                {userInitials}
-              </div>
+              <div className="w-12 h-12 rounded-xl bg-[var(--accent)] flex items-center justify-center text-white font-semibold text-lg">{userInitials}</div>
             )}
-            <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-[var(--bg)]" />
+            <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-[var(--sheet)]" />
           </div>
-
           <div className="flex-1 min-w-0">
-            <h1 className="text-base font-semibold text-white truncate">{(user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || 'Your Account'}</h1>
-            <p className="text-slate-400 text-xs truncate mt-0.5">{user.email}</p>
-            <div className="flex items-center flex-wrap gap-1.5 mt-2">
-              <span className={`inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full font-medium border ${
-                plan.tier === 'free'
-                  ? 'bg-slate-800/60 text-slate-400 border-slate-700/50'
-                  : plan.tier === 'pro'
-                  ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                  : 'bg-purple-500/10 text-purple-400 border-purple-500/20'
-              }`}>
-                {plan.tier === 'pro'        && <Star      className="w-3 h-3" />}
-                {plan.tier === 'enterprise' && <Building2 className="w-3 h-3" />}
-                {plan.name}
+            <h1 className="text-[24px] font-semibold text-white tracking-[-0.024em] leading-tight">Settings</h1>
+            <p className="text-[13px] text-[var(--text-3)] mt-1 truncate flex items-center gap-2">
+              <span className="truncate">{(user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || user.email}</span>
+              <span aria-hidden="true">·</span>
+              <span className="inline-flex items-center gap-1 h-5 px-2 rounded-md text-[11px] font-medium text-[var(--text-2)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.07] flex-shrink-0">
+                {plan.tier === 'pro' && <Star className="w-3 h-3" />}{plan.tier === 'enterprise' && <Building2 className="w-3 h-3" />}{plan.name}
               </span>
-              {isGoogleUser && (
-                <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full bg-white/[0.042] text-slate-400 border border-[var(--border)] font-medium">Google</span>
-              )}
-            </div>
+              {isGoogleUser && <span className="hidden sm:inline-flex h-5 px-2 items-center rounded-md text-[11px] text-[var(--text-3)] bg-white/[0.04] ring-1 ring-inset ring-white/[0.06] flex-shrink-0">Google</span>}
+            </p>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* ── Tab bar ── */}
-      <div className="glass-card overflow-hidden relative">
-        {/* On a phone only 3 of the 7 or 8 tabs fit; the fade says there are more. */}
-        <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-12 z-10 bg-gradient-to-l from-[var(--sheet)] to-transparent lg:hidden" />
-        <div className="flex overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+      <div className="lg:grid lg:grid-cols-[210px_minmax(0,1fr)] lg:gap-8 lg:items-start space-y-4 lg:space-y-0">
+      {/* ── Sections: a column on desktop, a scrolling row on phones ── */}
+      <nav aria-label="Settings sections" className="lg:sticky lg:top-24">
+        <div className="relative lg:hidden">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-10 z-10 bg-gradient-to-l from-[var(--sheet)] to-transparent" />
+          <div className="flex overflow-x-auto border-b border-white/[0.07]" style={{ scrollbarWidth: 'none' }}>
+            {sections.map(s => {
+              const on = activeSection === s.id;
+              return (
+                <button key={s.id} onClick={e => { setActiveSection(s.id); e.currentTarget.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); }}
+                  className={`relative flex-shrink-0 flex items-center gap-2 px-3.5 h-11 text-[13px] font-medium whitespace-nowrap transition-colors ${on ? (s.danger ? 'text-rose-300' : 'text-white') : 'text-[var(--text-3)] hover:text-white'}`}>
+                  <s.icon className="w-4 h-4" />{s.label}
+                  {s.badge && <span className="text-[10px] px-1.5 py-[3px] rounded-full bg-[var(--accent-subtle)] text-[#c5cbf5] ring-1 ring-inset ring-[var(--accent-border)] font-semibold leading-none">{s.badge}</span>}
+                  {on && <span className={`absolute left-2 right-2 -bottom-px h-[2px] rounded-full ${s.danger ? 'bg-rose-400' : 'bg-white'}`} />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="hidden lg:block space-y-px">
           {sections.map(s => {
-            const isActive = activeSection === s.id;
+            const on = activeSection === s.id;
             return (
-              <button key={s.id} onClick={e => { setActiveSection(s.id); e.currentTarget.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); }}
-                className={`relative flex-shrink-0 flex items-center gap-2 px-4 py-3.5 text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
-                  isActive
-                    ? s.danger ? 'text-red-400' : 'text-white'
-                    : s.danger ? 'text-slate-400 hover:text-red-400' : 'text-slate-400 hover:text-slate-300'
-                }`}>
-                <s.icon className={`w-3.5 h-3.5 flex-shrink-0 ${isActive && !s.danger ? 'text-indigo-400' : ''}`} />
-                <span>{s.label}</span>
-                {s.badge && (
-                  <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-[var(--accent)] text-white font-bold leading-none">{s.badge}</span>
-                )}
-                {isActive && (
-                  <span className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-full ${s.danger ? 'bg-red-400' : 'bg-[var(--accent)]'}`} />
-                )}
+              <button key={s.id} onClick={() => setActiveSection(s.id)} aria-current={on ? 'page' : undefined}
+                className={`group w-full flex items-center gap-2.5 h-9 px-3 rounded-lg text-[13px] text-left transition-colors ${s.danger ? 'mt-3' : ''} ${on ? (s.danger ? 'bg-rose-500/[0.08] text-rose-300 font-medium' : 'bg-white/[0.06] text-white font-medium shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]') : (s.danger ? 'text-[var(--text-3)] hover:text-rose-300 hover:bg-rose-500/[0.05]' : 'text-[var(--text-3)] hover:text-white hover:bg-white/[0.04]')}`}>
+                <s.icon className={`w-4 h-4 flex-shrink-0 ${on && !s.danger ? 'text-[var(--accent)]' : ''}`} />
+                <span className="flex-1 truncate">{s.label}</span>
+                {s.badge && <span className="text-[10px] px-1.5 py-[3px] rounded-full bg-[var(--accent-subtle)] text-[#c5cbf5] ring-1 ring-inset ring-[var(--accent-border)] font-semibold leading-none">{s.badge}</span>}
               </button>
             );
           })}
         </div>
-      </div>
+      </nav>
 
       {/* ── Content ── */}
       <div className="space-y-4">
@@ -1002,6 +994,7 @@ export default function SettingsPage() {
           </div>
         )}
 
+      </div>
       </div>
     </div>
   );
