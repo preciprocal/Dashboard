@@ -534,7 +534,7 @@ export default function ResumeDetailsPage() {
                     <InterviewIntelligence resumeId={resume.id} companyName={resume.companyName} jobTitle={resume.jobTitle} jobDescription={resume.jobDescription} preloadedIntel={resume.interviewIntel as unknown as Parameters<typeof InterviewIntelligence>[0]['preloadedIntel']} />
                   </div>
                   <div className="pt-2 pb-4">
-                    <Link href="/resume" className="inline-flex items-center gap-1.5 text-[13px] text-[var(--text-3)] hover:text-white transition-colors"><ArrowLeft className="w-4 h-4" /> All resumes</Link>
+                    <Link href="/resume" className="btn-secondary"><ArrowLeft className="w-4 h-4" /> All resumes</Link>
                   </div>
                 </>
               )}

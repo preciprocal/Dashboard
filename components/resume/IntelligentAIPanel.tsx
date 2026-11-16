@@ -6,7 +6,7 @@ import {
   Sparkles, Loader2, ChevronDown, ChevronRight, AlertTriangle,
   CheckCircle2, XCircle, TrendingUp, Zap, Target, BarChart3,
   ArrowRight, RefreshCw, Info, Copy, Check, ChevronUp,
-  FileText, Award, Hash, Plus,
+  FileText, Hash, Plus, PenTool, LayoutList,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -692,20 +692,24 @@ export default function IntelligentAIPanel({
   ];
 
   return (
-    <div className="flex flex-col h-full overflow-hidden" style={{ background: '#0a0d1a', borderLeft: '1px solid rgba(51,65,85,0.4)' }}>
+    <div className="flex flex-col h-full overflow-hidden rounded-2xl ring-1 ring-inset ring-white/[0.07] bg-[var(--bg-surface)]">
 
       {/* Header */}
-      <div className="flex-shrink-0 px-4 pt-4 pb-3 border-b border-indigo-500/[0.15]" style={{ background: 'linear-gradient(135deg, #1a1730 0%, #14122a 50%, #0d1020 100%)' }}>
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Sparkles className="w-4 h-4 text-white" /></div>
-            <div><h2 className="text-sm font-bold text-white">Resume Analyzer</h2><p className="text-xs text-indigo-300/60">{analysis ? `Score: ${analysis.overallScore}/100` : 'AI-powered deep analysis'}</p></div>
+      <div className="flex-shrink-0 px-5 pt-5 pb-0 prc-rail">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="w-10 h-10 rounded-[10px] bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] flex items-center justify-center flex-shrink-0"><PenTool className="w-[18px] h-[18px] text-[var(--accent)]" /></span>
+            <div className="min-w-0">
+              <h2 className="text-[15px] font-semibold text-white">Resume writer</h2>
+              <p className="text-[12.5px] text-[var(--text-3)] truncate">{analysis ? <>Score <span className="text-white font-medium tabular-nums">{analysis.overallScore}</span> of 100 · edit on the left, changes save as you type</> : 'Bullet-by-bullet fixes, keywords and tailoring to a job'}</p>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <button onClick={() => setShowJobInput(!showJobInput)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${jobDescription ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/30' : 'bg-white/[0.042] text-slate-400 border border-white/[0.06] hover:text-white'}`}>
-              <Target className="w-3 h-3" />{isPreFilled ? (initialCompanyName || initialJobTitle || 'Targeted') : jobDescription ? 'Targeted' : 'Add Job'}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button onClick={() => setShowJobInput(!showJobInput)} aria-expanded={showJobInput}
+              className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[12.5px] font-medium transition-colors cursor-pointer ${jobDescription ? 'text-white bg-[var(--accent-subtle)] ring-1 ring-inset ring-[var(--accent-border)]' : 'text-[var(--text-2)] bg-white/[0.04] ring-1 ring-inset ring-white/[0.08] hover:text-white hover:bg-white/[0.07]'}`}>
+              <Target className="w-3.5 h-3.5" />{isPreFilled ? (initialCompanyName || initialJobTitle || 'Targeted') : jobDescription ? 'Targeted' : 'Target a job'}
             </button>
-            {analysis && <button onClick={() => runAnalysis()} disabled={isAnalyzing} className="p-1.5 rounded-lg bg-white/[0.042] text-slate-400 hover:text-white border border-white/[0.06] transition-colors cursor-pointer" title="Re-analyze"><RefreshCw className={`w-3.5 h-3.5 ${isAnalyzing ? 'animate-spin' : ''}`} /></button>}
+            {analysis && <button onClick={() => runAnalysis()} disabled={isAnalyzing} className="w-8 h-8 rounded-lg flex items-center justify-center text-[var(--text-3)] bg-white/[0.04] ring-1 ring-inset ring-white/[0.08] hover:text-white hover:bg-white/[0.07] transition-colors cursor-pointer" title="Analyze again" aria-label="Analyze again"><RefreshCw className={`w-3.5 h-3.5 ${isAnalyzing ? 'animate-spin' : ''}`} /></button>}
           </div>
         </div>
 
@@ -720,21 +724,19 @@ export default function IntelligentAIPanel({
           </div>
         )}
 
-        {!analysis && !isAnalyzing && activeTab !== 'tailor' && (
-          <button onClick={() => runAnalysis()} disabled={isAnalyzing} className="w-full py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 cursor-pointer transition-all" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', boxShadow: '0 4px 20px rgba(99,102,241,0.3)' }}>
-            <Sparkles className="w-4 h-4" />{jobDescription ? `Analyze for ${initialCompanyName || initialJobTitle || 'This Role'}` : 'Deep Analyze Resume'}
-          </button>
-        )}
-
         {/* Tab bar */}
-        <div className="flex items-center gap-1 bg-white/[0.042] border border-white/[0.05] rounded-xl p-1 mt-4 mb-1">
-          {tabs.map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${activeTab === tab.id ? 'bg-indigo-600/50 text-white shadow-sm' : 'text-slate-400 hover:text-slate-300'}`}>
-              <tab.icon className="w-3 h-3" />{tab.label}
-              {tab.count !== undefined && <span className={`px-1 rounded text-[11px] font-bold ${activeTab === tab.id ? 'bg-white/20' : 'bg-white/10 text-slate-400'}`}>{tab.count}</span>}
-            </button>
-          ))}
+        <div role="tablist" className="flex items-center -mx-5 px-2 border-b border-white/[0.07] overflow-x-auto scrollbar-hide">
+          {tabs.map(tab => {
+            const on = activeTab === tab.id;
+            return (
+              <button key={tab.id} role="tab" aria-selected={on} onClick={() => setActiveTab(tab.id)}
+                className={`relative flex-1 min-w-fit px-3 h-11 flex items-center justify-center gap-1.5 text-[12.5px] font-medium whitespace-nowrap transition-colors cursor-pointer ${on ? 'text-white' : 'text-[var(--text-3)] hover:text-white'}`}>
+                <tab.icon className={`w-3.5 h-3.5 ${on ? 'text-[var(--accent)]' : ''}`} />{tab.label}
+                {tab.count !== undefined && <span className={`min-w-[18px] h-[18px] px-1 rounded-full text-[10.5px] font-semibold flex items-center justify-center tabular-nums ${on ? 'bg-white/[0.12] text-white' : 'bg-white/[0.06] text-[var(--text-3)]'}`}>{tab.count}</span>}
+                <span className={`absolute left-2 right-2 -bottom-px h-[2px] rounded-full bg-white transition-transform duration-300 origin-left ${on ? 'scale-x-100' : 'scale-x-0'}`} />
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -746,22 +748,29 @@ export default function IntelligentAIPanel({
 
         {/* Empty state */}
         {!analysis && !isAnalyzing && activeTab !== 'tailor' && tailorQuickWins.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full px-6 py-10 text-center">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.08))', border: '1px solid rgba(99,102,241,0.15)' }}>
-              <BarChart3 className="w-8 h-8 text-indigo-400" />
-            </div>
-            <h3 className="text-lg font-bold text-white mb-2">Your Resume Has a Hidden Score</h3>
-            <p className="text-sm text-slate-400 leading-relaxed mb-2 max-w-xs">75% of resumes get rejected before a human ever sees them. Find out exactly where yours stands - bullet by bullet.</p>
-            <p className="text-xs text-slate-400 mb-6 max-w-xs">Takes 15 seconds. No guesswork - just a clear score and the fixes that actually move the needle.</p>
-            <button onClick={() => runAnalysis()} disabled={isAnalyzing} className="w-full max-w-xs py-3 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 cursor-pointer transition-all hover:-translate-y-0.5 mb-5" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', boxShadow: '0 4px 20px rgba(99,102,241,0.3)' }}>
-              <Sparkles className="w-4 h-4" /> Reveal My Score
-            </button>
-            <div className="flex flex-col gap-2.5 text-left w-full max-w-xs">
-              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-0.5">What you&apos;ll get in seconds</p>
-              {[{ icon: BarChart3, text: 'Overall score + ATS compatibility rating' }, { icon: Zap, text: 'Instant rewrites for your weakest bullets' }, { icon: Target, text: 'Missing keywords that cost you interviews' }, { icon: Award, text: 'Section-by-section breakdown with fixes' }, { icon: TrendingUp, text: 'How you stack up vs. hired candidates' }].map(({ icon: Icon, text }, i) => (
-                <div key={i} className="flex items-center gap-2.5 text-xs text-slate-400"><div className="w-6 h-6 rounded-lg bg-indigo-500/10 border border-indigo-500/15 flex items-center justify-center shrink-0"><Icon className="w-3 h-3 text-indigo-400" /></div>{text}</div>
+          <div className="p-5">
+            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-4)]">Start here</p>
+            <h3 className="text-[17px] font-semibold tracking-[-0.01em] text-white mt-1">Go through your resume bullet by bullet</h3>
+            <p className="text-[13px] text-[var(--text-3)] mt-1.5 leading-relaxed">
+              {jobDescription
+                ? <>Each line is read against the {initialJobTitle || 'role'}{initialCompanyName ? ` at ${initialCompanyName}` : ''} you are targeting, with a suggested rewrite you can apply straight into the editor.</>
+                : <>Each line gets a suggested rewrite you can apply straight into the editor. Target a job to also see which of its keywords your resume is missing.</>}
+            </p>
+            <ul className="mt-5 space-y-2.5">
+              {[
+                { icon: Zap, text: 'Rewrites for your weakest bullets, applied with one click' },
+                { icon: LayoutList, text: 'A section-by-section breakdown with what to change' },
+                { icon: Hash, text: jobDescription ? 'Keywords from the job your resume does not show' : 'Keywords to add once you target a job' },
+              ].map(({ icon: Icon, text }) => (
+                <li key={text} className="flex items-center gap-3 text-[13px] text-[var(--text-2)]">
+                  <span className="w-7 h-7 rounded-lg bg-white/[0.04] ring-1 ring-inset ring-white/[0.07] flex items-center justify-center flex-shrink-0"><Icon className="w-3.5 h-3.5 text-[var(--accent)]" /></span>{text}
+                </li>
               ))}
-            </div>
+            </ul>
+            <button onClick={() => runAnalysis()} disabled={isAnalyzing} className="btn-primary w-full justify-center mt-6">
+              <Sparkles className="w-4 h-4" />{jobDescription ? `Analyze for ${initialCompanyName || initialJobTitle || 'this role'}` : 'Analyze my resume'}
+            </button>
+            <p className="text-[11.5px] text-[var(--text-4)] mt-3 leading-relaxed">Suggestions only use what is already in your resume. Review each one before you apply it.</p>
           </div>
         )}
 

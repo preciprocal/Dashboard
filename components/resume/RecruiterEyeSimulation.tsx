@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import TabIntro from '@/components/resume/TabIntro';
 import {
   Eye, Clock, TrendingUp, AlertTriangle, CheckCircle2,
   Info, Loader2, Brain, Users, RefreshCw, BookOpen, XCircle,
@@ -189,21 +190,12 @@ export default function RecruiterEyeSimulation({
   // ── Empty state - manual run only ───────────────────────────────
   if (!simulationData) {
     return (
-      <div className="glass-card p-10 text-center">
-        <div className="w-12 h-12 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-center mx-auto mb-4">
-          <Eye className="w-6 h-6 text-indigo-400" />
-        </div>
-        <p className="text-white font-semibold mb-2">Recruiter Eye-Track Analysis</p>
-        <p className="text-slate-400 text-sm mb-5 max-w-xs mx-auto">
-          See how a recruiter would scan your resume in 6-8 seconds{companyName ? ` at ${companyName}` : ''}.
-        </p>
-        <button onClick={() => runSimulation()}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white
-                     bg-[var(--accent)] hover:bg-[var(--accent-hover)]
-                     transition-all shadow-lg  cursor-pointer">
-          <Eye className="w-4 h-4" /> Run Simulation
-        </button>
-      </div>
+      <TabIntro icon={Eye} eyebrow="Recruiter view"
+        title="The first few seconds on your resume"
+        body={<>A simulated first look by a recruiter{companyName ? ` at ${companyName}` : ''}: what they would notice first, what they would skip, and what would make them read on.</>}
+        points={['What stands out at a glance', 'Sections likely to be skipped', 'Changes that make it easier to scan']}
+        action={<button onClick={() => runSimulation()} className="btn-primary"><Eye className="w-4 h-4" /> Run simulation</button>}
+        note="A simulation from your resume's layout and content, not eye-tracking data. Uses one resume analysis from your plan." />
     );
   }
 

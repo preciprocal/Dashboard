@@ -1,6 +1,7 @@
 'use client';
 
 import { RESUME_TIPS } from '@/lib/config/resume-tips';
+import TabIntro from '@/components/resume/TabIntro';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Users, TrendingUp, TrendingDown, Minus, Award, Target, Zap,
@@ -159,13 +160,12 @@ export default function CandidateBenchmarking({ resumeId, jobTitle, preloadedDat
   );
 
   if (!data) return (
-    <div className="glass-card p-10 text-center">
-      <div className="w-12 h-12 bg-purple-500/10 border border-purple-500/20 rounded-xl flex items-center justify-center mx-auto mb-4"><Users className="w-6 h-6 text-purple-400" /></div>
-      <p className="text-white font-semibold mb-2">Get your benchmark</p>
-      <p className="text-slate-400 text-sm mb-1 max-w-xs mx-auto">See how your resume compares to candidates who actually got hired{jobTitle ? ` for ${jobTitle} roles` : ''}.</p>
-      <p className="text-amber-400 text-xs mb-5">Honest feedback only - no sugarcoating.</p>
-      <button onClick={() => fetchBenchmark()} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-[var(--on-primary)] bg-[var(--primary)] hover:bg-[var(--primary-hover)] transition-all shadow-[var(--shadow-btn)]  cursor-pointer"><Zap className="w-4 h-4" /> Run Benchmark</button>
-    </div>
+    <TabIntro icon={Users} eyebrow="Benchmark"
+      title={`How you compare${jobTitle ? ` for ${jobTitle} roles` : ''}`}
+      body={<>A recruiter-style read of where your resume stands against what employers typically look for{jobTitle ? ` in ${jobTitle} candidates` : ''}, with the evidence quoted from your resume.</>}
+      points={['Where you rank on each dimension', 'The biggest gap to close first', 'What strong candidates usually show']}
+      action={<button onClick={() => fetchBenchmark()} className="btn-primary"><Zap className="w-4 h-4" /> Run benchmark</button>}
+      note="An AI judgment based on typical hiring patterns, not data about real applicants. Uses one resume analysis from your plan." />
   );
 
   const chanceStyle = HIRING_CHANCE_STYLES[data.hiringChance] || HIRING_CHANCE_STYLES['moderate'];

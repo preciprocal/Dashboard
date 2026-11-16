@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import TabIntro from '@/components/resume/TabIntro';
 import {
   Loader2, Building2, Briefcase, MessageSquare, AlertTriangle, CheckCircle2,
   ChevronDown, Target, Lightbulb, RefreshCw, BookOpen, Trophy, Info, HelpCircle,
@@ -94,26 +95,23 @@ export default function InterviewIntelligence({
 
   if (!intel && !error && showCustomInput) {
     return (
-      <div className="glass-card p-8 text-center">
-        <div className="w-12 h-12 rounded-xl bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center mx-auto mb-4">
-          <Building2 className="w-6 h-6 text-indigo-200" />
-        </div>
-        <h3 className="text-base font-semibold text-white mb-2">Interview prep</h3>
-        <p className="text-slate-400 text-sm mb-6 max-w-sm mx-auto">
-          Enter a company and role to see the rounds typical for this kind of role, likely question themes, and how your resume fits.
-        </p>
-        <div className="max-w-sm mx-auto space-y-3">
+      <TabIntro icon={Building2} eyebrow="Interview prep"
+        title="Prepare for the interviews"
+        body="Enter a company and role to see the rounds typical for this kind of role, likely question themes, and how your resume fits."
+        points={['The usual interview rounds', 'Likely question themes', 'Your strengths and gaps for it']}
+        note="Based on how interviews for this kind of role usually run, not on inside information about the company.">
+        <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
           <input type="text" value={customCompany} onChange={e => setCustomCompany(e.target.value)}
-            placeholder="Company name (e.g., Google)" className="field w-full" />
+            placeholder="Company, e.g. Google" className="field w-full" />
           <input type="text" value={customRole} onChange={e => setCustomRole(e.target.value)}
-            placeholder="Role (e.g., Software Engineer)" className="field w-full" />
+            placeholder="Role, e.g. Software Engineer" className="field w-full" />
           <button onClick={() => fetchIntel(customCompany, customRole)}
             disabled={!customCompany.trim() && !customRole.trim()}
-            className="btn-primary w-full justify-center disabled:opacity-40 disabled:cursor-not-allowed">
-            <Target className="w-4 h-4" /> Get interview prep
+            className="btn-primary !h-11 justify-center disabled:opacity-40 disabled:cursor-not-allowed">
+            <Target className="w-4 h-4" /> Get prep
           </button>
         </div>
-      </div>
+      </TabIntro>
     );
   }
 
