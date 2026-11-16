@@ -20,6 +20,7 @@ import {
   ClipboardList, Bookmark, MailQuestion, Upload, Compass, Sparkles, ArrowRight,
 } from "lucide-react";
 import ExtensionBanner from "@/components/ExtensionBanner";
+import VisaTimelineCard from "@/components/overview/VisaTimelineCard";
 import { useCompanyLogos } from "@/components/jobs/CompanyLogo";
 import { autoApplyFields, loadApplyProfile, AUTO_APPLY_SETTINGS_HREF } from "@/components/apply/AutoApplyDetailsNotice";
 import { KpiRow, Joined, Pipeline, UpNext, NewJobs, RecentApplications, Prep, type NextAction, type PrepData } from "@/components/overview/Sections";
@@ -165,6 +166,9 @@ export default function Overview() {
 
       {/* 2. KPIs */}
       <KpiRow k={k} followUps={followUps} icons={{ applied: Send, pipeline: Briefcase, interviews: CalendarClock, followUps: BellRing }} />
+
+      {/* Work authorization: the dates the student entered, and days left */}
+      <VisaTimelineCard />
 
       {/* 3. Pipeline and what to do next */}
       <Joined className="grid grid-cols-1 lg:grid-cols-3">

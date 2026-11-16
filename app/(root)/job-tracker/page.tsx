@@ -149,7 +149,7 @@ function UpgradeGate({ feature }: { feature: 'jobs' | 'contacts' }) {
   return (
     <div className="space-y-3 animate-fade-in-up">
       <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--bg-surface)]">
-        <div className={`absolute -top-24 -right-24 w-56 h-56 rounded-full pointer-events-none blur-3xl ${isJobs ? 'bg-purple-500/[0.06]' : 'bg-indigo-500/[0.06]'}`} />
+        <div className={`absolute -top-24 -right-24 w-56 h-56 rounded-full pointer-events-none blur-3xl ${isJobs ? 'bg-[var(--accent-subtle)]' : 'bg-white/[0.03]'}`} />
         <div className="relative p-6">
           <div className="inline-flex items-center gap-1.5 bg-amber-500/[0.08] border border-amber-500/20 rounded-full px-3 py-1 mb-4">
             <Sparkles className="w-3 h-3 text-amber-400" />
@@ -158,7 +158,7 @@ function UpgradeGate({ feature }: { feature: 'jobs' | 'contacts' }) {
           <h2 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-2">{HEADLINE_MAP[feature]}</h2>
           <p className="text-sm text-slate-400 mb-6 max-w-md">{SUB_MAP[feature]}</p>
           <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06] rounded-xl px-5 py-4 mb-6 min-h-[64px]">
-            <span className={`text-3xl font-black flex-shrink-0 w-16 text-center ${isJobs ? 'text-purple-400' : 'text-indigo-400'}`}>{STATS[activeStat].num}</span>
+            <span className={`text-3xl font-black flex-shrink-0 w-16 text-center ${isJobs ? 'text-[#a9b0f7]' : 'text-white'}`}>{STATS[activeStat].num}</span>
             <span className="text-sm text-slate-400 leading-snug">{STATS[activeStat].line}</span>
           </div>
           <div className="flex items-center gap-3">
@@ -172,7 +172,7 @@ function UpgradeGate({ feature }: { feature: 'jobs' | 'contacts' }) {
       <div className="grid grid-cols-3 gap-2.5">
         {STRIP.map(s => (
           <div key={s.num} className="glass-card py-4 text-center">
-            <p className={`text-xl font-black ${isJobs ? 'text-purple-400' : 'text-indigo-400'}`}>{s.num}</p>
+            <p className={`text-xl font-black ${isJobs ? 'text-[#a9b0f7]' : 'text-white'}`}>{s.num}</p>
             <p className="text-xs text-slate-400 mt-1">{s.label}</p>
           </div>
         ))}
@@ -245,7 +245,7 @@ function FormModal({ form, setForm, onSave, onCancel, saving, isEdit, resumes }:
               <div className="flex gap-1.5">
                 {(Object.keys(WORK_TYPE_CONFIG) as WorkType[]).map(wt => { const WIcon = WORK_TYPE_CONFIG[wt].icon; return (
                   <button key={wt} type="button" onClick={() => setForm(p => ({ ...p, workType: wt }))}
-                    className={`flex-1 flex items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-semibold transition-all border ${form.workType === wt ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' : 'bg-white/[0.03] border-white/[0.07] text-slate-400 hover:text-slate-300 hover:border-white/[0.12]'}`}>
+                    className={`flex-1 flex items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-semibold transition-all border ${form.workType === wt ? 'bg-[var(--accent-subtle)] border-[var(--accent-border)] text-[#a9b0f7]' : 'bg-white/[0.03] border-white/[0.07] text-slate-400 hover:text-slate-300 hover:border-white/[0.12]'}`}>
                     <WIcon className="w-3.5 h-3.5" />{WORK_TYPE_CONFIG[wt].label}
                   </button>); })}
               </div>
@@ -406,7 +406,7 @@ function AppCard({ app, logoDomain, everify, everifySyncedAt, h1b, h1bYears, sch
           </div>
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
             {app.jobUrl && <a href={app.jobUrl} target="_blank" rel="noopener noreferrer" className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-blue-400 hover:bg-blue-500/[0.08] transition-all"><ExternalLink className="w-3.5 h-3.5" /></a>}
-            <button onClick={onEdit} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-purple-400 hover:bg-purple-500/[0.08] transition-all"><Edit3 className="w-3.5 h-3.5" /></button>
+            <button onClick={onEdit} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-[#a9b0f7] hover:bg-[var(--accent-subtle)] transition-all"><Edit3 className="w-3.5 h-3.5" /></button>
             <button onClick={onDelete} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/[0.08] transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
           </div>
         </div>
@@ -453,13 +453,13 @@ function AppCard({ app, logoDomain, everify, everifySyncedAt, h1b, h1bYears, sch
       )}
       <div className="px-4 pb-2">
         {/* The Apply flow for this job: tailored resume, letter, then per-round prep. */}
-        <Link href={`/apply/${app.id}`} className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold text-indigo-200 bg-[var(--accent-subtle)] border border-[var(--accent-border)] hover:bg-[var(--accent)]/20 transition-all duration-150">
+        <Link href={`/apply/${app.id}`} className="flex items-center justify-center gap-1.5 h-9 rounded-lg text-[12.5px] font-semibold text-[var(--text-1)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.09] group-hover:bg-[var(--primary)] group-hover:text-[var(--on-primary)] group-hover:ring-transparent transition-colors duration-150">
           <Send className="w-3.5 h-3.5" /> {app.status === 'wishlist' ? 'Apply: tailor resume and letter' : 'Prep pack and follow-up'}
         </Link>
       </div>
       <div className="px-4 pb-4 grid grid-cols-2 gap-2">
-        <button onClick={onFindContacts} className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold text-purple-400 bg-purple-500/[0.07] border border-purple-500/20 hover:bg-purple-500/15 hover:border-purple-500/35 hover:text-purple-300 transition-all duration-150"><UserSearch className="w-3.5 h-3.5" /> Find Contacts</button>
-        <button onClick={onCreatePlan} className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold text-violet-400 bg-violet-500/[0.07] border border-violet-500/20 hover:bg-violet-500/15 hover:border-violet-500/35 hover:text-violet-300 transition-all duration-150"><CalendarPlus className="w-3.5 h-3.5" /> Create Plan</button>
+        <button onClick={onFindContacts} className="flex items-center justify-center gap-1.5 h-9 rounded-lg text-[12.5px] font-medium text-[var(--text-2)] ring-1 ring-inset ring-white/[0.07] hover:bg-white/[0.04] hover:text-white transition-colors duration-150"><UserSearch className="w-3.5 h-3.5 text-sky-300" /> Find Contacts</button>
+        <button onClick={onCreatePlan} className="flex items-center justify-center gap-1.5 h-9 rounded-lg text-[12.5px] font-medium text-[var(--text-2)] ring-1 ring-inset ring-white/[0.07] hover:bg-white/[0.04] hover:text-white transition-colors duration-150"><CalendarPlus className="w-3.5 h-3.5 text-emerald-300" /> Create Plan</button>
       </div>
     </div>
   );
@@ -547,13 +547,13 @@ function ContactsModal({ app, onClose, onContactsFound }: { app: Application; on
           <div className="px-6 py-3 border-b border-white/[0.05] flex-shrink-0">
             {contacts.length > 0 && foundDomain && !showDomainOverride ? (
               <div className="flex items-center justify-between">
-                <p className="text-xs text-slate-400">Found <span className="text-white font-semibold">{contacts.length}</span> contacts at <span className="text-purple-400 font-semibold">{foundDomain}</span></p>
+                <p className="text-xs text-slate-400">Found <span className="text-white font-semibold">{contacts.length}</span> contacts at <span className="text-[#a9b0f7] font-semibold">{foundDomain}</span></p>
                 <button onClick={() => { setContacts([]); setFoundDomain(''); setError(''); setShowDomainOverride(true); }} className="text-xs text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Wrong company?</button>
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 <div className="flex-1 relative"><Globe className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" /><input type="text" value={domain} onChange={e => setDomain(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchContacts()} placeholder="Enter domain manually (e.g. stripe.com)" autoFocus className={`${inp} pl-9`} /></div>
-                <button onClick={() => fetchContacts()} disabled={loading || !domain.trim()} className="w-9 h-10 flex items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.08] hover:border-purple-500/40 hover:bg-purple-500/[0.08] text-slate-400 hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0">{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserSearch className="w-4 h-4" />}</button>
+                <button onClick={() => fetchContacts()} disabled={loading || !domain.trim()} className="w-9 h-10 flex items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.08] hover:border-[var(--accent-border)] hover:bg-[var(--accent-subtle)] text-slate-400 hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0">{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserSearch className="w-4 h-4" />}</button>
               </div>
             )}
           </div>
@@ -564,7 +564,7 @@ function ContactsModal({ app, onClose, onContactsFound }: { app: Application; on
             <div className="flex-1 flex items-center justify-center p-8"><div className="text-center max-w-xs">
               <div className="w-12 h-12 bg-red-500/[0.08] border border-red-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4"><AlertTriangle className="w-5 h-5 text-red-400" /></div>
               <p className="text-sm font-bold text-white mb-2">Couldn&apos;t find contacts</p><p className="text-xs text-slate-400 mb-5 leading-relaxed">{error}</p>
-              <button onClick={() => { setShowDomainOverride(true); setError(''); }} className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/[0.08] hover:border-purple-500/40 hover:bg-purple-500/[0.08] rounded-xl text-xs font-semibold text-slate-300 hover:text-white transition-all flex items-center justify-center gap-2"><Globe className="w-3.5 h-3.5" /> Enter domain manually</button>
+              <button onClick={() => { setShowDomainOverride(true); setError(''); }} className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/[0.08] hover:border-[var(--accent-border)] hover:bg-[var(--accent-subtle)] rounded-xl text-xs font-semibold text-slate-300 hover:text-white transition-all flex items-center justify-center gap-2"><Globe className="w-3.5 h-3.5" /> Enter domain manually</button>
               <button onClick={() => fetchContacts()} className="mt-3 text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1 mx-auto transition-colors"><RefreshCw className="w-3 h-3" /> Retry</button>
             </div></div>
           )}
@@ -579,7 +579,7 @@ function ContactsModal({ app, onClose, onContactsFound }: { app: Application; on
           )}
           {loading && (
             <div className="flex-1 flex items-center justify-center p-8"><div className="text-center">
-              <div className="relative w-10 h-10 mx-auto mb-4"><Loader2 className="w-10 h-10 text-purple-400 animate-spin" /><UserSearch className="w-4 h-4 text-purple-300 absolute inset-0 m-auto" /></div>
+              <div className="relative w-10 h-10 mx-auto mb-4"><Loader2 className="w-10 h-10 text-[#a9b0f7] animate-spin" /><UserSearch className="w-4 h-4 text-[#a9b0f7] absolute inset-0 m-auto" /></div>
               <p className="text-sm font-semibold text-white mb-1">Finding contacts…</p><p className="text-xs text-slate-400">Searching and writing personalised emails…</p>
             </div></div>
           )}
@@ -613,7 +613,7 @@ function ContactsModal({ app, onClose, onContactsFound }: { app: Application; on
                   </div>
                   {activeContact.generatedEmail ? (
                     <div className="glass-card overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]"><div className="flex items-center gap-2"><Sparkles className="w-3.5 h-3.5 text-violet-400" /><span className="text-xs font-bold text-white">AI-Written Outreach</span></div><CopyBtn text={activeContact.generatedEmail} /></div>
+                      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]"><div className="flex items-center gap-2"><Sparkles className="w-3.5 h-3.5 text-[#a9b0f7]" /><span className="text-xs font-bold text-white">AI-Written Outreach</span></div><CopyBtn text={activeContact.generatedEmail} /></div>
                       <div className="p-4"><p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{activeContact.generatedEmail}</p><SendEmailButtons recipientEmail={activeContact.email} emailBody={activeContact.generatedEmail} jobTitle={app.jobTitle} company={app.company} /></div>
                     </div>
                   ) : <div className="glass-card p-6 text-center"><p className="text-xs text-slate-500">Could not generate email for this contact - try again</p></div>}
@@ -647,8 +647,8 @@ function CreatePlanModal({ app, onConfirm, onClose }: { app: Application; onConf
         <div className="p-5 space-y-4">
           <p className="text-xs text-slate-400 leading-relaxed">When is your interview? We&apos;ll build a day-by-day plan to get you ready.</p>
           <div className="grid grid-cols-3 gap-2">
-            {PLAN_PRESETS.map(p => (<button key={p.days} type="button" onClick={() => { setSelected(p.days); setCustom(false); }} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${!custom && selected === p.days ? 'bg-[var(--accent)] border-violet-500 text-white ' : 'bg-white/[0.03] border-white/[0.07] text-slate-400 hover:border-violet-500/40 hover:text-white'}`}>{p.label}</button>))}
-            <button type="button" onClick={() => setCustom(true)} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${custom ? 'bg-[var(--accent)] border-violet-500 text-white ' : 'bg-white/[0.03] border-white/[0.07] text-slate-400 hover:border-violet-500/40 hover:text-white'}`}>Custom</button>
+            {PLAN_PRESETS.map(p => (<button key={p.days} type="button" onClick={() => { setSelected(p.days); setCustom(false); }} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${!custom && selected === p.days ? 'bg-[var(--accent)] border-[var(--accent-border)] text-white ' : 'bg-white/[0.03] border-white/[0.07] text-slate-400 hover:border-[var(--accent-border)] hover:text-white'}`}>{p.label}</button>))}
+            <button type="button" onClick={() => setCustom(true)} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${custom ? 'bg-[var(--accent)] border-[var(--accent-border)] text-white ' : 'bg-white/[0.03] border-white/[0.07] text-slate-400 hover:border-[var(--accent-border)] hover:text-white'}`}>Custom</button>
           </div>
           {custom && <div><label className="block text-xs text-slate-400 mb-1.5">Days until interview (1-90)</label><input type="number" min={1} max={90} value={customVal} onChange={e => setCustomVal(e.target.value)} className={inp} autoFocus /></div>}
           <div className="flex gap-2 pt-1">
@@ -670,12 +670,12 @@ function CustomSelect<T extends string>({ value, onChange, options, icon: Icon }
   useEffect(() => { if (!open) return; const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }; document.addEventListener('mousedown', handler); return () => document.removeEventListener('mousedown', handler); }, [open]);
   return (
     <div className="relative min-w-0 sm:w-auto" ref={ref}>
-      <button type="button" onClick={() => setOpen(!open)} className={`w-full flex items-center gap-2 h-11 px-3.5 rounded-[10px] text-[13px] font-medium text-slate-400 bg-white/[0.04] border transition-all min-w-[130px] ${open ? 'border-purple-500/40 text-slate-200' : 'border-white/[0.07] hover:border-white/[0.12] hover:text-slate-200'}`}>
+      <button type="button" onClick={() => setOpen(!open)} className={`w-full flex items-center gap-2 h-11 px-3.5 rounded-[10px] text-[13px] font-medium text-slate-400 bg-white/[0.04] border transition-all min-w-[130px] ${open ? 'border-[var(--accent-border)] text-slate-200' : 'border-white/[0.07] hover:border-white/[0.12] hover:text-slate-200'}`}>
         {Icon && <Icon className="w-3.5 h-3.5 flex-shrink-0" />}<span className="flex-1 text-left truncate">{active?.label}</span><ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
         <div className="absolute left-0 top-full mt-2 z-50 bg-[var(--bg-raised)] border border-white/[0.1] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] py-1 min-w-full">
-          {options.map(opt => (<button key={opt.value} type="button" onClick={() => { onChange(opt.value); setOpen(false); }} className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-xs transition-colors ${value === opt.value ? 'text-purple-300 bg-purple-500/[0.10] font-semibold' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'}`}>{opt.label}{value === opt.value && <Check className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />}</button>))}
+          {options.map(opt => (<button key={opt.value} type="button" onClick={() => { onChange(opt.value); setOpen(false); }} className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-xs transition-colors ${value === opt.value ? 'text-[#a9b0f7] bg-purple-500/[0.10] font-semibold' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'}`}>{opt.label}{value === opt.value && <Check className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />}</button>))}
         </div>
       )}
     </div>
@@ -876,7 +876,7 @@ export default function JobTrackerPage() {
       {creatingPlan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
           <div className="glass-card p-8 text-center">
-            <div className="relative w-12 h-12 mx-auto mb-4"><Loader2 className="w-12 h-12 text-violet-400 animate-spin" /><Sparkles className="w-4 h-4 text-violet-300 absolute inset-0 m-auto" /></div>
+            <div className="relative w-12 h-12 mx-auto mb-4"><Loader2 className="w-12 h-12 text-[#a9b0f7] animate-spin" /><Sparkles className="w-4 h-4 text-[#a9b0f7] absolute inset-0 m-auto" /></div>
             <p className="text-sm font-bold text-white mb-1">Generating your prep plan…</p><p className="text-xs text-slate-400">Building your personalised prep roadmap</p>
           </div>
         </div>
