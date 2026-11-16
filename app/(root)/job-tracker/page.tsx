@@ -37,6 +37,7 @@ import type { InterviewSchedule } from '@/lib/calendar/status';
 import InfoTip from '@/components/ui/info-tip';
 import DateInput from '@/components/ui/date-input';
 import { GLOSSARY } from '@/lib/glossary';
+import FeatureEmpty from '@/components/ui/feature-empty';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -921,7 +922,17 @@ export default function JobTrackerPage() {
             </div>
 
             {/* Grid / empty */}
-            {filtered.length === 0 ? (
+            {apps.length === 0 && canAddJob ? (
+              <FeatureEmpty icon={Briefcase} title="Track every application in one place"
+                body="Save jobs from the Jobs page or the Chrome extension, or add one yourself. Each one moves through its stages, with prep for every round."
+                steps={[
+                  { icon: Plus, title: 'Add or save a job', text: 'From Jobs, the extension, or the Add Application form.' },
+                  { icon: Filter, title: 'Move it through stages', text: 'Applied, phone screen, interview, offer. Update it as you hear back.' },
+                  { icon: CalendarPlus, title: 'Prepare for each round', text: 'Build a prep plan and find contacts at the company.' },
+                ]}
+                primary={{ label: 'Add your first application', icon: Plus, onClick: () => { setForm({ ...EMPTY_FORM }); setShowForm(true); } }}
+                secondary={<SeeExampleButton serviceId="job-tracker" />} />
+            ) : filtered.length === 0 ? (
               <div className="glass-card p-12 text-center">
                 <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-4"><Briefcase className="w-5 h-5 text-slate-500" /></div>
                 <h3 className="text-sm font-bold text-slate-400 mb-2">{apps.length === 0 ? 'No applications yet' : 'No results match your filters'}</h3>

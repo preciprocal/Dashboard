@@ -13,7 +13,7 @@ import {
   Brain, MessageSquare, Target, BarChart3, Lightbulb, Clock,
   Star, Edit3, X, Save, Activity, Zap, Eye,
   Heart, Filter, Search, RefreshCw, XCircle, ArrowRight, Flame,
-  Users, MapPin, Sparkles, Shield,
+  Users, MapPin, Shield,
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -25,6 +25,9 @@ import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
 import { isUnlimited } from '@/lib/config/usage-limits';
 import { SeeExampleButton } from '@/components/ServiceModal';
 import DateInput from '@/components/ui/date-input';
+import { FormSection } from '@/components/profile/FormKit';
+import FeatureEmpty from '@/components/ui/feature-empty';
+import AutoTextarea from '@/components/ui/auto-textarea';
 import NextStepPrompt from '@/components/NextStepPrompt'; // ← NEW
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -266,72 +269,17 @@ function TabBar<T extends string>({ tabs, active, onChange }: {
 // ─── Upgrade Gate ─────────────────────────────────────────────────────────────
 
 function UpgradeGate({ used, limit }: { used: number; limit: number }) {
-  const [activeStat, setActiveStat] = useState(0);
-
-  const STATS = [
-    { num: '47%',  line: 'of interview failures come from not knowing enough about the company' },
-    { num: '94%',  line: 'want feedback after interviews - but only 1% ever receive it' },
-    { num: '51%',  line: 'chance of getting hired after 3+ interviews - if you learn from each one' },
-    { num: '57%',  line: 'of candidates skip follow-ups - the ones who don\'t get 25% more offers' },
-  ];
-
-  useEffect(() => {
-    const t = setInterval(() => setActiveStat(i => (i + 1) % STATS.length), 4000);
-    return () => clearInterval(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
-    <div className="space-y-3 animate-fade-in-up">
-      <div className="relative overflow-hidden rounded-2xl border border-white/[0.08]
-                      bg-[var(--bg-surface)]">
-        <div className="absolute -top-24 -right-24 w-56 h-56 rounded-full
-                        bg-[var(--accent-subtle)] blur-3xl pointer-events-none" />
-        <div className="relative p-6">
-          <div className="inline-flex items-center gap-1.5 bg-amber-500/[0.08] border border-amber-500/20
-                          rounded-full px-3 py-1 mb-4">
-            <Sparkles className="w-3 h-3 text-amber-400" />
-            <span className="text-xs font-semibold text-amber-400">
-              {used}/{limit} debriefs used
-            </span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-2">
-            The interview isn&apos;t over when you walk out.
-          </h2>
-          <p className="text-sm text-slate-400 mb-6 max-w-md">
-            Every interview you don&apos;t debrief is a lesson wasted. The candidates who
-            reflect, track patterns, and fix weaknesses are the ones who convert rejections into offers.
-          </p>
-          <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06]
-                          rounded-xl px-5 py-4 mb-6 min-h-[64px]">
-            <span className="text-3xl font-black text-[#a9b0f7] flex-shrink-0 w-16 text-center">
-              {STATS[activeStat].num}
-            </span>
-            <span className="text-sm text-slate-400 leading-snug">
-              {STATS[activeStat].line}
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link href="/pricing" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-[var(--on-primary)] bg-[var(--primary)] hover:bg-[var(--primary-hover)]   transition-all group">
-              Get More <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-            <span className="text-[11px] text-slate-500">Cancel anytime · Instant access</span>
-          </div>
-        </div>
+    <section className="glass-card p-6 sm:p-8 animate-fade-in-up">
+      <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11.5px] font-medium text-[var(--text-2)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" aria-hidden="true" />{used} of {limit} debriefs used this month
+      </span>
+      <h2 className="font-display text-[22px] sm:text-[26px] font-semibold tracking-[-0.02em] text-white mt-4">You have used this month&apos;s journal entries</h2>
+      <p className="text-[13.5px] text-[var(--text-3)] mt-2 max-w-lg">Your limit resets on your billing date. Upgrade to keep logging rounds, the questions you were asked and what to work on next.</p>
+      <div className="flex flex-wrap gap-2 mt-6">
+        <Link href="/pricing" className="btn-primary">See plans <ArrowRight className="w-4 h-4" /></Link>
       </div>
-      <div className="grid grid-cols-3 gap-2.5">
-        {[
-          { num: '47%',  label: 'fail from poor prep'       },
-          { num: '1%',   label: 'ever get real feedback'    },
-          { num: '25%',  label: 'more offers with follow-up'},
-        ].map(s => (
-          <div key={s.num} className="glass-card py-4 text-center">
-            <p className="text-xl font-black text-[#a9b0f7]">{s.num}</p>
-            <p className="text-xs text-slate-400 mt-1">{s.label}</p>
-          </div>
-        ))}
-      </div>
-    </div>
+    </section>
   );
 }
 
@@ -910,172 +858,131 @@ export default function InterviewDebriefPage() {
           )}
 
           {/* Log form */}
-          {showForm && (
+          {showForm && (() => {
+            const lab = 'block text-[12.5px] font-medium text-[var(--text-2)] mb-1.5';
+            const pick = (on: boolean) => `p-2 rounded-xl text-center text-[11px] transition-colors ring-1 ring-inset ${on ? 'bg-white/[0.1] ring-white/[0.18] text-white' : 'bg-white/[0.02] ring-white/[0.07] text-slate-400 hover:text-white hover:ring-white/[0.14]'}`;
+            const filled = (v: string) => (v.trim() ? 1 : 0);
+            return (
             <div className="glass-card overflow-hidden animate-fade-in-up" style={{ animationDelay: '120ms' }}>
-              <div className="px-5 py-4 border-b border-white/[0.06] bg-[var(--accent-subtle)]">
-                <h2 className="text-[14px] font-bold text-white flex items-center gap-2">
-                  <Edit3 className="w-4 h-4 text-[#a9b0f7]" />
-                  {editingId ? 'Edit Entry' : 'New Debrief Entry'}
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">The more detail you log, the better the AI insights.</p>
+              <div className="px-5 sm:px-7 py-5 border-b border-white/[0.06] flex items-center gap-3">
+                <span className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]">
+                  <Edit3 className="w-4 h-4 text-[var(--text-2)]" />
+                </span>
+                <div>
+                  <h2 className="font-display text-[16px] font-semibold text-white">{editingId ? 'Edit entry' : 'New journal entry'}</h2>
+                  <p className="text-[12.5px] text-[var(--text-4)] mt-0.5">The more you log, the more the insights can tell you.</p>
+                </div>
               </div>
 
-              <div className="p-5 space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {[
-                    { key: 'companyName', label: 'Company *',   placeholder: 'e.g. Google'      },
-                    { key: 'jobTitle',    label: 'Job Title *', placeholder: 'e.g. Senior SWE'  },
-                  ].map(f => (
-                    <div key={f.key}>
-                      <label className="block text-[12px] font-medium text-slate-400 mb-1.5">{f.label}</label>
-                      <input type="text" value={(formData as Record<string, unknown>)[f.key] as string}
-                        onChange={e => setFormData(p => ({ ...p, [f.key]: e.target.value }))}
-                        placeholder={f.placeholder} className={inp} />
-                    </div>
-                  ))}
-                  <div>
-                    <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Interview Date</label>
-                    <DateInput value={formData.interviewDate} onChange={v => setFormData(p => ({ ...p, interviewDate: v }))} />
+              <div className="px-5 sm:px-7 py-6">
+                <FormSection id="db-round" title="The round" desc="Which interview this was and how it ended."
+                  done={filled(formData.companyName) + filled(formData.jobTitle)} total={2}>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div><label className={lab}>Company</label>
+                      <input type="text" value={formData.companyName} onChange={e => setFormData(p => ({ ...p, companyName: e.target.value }))} placeholder="e.g. Google" className={inp} /></div>
+                    <div><label className={lab}>Job title</label>
+                      <input type="text" value={formData.jobTitle} onChange={e => setFormData(p => ({ ...p, jobTitle: e.target.value }))} placeholder="e.g. Data Analyst" className={inp} /></div>
+                    <div><label className={lab}>Interview date</label>
+                      <DateInput value={formData.interviewDate} onChange={v => setFormData(p => ({ ...p, interviewDate: v }))} /></div>
                   </div>
-                </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div><label className={lab}>Stage</label>
+                      <AppSelect value={formData.stage} onValueChange={v => setFormData(p => ({ ...p, stage: v as InterviewStage }))} aria-label="Stage"
+                        options={Object.entries(STAGE_LABELS).map(([k, v]) => ({ value: k, label: v }))} /></div>
+                    <div><label className={lab}>Outcome</label>
+                      <AppSelect value={formData.outcome} onValueChange={v => setFormData(p => ({ ...p, outcome: v as InterviewOutcome }))} aria-label="Outcome"
+                        options={Object.entries(OUTCOME_LABELS).map(([k, v]) => ({ value: k, label: v }))} /></div>
+                    <div><label className={lab}>Duration (min)</label>
+                      <input type="number" min={10} max={300} value={formData.durationMinutes} onChange={e => setFormData(p => ({ ...p, durationMinutes: Number(e.target.value) }))} className={inp} /></div>
+                    <div><label className={lab}>Interviewers</label>
+                      <input type="number" min={1} max={10} value={formData.interviewerCount} onChange={e => setFormData(p => ({ ...p, interviewerCount: Number(e.target.value) }))} className={inp} /></div>
+                  </div>
+                </FormSection>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Stage</label>
-                    <AppSelect value={formData.stage} onValueChange={v => setFormData(p => ({ ...p, stage: v as InterviewStage }))} aria-label="Stage"
-                      options={Object.entries(STAGE_LABELS).map(([k, v]) => ({ value: k, label: v }))} />
-                  </div>
-                  <div>
-                    <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Outcome</label>
-                    <AppSelect value={formData.outcome} onValueChange={v => setFormData(p => ({ ...p, outcome: v as InterviewOutcome }))} aria-label="Outcome"
-                      options={Object.entries(OUTCOME_LABELS).map(([k, v]) => ({ value: k, label: v }))} />
-                  </div>
-                  <div>
-                    <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Duration (min)</label>
-                    <input type="number" min={10} max={300} value={formData.durationMinutes}
-                      onChange={e => setFormData(p => ({ ...p, durationMinutes: Number(e.target.value) }))} className={inp} />
-                  </div>
-                  <div>
-                    <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Interviewers</label>
-                    <input type="number" min={1} max={10} value={formData.interviewerCount}
-                      onChange={e => setFormData(p => ({ ...p, interviewerCount: Number(e.target.value) }))} className={inp} />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                  {(['emotionalStateBefore', 'emotionalStateAfter'] as const).map((field, fi) => (
-                    <div key={field}>
-                      <label className="block text-[12px] font-medium text-slate-400 mb-2">
-                        {fi === 0 ? 'Feeling Before' : 'Feeling After'}
-                      </label>
-                      <div className="grid grid-cols-3 gap-1.5">
-                        {(Object.keys(EMOTIONAL_EMOJIS) as EmotionalState[]).map(e => (
-                          <button key={e} type="button" onClick={() => setFormData(p => ({ ...p, [field]: e }))}
-                            className={`p-2 rounded-xl text-center text-[11px] transition-all duration-150
-                                        ${formData[field] === e
-                                          ? 'bg-[var(--accent-subtle)] border border-[var(--accent-border)] text-white'
-                                          : 'bg-[var(--bg-subtle)] border border-white/[0.08] text-slate-400 hover:text-white hover:border-white/[0.14]'}`}>
-                            <span className="block text-lg leading-none mb-1">{EMOTIONAL_EMOJIS[e]}</span>
-                            <span className="block leading-none">{e}</span>
-                          </button>
-                        ))}
+                <FormSection id="db-feel" title="How it went" desc="How you felt going in and coming out, and how you would score the round.">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {(['emotionalStateBefore', 'emotionalStateAfter'] as const).map((field, fi) => (
+                      <div key={field}>
+                        <label className={lab}>{fi === 0 ? 'Feeling before' : 'Feeling after'}</label>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {(Object.keys(EMOTIONAL_EMOJIS) as EmotionalState[]).map(e => (
+                            <button key={e} type="button" aria-pressed={formData[field] === e} onClick={() => setFormData(p => ({ ...p, [field]: e }))} className={pick(formData[field] === e)}>
+                              <span className="block text-lg leading-none mb-1">{EMOTIONAL_EMOJIS[e]}</span>
+                              <span className="block leading-none capitalize">{e}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  <div className="space-y-5">
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div>
-                      <label className="block text-[12px] font-medium text-slate-400 mb-2">
-                        Self Score: <span className="text-white font-bold">{formData.selfScore}%</span>
-                      </label>
-                      <input type="range" min={0} max={100} value={formData.selfScore}
-                        onChange={e => setFormData(p => ({ ...p, selfScore: Number(e.target.value) }))}
-                        className="w-full accent-violet-500" />
+                      <label className={lab}>Self score: <span className="text-white font-semibold tabular-nums">{formData.selfScore}%</span></label>
+                      <input type="range" min={0} max={100} value={formData.selfScore} onChange={e => setFormData(p => ({ ...p, selfScore: Number(e.target.value) }))} className="w-full accent-white" />
                     </div>
                     <div>
-                      <label className="block text-[12px] font-medium text-slate-400 mb-2">
-                        Difficulty: <span className="text-white font-bold">{'★'.repeat(formData.difficultyRating)}</span>
-                      </label>
+                      <label className={lab}>Difficulty</label>
                       <div className="flex gap-1">
                         {([1, 2, 3, 4, 5] as DifficultyRating[]).map(n => (
-                          <button key={n} type="button"
-                            onClick={() => setFormData(p => ({ ...p, difficultyRating: n }))}
-                            className={`text-xl transition-colors ${n <= formData.difficultyRating ? 'text-amber-400' : 'text-slate-500'}`}>
-                            ★
-                          </button>
+                          <button key={n} type="button" aria-label={`Difficulty ${n} of 5`} onClick={() => setFormData(p => ({ ...p, difficultyRating: n }))}
+                            className={`text-xl transition-colors ${n <= formData.difficultyRating ? 'text-amber-400' : 'text-slate-600 hover:text-slate-400'}`}>★</button>
                         ))}
                       </div>
                     </div>
                   </div>
-                </div>
+                </FormSection>
 
-                <div>
-                  <label className="block text-[12px] font-medium text-slate-400 mb-2">Questions They Asked</label>
+                <FormSection id="db-q" title="Questions they asked" desc="Write them down while they are fresh. They show up later as practice."
+                  done={formData.questionsAsked.filter(q => q.trim()).length} total={Math.max(1, formData.questionsAsked.length)}>
                   <div className="space-y-2">
                     {formData.questionsAsked.map((q, idx) => (
                       <div key={idx} className="flex gap-2">
-                        <input type="text" value={q}
-                          onChange={e => {
-                            const arr = [...formData.questionsAsked];
-                            arr[idx] = e.target.value;
-                            setFormData(p => ({ ...p, questionsAsked: arr }));
-                          }}
+                        <input type="text" value={q} onChange={e => { const arr = [...formData.questionsAsked]; arr[idx] = e.target.value; setFormData(p => ({ ...p, questionsAsked: arr })); }}
                           placeholder={`Question ${idx + 1}`} className={inp} />
-                        <button type="button"
-                          onClick={() => {
-                            const arr = formData.questionsAsked.filter((_, i) => i !== idx);
-                            setFormData(p => ({ ...p, questionsAsked: arr.length ? arr : [''] }));
-                          }}
-                          className="w-9 h-10 flex items-center justify-center rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-500/[0.08] border border-white/[0.07] transition-all flex-shrink-0">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
+                        <button type="button" onClick={() => { const arr = formData.questionsAsked.filter((_, i) => i !== idx); setFormData(p => ({ ...p, questionsAsked: arr.length ? arr : [''] })); }}
+                          className="h-11 px-3 rounded-lg text-[12.5px] font-medium text-[var(--text-4)] hover:text-rose-300 hover:bg-rose-500/[0.08] transition-colors flex-shrink-0">Remove</button>
                       </div>
                     ))}
-                    <button type="button"
-                      onClick={() => setFormData(p => ({ ...p, questionsAsked: [...p.questionsAsked, ''] }))}
-                      className="inline-flex items-center gap-1.5 text-[12px] text-[#a9b0f7] hover:text-[#a9b0f7] transition-colors">
-                      <Plus className="w-3.5 h-3.5" /> Add question
-                    </button>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {[
-                    { key: 'whatWentWell',    label: 'What went well?',        accentClass: 'text-emerald-400', placeholder: 'Strong answers, good rapport…'                   },
-                    { key: 'whatWentPoorly',  label: 'What went poorly?',      accentClass: 'text-red-400',     placeholder: 'Got stuck on system design…'                     },
-                    { key: 'surprises',       label: 'Surprises / Unexpected',  accentClass: 'text-amber-400',   placeholder: "They asked about X which I didn't prepare for…"  },
-                    { key: 'followUpActions', label: 'Follow-up Actions',       accentClass: 'text-blue-400',    placeholder: 'Study X, practice Y…'                            },
-                  ].map(f => (
-                    <div key={f.key}>
-                      <label className={`block text-[12px] font-medium mb-1.5 ${f.accentClass}`}>{f.label}</label>
-                      <textarea rows={3} value={(formData as Record<string, unknown>)[f.key] as string}
-                        onChange={e => setFormData(p => ({ ...p, [f.key]: e.target.value }))}
-                        placeholder={f.placeholder} className={ta} />
-                    </div>
-                  ))}
-                </div>
-
-                <div>
-                  <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Overall Notes</label>
-                  <textarea rows={2} value={formData.overallNotes}
-                    onChange={e => setFormData(p => ({ ...p, overallNotes: e.target.value }))}
-                    placeholder="General impressions, company culture vibe, interviewer style…"
-                    className={ta} />
-                </div>
-
-                <div className="flex items-center gap-3 pt-1">
-                  <button onClick={handleSave} disabled={isSaving}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] text-[13px] font-semibold transition-all duration-150 disabled:opacity-50">
-                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    {isSaving ? 'Saving…' : editingId ? 'Update Entry' : 'Save to Journal'}
+                  <button type="button" onClick={() => setFormData(p => ({ ...p, questionsAsked: [...p.questionsAsked, ''] }))} className="btn-secondary !h-9 !text-[13px]">
+                    <Plus className="w-3.5 h-3.5" /> Add question
                   </button>
-                  <button onClick={() => { setShowForm(false); setEditingId(null); setFormData({ ...EMPTY_FORM }); }}
-                    className="px-5 py-2.5 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.07] text-slate-300 rounded-xl text-[13px] font-semibold transition-all">
-                    Cancel
+                </FormSection>
+
+                <FormSection id="db-notes" title="Reflection" desc="What to keep doing, what to fix, and what to do next."
+                  done={[formData.whatWentWell, formData.whatWentPoorly, formData.surprises, formData.followUpActions].filter(v => v.trim()).length} total={4}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[
+                      { key: 'whatWentWell', label: 'What went well', dot: 'bg-emerald-400', placeholder: 'Strong answers, good rapport' },
+                      { key: 'whatWentPoorly', label: 'What went poorly', dot: 'bg-rose-400', placeholder: 'Got stuck on the SQL question' },
+                      { key: 'surprises', label: 'Surprises', dot: 'bg-amber-400', placeholder: "They asked about something I didn't prepare" },
+                      { key: 'followUpActions', label: 'Follow-up actions', dot: 'bg-sky-400', placeholder: 'Study window functions, send a thank-you' },
+                    ].map(fd => (
+                      <div key={fd.key}>
+                        <label className={`${lab} flex items-center gap-2`}><span className={`w-1.5 h-1.5 rounded-full ${fd.dot}`} aria-hidden="true" />{fd.label}</label>
+                        <AutoTextarea rows={3} value={(formData as Record<string, unknown>)[fd.key] as string}
+                          onChange={e => setFormData(p => ({ ...p, [fd.key]: e.target.value }))} placeholder={fd.placeholder} className={ta} />
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <label className={lab}>Overall notes</label>
+                    <AutoTextarea rows={2} value={formData.overallNotes} onChange={e => setFormData(p => ({ ...p, overallNotes: e.target.value }))}
+                      placeholder="General impressions, the culture, the interviewer's style" className={ta} />
+                  </div>
+                </FormSection>
+
+                <div className="flex flex-wrap items-center justify-end gap-2 pt-5 border-t border-white/[0.06]">
+                  <button onClick={() => { setShowForm(false); setEditingId(null); setFormData({ ...EMPTY_FORM }); }} className="btn-secondary">Cancel</button>
+                  <button onClick={handleSave} disabled={isSaving} className="btn-primary disabled:opacity-50">
+                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    {isSaving ? 'Saving' : editingId ? 'Update entry' : 'Save to journal'}
                   </button>
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {entries.length > 0 && (
             <TabBar tabs={mainTabs} active={activeView} onChange={setActiveView} />
@@ -1160,7 +1067,16 @@ export default function InterviewDebriefPage() {
                 </div>
               )}
 
-              {filtered.length === 0 ? (
+              {entries.length === 0 && canUseFeature('interviewDebriefs') ? (showForm ? null : (
+                <FeatureEmpty icon={BookOpen} title="Learn from every real interview"
+                  body="Log each round right after it ends: how it went, the questions they asked and what to work on. Patterns across rounds show up in Insights."
+                  steps={[
+                    { icon: Edit3, title: 'Log the round', text: 'Company, stage, outcome and how you felt.' },
+                    { icon: BookOpen, title: 'Save the questions', text: 'Every question you were asked, ready to practise.' },
+                    { icon: BarChart3, title: 'See your patterns', text: 'Scores by stage and what keeps coming up, across rounds.' },
+                  ]}
+                  primary={{ label: 'Log your first interview', icon: Plus, onClick: () => setShowForm(true) }} />)
+              ) : filtered.length === 0 ? (
                 <div className="glass-card p-12 text-center">
                   <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-4">
                     <BookOpen className="w-5 h-5 text-slate-500" />

@@ -12,7 +12,7 @@ export default function FeatureEmpty({ icon: Icon, title, body, steps, primary, 
   title: string;
   body: string;
   steps: FeatureStep[];
-  primary: { href: string; label: string; icon?: ElementType };
+  primary: { href?: string; onClick?: () => void; label: string; icon?: ElementType };
   /** A second action, such as the See Example button. */
   secondary?: ReactNode;
   note?: string;
@@ -28,7 +28,9 @@ export default function FeatureEmpty({ icon: Icon, title, body, steps, primary, 
           <h3 className="font-display text-[22px] sm:text-[24px] font-semibold tracking-[-0.02em] text-white mt-5">{title}</h3>
           <p className="text-[14px] text-[var(--text-3)] mt-2 leading-relaxed max-w-lg">{body}</p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
-            <Link href={primary.href} className="btn-primary">{PrimaryIcon && <PrimaryIcon className="w-4 h-4" />}{primary.label}</Link>
+            {primary.href
+              ? <Link href={primary.href} className="btn-primary">{PrimaryIcon && <PrimaryIcon className="w-4 h-4" />}{primary.label}</Link>
+              : <button type="button" onClick={primary.onClick} className="btn-primary">{PrimaryIcon && <PrimaryIcon className="w-4 h-4" />}{primary.label}</button>}
             {secondary}
           </div>
           {note && <p className="text-[12px] text-[var(--text-4)] mt-4">{note}</p>}
