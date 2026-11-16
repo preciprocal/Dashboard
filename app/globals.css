@@ -11,55 +11,60 @@
 @source inline("hover:bg-{blue,emerald,indigo,orange,purple,red,violet}-700");
 
 /* ─── Design Tokens ─────────────────────────────────────────────────────────
-   Single source of truth for the entire app. The direction is a calm,
-   product-grade dark UI: a lifted graphite base, solid surfaces separated by
-   crisp borders, one accent colour used for primary actions only, and no
-   gradients or glow on controls. These variables are used by the utility
-   classes below and can be referenced inline via var(--*).
+   Single source of truth for the entire app, shared with Sectira's product
+   UI: a neutral near black, panels a step lighter with a faint top
+   highlight, white hairlines, off-white text with greys under it, one indigo
+   accent, and the light primary button. These variables are used by the
+   utility classes below and can be referenced inline via var(--*).
 ─────────────────────────────────────────────────────────────────────────── */
 :root {
   /* Background layers */
-  --bg:             #0c0e14;
-  --bg-sidebar:     #0f1218;
-  --bg-subtle:      #11141b;
-  --bg-surface:     #13161e;
-  --bg-raised:      #191d27;
-  --bg-overlay:     rgba(12, 14, 20, 0.92);
-  --bg-hover:       rgba(255, 255, 255, 0.045);
-  --bg-active:      rgba(255, 255, 255, 0.07);
-  --bg-selected:    rgba(91, 108, 255, 0.12);
+  --bg:             #08090a;
+  --bg-sidebar:     #0a0b0c;
+  --bg-subtle:      #0d0e10;
+  --bg-surface:     #0f1011;
+  --bg-raised:      #151618;
+  --bg-overlay:     rgba(8, 9, 10, 0.92);
+  --bg-hover:       rgba(255, 255, 255, 0.04);
+  --bg-active:      rgba(255, 255, 255, 0.06);
+  --bg-selected:    rgba(94, 106, 210, 0.12);
 
   /* Borders */
   --border:         rgba(255, 255, 255, 0.08);
-  --border-hover:   rgba(255, 255, 255, 0.14);
-  --border-strong:  rgba(255, 255, 255, 0.18);
-  --border-accent:  rgba(91, 108, 255, 0.45);
+  --border-hover:   rgba(255, 255, 255, 0.12);
+  --border-strong:  rgba(255, 255, 255, 0.16);
+  --border-accent:  rgba(110, 121, 214, 0.45);
 
   /* Text */
-  --text-1:   #f3f5f8;  /* headings, primary */
-  --text-2:   #d3d8e0;  /* body */
-  --text-3:   #9aa3b2;  /* secondary / descriptions */
-  --text-4:   #6b7486;  /* muted / labels */
-  --text-5:   #4c5466;  /* faint / placeholders */
+  --text-1:   #f7f8f8;  /* headings, primary */
+  --text-2:   #d0d3d8;  /* body */
+  --text-3:   #8a8f98;  /* secondary / descriptions */
+  --text-4:   #7a7f88;  /* muted / labels (AA on every panel) */
+  --text-5:   #5c6068;  /* faint / placeholders */
 
   /* Accent: one solid brand blue for primary actions and focus. No
      gradients: --accent-2 is kept as an alias so older markup still
      resolves to the same solid colour. */
-  --accent:        #5b6cff;
-  --accent-hover:  #6c7bff;
-  --accent-press:  #4c5cf0;
-  --accent-2:      #5b6cff;
-  --accent-subtle: rgba(91, 108, 255, 0.12);
-  --accent-border: rgba(91, 108, 255, 0.40);
+  --accent:        #6e79d6;
+  --accent-hover:  #828be0;
+  --accent-press:  #5e69c6;
+  --accent-2:      #6e79d6;
+  --accent-subtle: rgba(94, 106, 210, 0.12);
+  --accent-border: rgba(110, 121, 214, 0.40);
+
+  /* The primary call to action: the light button. */
+  --primary:       #f7f8f8;
+  --primary-hover: #ffffff;
+  --on-primary:    #08090a;
   --accent-glow:   transparent;
 
   /* Semantic */
-  --success:        #10b981;
-  --success-subtle: rgba(16, 185, 129, 0.12);
-  --warning:        #f59e0b;
-  --warning-subtle: rgba(245, 158, 11, 0.12);
-  --danger:         #ef4444;
-  --danger-subtle:  rgba(239, 68, 68, 0.12);
+  --success:        #4cb782;
+  --success-subtle: rgba(76, 183, 130, 0.12);
+  --warning:        #f2c94c;
+  --warning-subtle: rgba(242, 201, 76, 0.12);
+  --danger:         #eb5757;
+  --danger-subtle:  rgba(235, 87, 87, 0.12);
   --info:           #3b82f6;
   --info-subtle:    rgba(59, 130, 246, 0.12);
 
@@ -73,11 +78,12 @@
   --r-2xl: 14px;
 
   /* Shadows. Surfaces are separated by borders, not drop shadows or glow. */
-  --shadow-xs: 0 1px 2px rgba(0,0,0,0.20);
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.30);
-  --shadow-md: 0 1px 2px rgba(0,0,0,0.30);
-  --shadow-lg: 0 8px 28px rgba(0,0,0,0.32), 0 4px 8px rgba(0,0,0,0.14);
-  --shadow-xl: 0 16px 48px rgba(0,0,0,0.38), 0 8px 16px rgba(0,0,0,0.18);
+  --shadow-xs: inset 0 1px 0 rgba(255,255,255,0.03);
+  --shadow-sm: inset 0 1px 0 rgba(255,255,255,0.04);
+  --shadow-md: inset 0 1px 0 rgba(255,255,255,0.04);
+  --shadow-lg: 0 24px 60px -24px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.06);
+  --shadow-xl: 0 24px 60px -24px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.07);
+  --shadow-btn: 0 0 0 1px rgba(255,255,255,0.1), 0 8px 24px -12px rgba(129,140,248,0.35);
 
   /* Transitions */
   --t1: 100ms ease;
@@ -85,14 +91,14 @@
   --t3: 240ms ease;
 
   /* Tailwind compat */
-  --background: #0c0e14;
-  --foreground: #f3f5f8;
+  --background: #08090a;
+  --foreground: #f7f8f8;
   color-scheme: dark;
 }
 
 .dark {
-  --background: #0c0e14;
-  --foreground: #f1f5f9;
+  --background: #08090a;
+  --foreground: #f7f8f8;
   color-scheme: dark;
 }
 
@@ -101,13 +107,25 @@
 body {
   background: var(--bg);
   color: var(--text-1);
-  font-family: var(--font-geist-sans, system-ui, sans-serif);
+  font-family: var(--font-inter), var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 html {
   background: var(--bg);
+}
+
+h1, h2, .page-title, .font-display {
+  font-family: var(--font-satoshi), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+::selection { background: rgba(94, 106, 210, 0.35); }
+
+/* Panels: a faint vertical fill over the panel colour and a highlight along
+   the top edge (Sectira's .app-glass). */
+.app-glass {
+  background-image: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012));
 }
 
 /* ─── Scrollbar ──────────────────────────────────────────────────────────────
@@ -152,7 +170,7 @@ html {
 
 /* Primary card - the most common container */
 .glass-card {
-  background: var(--bg-surface);
+  background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012)), var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--r-2xl);
   box-shadow: var(--shadow-md);
@@ -546,7 +564,7 @@ select option { background-color: var(--bg-raised); color: var(--text-1); }
     font-size: 14px;
     line-height: 20px;
     color: var(--text-1);
-    background: var(--bg-subtle);
+    background: rgba(255,255,255,0.03);
     border: 1px solid var(--border);
     border-radius: var(--r-md);
     transition: border-color var(--t2), box-shadow var(--t2), background var(--t2);
@@ -555,8 +573,9 @@ select option { background-color: var(--bg-raised); color: var(--text-1); }
   .field:hover { border-color: var(--border-hover); }
   .field:focus {
     outline: none;
-    border-color: var(--accent-border);
-    box-shadow: 0 0 0 3px var(--accent-subtle);
+    border-color: rgba(110, 121, 214, 0.7);
+    background: rgba(255,255,255,0.04);
+    box-shadow: 0 0 0 3px rgba(110, 121, 214, 0.25);
   }
   .field:disabled { opacity: 0.5; cursor: not-allowed; }
   textarea.field {
@@ -616,23 +635,24 @@ select option { background-color: var(--bg-raised); color: var(--text-1); }
     padding: 0 16px;
     font-size: 14px;
     font-weight: 600;
-    border-radius: var(--r-md);
+    border-radius: var(--r);
     white-space: nowrap;
-    transition: background var(--t2), border-color var(--t2), color var(--t2);
+    transition: background var(--t2), border-color var(--t2), color var(--t2), transform var(--t1);
   }
-  .btn-primary { color: #fff; background: var(--accent); border: 1px solid transparent; }
-  .btn-primary:hover  { background: var(--accent-hover); }
-  .btn-primary:active { background: var(--accent-press); }
-  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
-  .btn-secondary { color: var(--text-2); background: var(--bg-raised); border: 1px solid var(--border); }
-  .btn-secondary:hover { color: #fff; background: #1f2430; border-color: var(--border-hover); }
-  .btn-pill { padding: 0 14px; font-size: 13px; color: #c3c9ff; background: var(--accent-subtle); border: 1px solid var(--accent-border); cursor: default; }
+  .btn-primary { color: var(--on-primary); background: var(--primary); border: 1px solid transparent; box-shadow: var(--shadow-btn); }
+  .btn-primary:hover  { background: var(--primary-hover); }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-primary:disabled { background: var(--bg-raised); color: var(--text-5); box-shadow: none; cursor: not-allowed; }
+  .btn-secondary { color: var(--text-1); background: rgba(255,255,255,0.03); border: 1px solid var(--border); }
+  .btn-secondary:hover { color: #fff; background: rgba(255,255,255,0.06); border-color: var(--border-hover); }
+  .btn-secondary:active { transform: scale(0.98); }
+  .btn-pill { padding: 0 14px; font-size: 13px; color: #c5cbf5; background: var(--accent-subtle); border: 1px solid var(--accent-border); cursor: default; }
   .btn-primary svg, .btn-secondary svg, .btn-pill svg { width: 16px; height: 16px; flex-shrink: 0; }
 }
 
 /* ── Jobs: cards, score rail, call to action ─────────────────────────────── */
 .prc-job, .prc-job-static {
-  background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0) 40%), var(--bg-surface);
+  background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012)), var(--bg-surface);
   border: 1px solid var(--border);
   box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 1px 2px rgba(0,0,0,0.25);
 }
@@ -647,7 +667,7 @@ select option { background-color: var(--bg-raised); color: var(--text-1); }
 }
 .prc-rail {
   background:
-    radial-gradient(120% 90% at 100% 0%, rgba(91,108,255,0.16), transparent 60%),
+    radial-gradient(120% 90% at 100% 0%, rgba(94,106,210,0.14), transparent 60%),
     linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.005));
 }
 .prc-skeleton {
@@ -658,18 +678,18 @@ select option { background-color: var(--bg-raised); color: var(--text-1); }
 .prc-cta {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   height: 36px; padding: 0 18px; border-radius: 9999px;
-  font-size: 13px; font-weight: 600; letter-spacing: 0.01em; color: #fff;
-  background: linear-gradient(180deg, #6d7cff, #5263f5);
-  box-shadow: 0 1px 0 rgba(255,255,255,0.22) inset, 0 6px 16px -6px rgba(91,108,255,0.7);
+  font-size: 13px; font-weight: 600; letter-spacing: 0.005em; color: var(--on-primary);
+  background: var(--primary);
+  box-shadow: var(--shadow-btn);
   transition: transform 150ms ease, box-shadow 200ms ease, filter 200ms ease;
   white-space: nowrap;
 }
-.prc-cta:hover { filter: brightness(1.08); box-shadow: 0 1px 0 rgba(255,255,255,0.25) inset, 0 10px 22px -8px rgba(91,108,255,0.85); }
+.prc-cta:hover { background: var(--primary-hover); }
 .prc-cta:active { transform: scale(0.97); }
 .prc-cta:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
 .prc-cta svg { width: 16px; height: 16px; }
-.prc-cta-quiet { color: #dfe3ff; background: var(--accent-subtle); box-shadow: inset 0 0 0 1px var(--accent-border); }
-.prc-cta-quiet:hover { background: rgba(91,108,255,0.2); box-shadow: inset 0 0 0 1px var(--accent-border); }
+.prc-cta-quiet { color: var(--text-1); background: rgba(255,255,255,0.04); box-shadow: inset 0 0 0 1px var(--border); }
+.prc-cta-quiet:hover { background: rgba(255,255,255,0.08); box-shadow: inset 0 0 0 1px var(--border-hover); }
 .prc-ring { animation: prcRing 900ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 .prc-panel { animation: prcSlide 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 .prc-fade { animation: prcFade 240ms ease both; }

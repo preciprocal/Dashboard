@@ -1,6 +1,7 @@
 // app/layout.tsx
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import {
   getCurrentUser,
@@ -26,14 +27,32 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#0a0a0a" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+    { media: "(prefers-color-scheme: light)", color: "#08090a" },
+    { media: "(prefers-color-scheme: dark)", color: "#08090a" },
   ],
   width: "device-width",
   initialScale: 1,
 };
 
 // ─── Fonts ────────────────────────────────────────────────────────────────────
+// The Sectira type system: Inter for text and UI, Satoshi for headings
+// (Fontshare, ITF Free Font License, served from app/fonts so nothing loads
+// from a third party). Geist stays available for mono and older markup.
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+});
+
+const satoshi = localFont({
+  variable: "--font-satoshi",
+  display: "swap",
+  src: [
+    { path: "./fonts/Satoshi-500.woff2", weight: "500" },
+    { path: "./fonts/Satoshi-700.woff2", weight: "700" },
+    { path: "./fonts/Satoshi-900.woff2", weight: "900" },
+  ],
+});
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -65,7 +84,7 @@ export default async function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${inter.variable} ${satoshi.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
         <LayoutClient user={user}>

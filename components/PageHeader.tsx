@@ -63,7 +63,7 @@ export function Breadcrumbs({ crumbs, className = "mb-3" }: { crumbs: Crumb[]; c
   if (!crumbs.length) return null;
   return (
     <nav aria-label="Breadcrumb" className={className}>
-      <ol className="flex items-center flex-wrap gap-0.5 -ml-1.5 text-[13px] leading-none">
+      <ol className="flex items-center flex-wrap gap-0.5 -ml-1.5 text-[12.5px] leading-none">
         {crumbs.map((c, i) => {
           const last = i === crumbs.length - 1;
           const content = (
@@ -75,9 +75,9 @@ export function Breadcrumbs({ crumbs, className = "mb-3" }: { crumbs: Crumb[]; c
           return (
             <li key={`${c.label}-${i}`} className="flex items-center gap-0.5 min-w-0">
               {c.href && !last
-                ? <Link href={c.href} className="inline-flex items-center gap-1.5 h-7 px-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors min-w-0">{content}</Link>
-                : <span aria-current={last ? "page" : undefined} className="inline-flex items-center gap-1.5 h-7 px-1.5 text-white font-medium min-w-0">{content}</span>}
-              {!last && <ChevronRight className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" aria-hidden="true" />}
+                ? <Link href={c.href} className="inline-flex items-center gap-1.5 h-7 px-1.5 rounded-md text-[var(--text-4)] hover:text-[var(--text-1)] hover:bg-white/[0.05] transition-colors min-w-0">{content}</Link>
+                : <span aria-current={last ? "page" : undefined} className="inline-flex items-center gap-1.5 h-7 px-1.5 text-[var(--text-2)] min-w-0">{content}</span>}
+              {!last && <ChevronRight className="w-3.5 h-3.5 text-[var(--text-5)] flex-shrink-0" aria-hidden="true" />}
             </li>
           );
         })}
@@ -102,27 +102,24 @@ export default function PageHeader({
 }) {
   const pathname = usePathname() ?? "/";
   const trail = crumbs ?? crumbsFor(pathname, title);
+  // The Sectira header: no card, a quiet trail, a large title with its
+  // description, and the page's actions on the right. The icon is kept as a
+  // small accent mark beside the title.
   return (
-    <header className={`glass-card overflow-hidden animate-fade-in-up ${className}`}>
-      {/* The trail gets its own row, divided from the title, at the same left
-          edge as the icon below it. */}
-      {trail.length > 0 && (
-        <div className="px-5 py-2 border-b border-white/[0.06] bg-white/[0.015]">
-          <Breadcrumbs crumbs={trail} className="" />
-        </div>
-      )}
-      <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+    <header className={`mb-6 animate-fade-in-up ${className}`}>
+      {trail.length > 1 && <Breadcrumbs crumbs={trail} className="mb-2.5" />}
+      <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-6">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           {icon && (
-            <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0 text-indigo-200 [&>svg]:w-5 [&>svg]:h-5">
+            <div className="w-9 h-9 rounded-[10px] app-glass bg-[var(--bg-surface)] border border-[var(--border)] flex items-center justify-center flex-shrink-0 text-[var(--accent)] [&>svg]:w-[18px] [&>svg]:h-[18px]">
               {React.isValidElement(icon)
                 ? icon
                 : React.createElement(icon as LucideIcon, { strokeWidth: 1.75, "aria-hidden": true })}
             </div>
           )}
           <div className="min-w-0">
-            <h1 className="text-[20px] font-semibold text-white tracking-tight leading-tight truncate">{title}</h1>
-            {description && <p className="text-[13px] text-slate-400 mt-0.5 leading-snug">{description}</p>}
+            <h1 className="text-[24px] font-semibold text-[var(--text-1)] tracking-[-0.024em] leading-tight truncate">{title}</h1>
+            {description && <p className="text-[13px] text-[var(--text-3)] mt-1 leading-snug">{description}</p>}
           </div>
         </div>
         {actions && <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:justify-end flex-shrink-0">{actions}</div>}
