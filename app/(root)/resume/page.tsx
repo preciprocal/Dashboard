@@ -2,31 +2,19 @@
 import PageHeader from '@/components/PageHeader';
 import { FileText as HeaderIcon } from 'lucide-react';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { ResumeService } from '@/lib/services/resume-service';
-import ResumeCard from '@/components/resume/ResumeCard';
+import ResumeLibrary from '@/components/resume/ResumeLibrary';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 import { Resume } from '@/types/resume';
 import { toast } from 'sonner';
 
-import {
-  FileText, Upload, Zap, LayoutGrid, List, Filter, CheckCircle,
-  AlertCircle, RefreshCw, ChevronDown,
-} from 'lucide-react';
+import { FileText, Upload, AlertCircle, RefreshCw } from 'lucide-react';
 import { SeeExampleButton } from '@/components/ServiceModal';
-
-type SortOption = 'all' | 'high-scores' | 'needs-improvement' | 'recent';
-type ViewMode = 'grid' | 'list';
-
-interface ResumeStats {
-  averageScore: number;
-  totalResumes: number;
-  improvementTips: number;
-}
 
 interface CriticalError {
   code: string;
@@ -35,38 +23,12 @@ interface CriticalError {
   details?: string;
 }
 
-function calcStats(list: Resume[]): ResumeStats {
-  const withFeedback = list.filter(r => r.feedback);
-  if (withFeedback.length === 0) return { averageScore: 0, totalResumes: list.length, improvementTips: 0 };
-
-  const avgScore = withFeedback.reduce((s, r) => s + (r.feedback?.overallScore || 0), 0) / withFeedback.length;
-
-  const totalTips = withFeedback.reduce((s, r) => {
-    if (!r.feedback) return s;
-    const fd = r.feedback as unknown as Record<string, { tips?: Array<{ type: string }> }>;
-    const tips = [
-      ...(fd['ATS']?.tips ?? fd['ats']?.tips ?? []),
-      ...(fd['content']?.tips ?? []),
-      ...(fd['structure']?.tips ?? []),
-      ...(fd['skills']?.tips ?? []),
-      ...(fd['toneAndStyle']?.tips ?? []),
-    ];
-    return s + tips.filter(t => t.type !== 'good').length;
-  }, 0);
-
-  return { averageScore: Math.round(avgScore), totalResumes: list.length, improvementTips: totalTips };
-}
-
 export default function ResumeDashboard() {
   const [user, loading] = useSupabaseUser();
   const router = useRouter();
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [loadingResumes, setLoadingResumes] = useState<boolean>(true);
   const [loadingStep, setLoadingStep] = useState(0);
-  const [sortFilter, setSortFilter] = useState<SortOption>('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [stats, setStats] = useState<ResumeStats>({ averageScore: 0, totalResumes: 0, improvementTips: 0 });
   const [criticalError, setCriticalError] = useState<CriticalError | null>(null);
   const [resumesError, setResumesError] = useState<string>('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -82,17 +44,6 @@ export default function ResumeDashboard() {
     { name: 'Organizing resumes...', weight: 1 },
     { name: 'Finalizing dashboard...', weight: 1 },
   ];
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (showFilterMenu && !target.closest('.filter-dropdown')) {
-        setShowFilterMenu(false);
-      }
-    };
-    if (showFilterMenu) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showFilterMenu]);
 
   const loadResumes = useCallback(async (forceRefresh = false): Promise<void> => {
     if (!user) return;
@@ -110,7 +61,6 @@ export default function ResumeDashboard() {
       setLoadingStep(2);
 
       setLoadingStep(3);
-      setStats(calcStats(userResumes));
 
       setLoadingStep(4);
       setLoadingStep(5);
@@ -172,49 +122,10 @@ export default function ResumeDashboard() {
     // Animate out, then update local state only - no refetch
     setTimeout(() => {
       setDeletingId(null);
-      setResumes(prev => {
-        const updated = prev.filter(r => r.id !== resumeId);
-        setStats(calcStats(updated));
-        return updated;
-      });
+      setResumes(prev => prev.filter(r => r.id !== resumeId));
       toast.success('Resume deleted');
     }, 300);
   }, []);
-
-  const filteredResumes = useMemo(() => {
-    const filtered = [...resumes];
-    switch (sortFilter) {
-      case 'high-scores':
-        return filtered
-          .filter(r => r.feedback && r.feedback.overallScore >= 90)
-          .sort((a, b) => (b.feedback?.overallScore || 0) - (a.feedback?.overallScore || 0));
-      case 'needs-improvement':
-        return filtered.filter(r => r.feedback && r.feedback.overallScore < 70);
-      case 'recent':
-      case 'all':
-      default:
-        return filtered.sort((a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }
-  }, [resumes, sortFilter]);
-
-  const getFilterCount = (option: SortOption): number => {
-    switch (option) {
-      case 'high-scores': return resumes.filter(r => r.feedback && r.feedback.overallScore >= 90).length;
-      case 'needs-improvement': return resumes.filter(r => r.feedback && r.feedback.overallScore < 70).length;
-      default: return resumes.length;
-    }
-  };
-
-  const getFilterLabel = (option: SortOption): string => {
-    switch (option) {
-      case 'all': return `All (${getFilterCount('all')})`;
-      case 'high-scores': return `High Scores (${getFilterCount('high-scores')})`;
-      case 'needs-improvement': return `Needs Work (${getFilterCount('needs-improvement')})`;
-      case 'recent': return `Recent (${getFilterCount('recent')})`;
-      default: return 'All';
-    }
-  };
 
   if (criticalError) {
     return (
@@ -263,7 +174,7 @@ export default function ResumeDashboard() {
     <div className="space-y-4 pt-4">
 
       <PageHeader
-        title="Resume Analysis" description="AI feedback on every resume you upload" icon={HeaderIcon}
+        title="Resumes" description="Every resume you uploaded, how it scores, and which one gets interviews" icon={HeaderIcon}
         actions={<>
           <SeeExampleButton serviceId="resume" />
           <Link href="/resume/upload" className="btn-primary"><Upload /> Upload Resume</Link>
@@ -289,86 +200,7 @@ export default function ResumeDashboard() {
       {resumes.length > 0 ? (
         <div className="space-y-4">
 
-          {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="glass-card p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center"><FileText className="w-4 h-4 text-blue-400" /></div>
-                <span className="text-2xl font-bold text-white tabular-nums">{stats.totalResumes}</span>
-              </div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">Total Resumes</p>
-            </div>
-            <div className="glass-card p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center"><CheckCircle className="w-4 h-4 text-emerald-400" /></div>
-                <span className="text-2xl font-bold text-white tabular-nums">{stats.averageScore}%</span>
-              </div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">Average Score</p>
-            </div>
-            <div className="glass-card p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-8 h-8 bg-amber-500/10 rounded-lg flex items-center justify-center"><Zap className="w-4 h-4 text-amber-400" /></div>
-                <span className="text-2xl font-bold text-white tabular-nums">{stats.improvementTips}</span>
-              </div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">Improvements</p>
-            </div>
-          </div>
-
-          {/* Filter / view bar */}
-          <div className="glass-card p-4">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h2 className="text-sm font-bold text-white">Your Resumes</h2>
-                <p className="text-xs text-slate-500 mt-0.5">{filteredResumes.length} of {resumes.length} resumes</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="relative filter-dropdown">
-                  <button type="button" onClick={() => setShowFilterMenu(!showFilterMenu)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.04] border transition-all min-w-[180px] justify-between ${showFilterMenu ? 'border-indigo-500/40 text-slate-200' : 'border-white/[0.07] text-slate-400 hover:border-white/[0.12] hover:text-slate-200'} text-xs font-medium`}>
-                    <span className="flex items-center gap-1.5"><Filter className="w-3.5 h-3.5" />{getFilterLabel(sortFilter)}</span>
-                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${showFilterMenu ? 'rotate-180' : ''}`} />
-                  </button>
-                  {showFilterMenu && (
-                    <div className="absolute right-0 top-full mt-2 w-52 bg-[var(--bg-raised)] border border-white/[0.08] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] z-20 overflow-hidden">
-                      {(['all', 'high-scores', 'needs-improvement', 'recent'] as SortOption[]).map(option => (
-                        <button key={option} type="button" onClick={() => { setSortFilter(option); setShowFilterMenu(false); }}
-                          className={`w-full px-4 py-2.5 text-left text-xs font-medium transition-colors ${sortFilter === option ? 'bg-indigo-500/15 text-indigo-300' : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'}`}>
-                          {getFilterLabel(option)}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-0.5 p-1 bg-white/[0.03] border border-white/[0.07] rounded-lg">
-                  <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded transition-all duration-150 ${viewMode === 'grid' ? 'bg-white/[0.10] text-white' : 'text-slate-500 hover:text-slate-300'}`} aria-label="Grid view"><LayoutGrid className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => setViewMode('list')} className={`p-1.5 rounded transition-all duration-150 ${viewMode === 'list' ? 'bg-white/[0.10] text-white' : 'text-slate-500 hover:text-slate-300'}`} aria-label="List view"><List className="w-3.5 h-3.5" /></button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Resume cards */}
-          {filteredResumes.length > 0 ? (
-            <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4' : 'space-y-3'}>
-              {filteredResumes.map((resume, index) => (
-                <div key={resume.id} className="opacity-0 animate-fadeIn"
-                  style={{
-                    animationDelay: `${index * 100}ms`,
-                    animationFillMode: 'forwards',
-                    ...(deletingId === resume.id ? { opacity: 0, transform: 'scale(0.95)', transition: 'opacity 300ms ease, transform 300ms ease', pointerEvents: 'none' as const } : {}),
-                  }}>
-                  <ResumeCard resume={resume} viewMode={viewMode} onDelete={handleDelete} />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="glass-card p-12 text-center">
-              <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-4"><FileText className="w-5 h-5 text-slate-500" /></div>
-              <h3 className="text-sm font-bold text-slate-400 mb-2">No resumes match this filter</h3>
-              <p className="text-xs text-slate-500 mb-5">Try adjusting your filter or upload a new resume</p>
-              <button onClick={() => setSortFilter('all')} className="text-xs text-slate-400 hover:text-white underline transition-colors">Clear filter</button>
-            </div>
-          )}
+          <ResumeLibrary resumes={resumes} onDelete={handleDelete} deletingId={deletingId} />
         </div>
       ) : !resumesError ? (
         <div className="glass-card p-12 text-center">
