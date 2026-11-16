@@ -10,6 +10,7 @@ import { createContext, useContext, type ElementType, type ReactNode } from 'rea
 import { ArrowRight, ArrowUpRight, ArrowDownRight, Minus, ShieldCheck, Landmark, CheckCircle2, ChevronRight, Loader2, Send } from 'lucide-react';
 import InfoTip from '@/components/ui/info-tip';
 import { CompanyLogo } from '@/components/jobs/CompanyLogo';
+import H1bTip from '@/components/jobs/H1bTip';
 import type { FeedJob, JobLevel } from '@/lib/jobs/feed';
 import type { AppStatus, JobKpis, TrackedApp } from '@/lib/overview/metrics';
 import { MIN_FOR_RATE, toTime } from '@/lib/overview/metrics';
@@ -235,7 +236,7 @@ export function NewJobs({ data, logos, applying, onApply, personalized = false }
                         <InfoTip term="everified" className="whitespace-nowrap text-[10.5px] font-medium rounded border px-1.5 py-px text-emerald-300 bg-emerald-500/10 border-emerald-500/20"><ShieldCheck className="w-3 h-3" />E-Verified</InfoTip>
                       )}
                       {(job.h?.[0] ?? 0) > 0 && (
-                        <InfoTip term="h1b" className="whitespace-nowrap text-[10.5px] font-medium rounded border px-1.5 py-px text-sky-300 bg-sky-500/10 border-sky-500/20"><Landmark className="w-3 h-3" />{job.h![0].toLocaleString('en-US')} H-1B{data.h1bYear ? ` FY${data.h1bYear}` : ''}</InfoTip>
+                        <H1bTip h={job.h} year={data.h1bYear} className="whitespace-nowrap text-[10.5px] font-medium rounded border px-1.5 py-px text-sky-300 bg-sky-500/10 border-sky-500/20"><Landmark className="w-3 h-3" />{job.h![0].toLocaleString('en-US')} H-1B{data.h1bYear ? ` FY${data.h1bYear}` : ''}</H1bTip>
                       )}
                     </div>
                   )}

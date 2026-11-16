@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { toast } from 'sonner';
-import { Laptop, Smartphone, Tablet, MapPin, Loader2, LogOut, MonitorSmartphone, RefreshCw } from 'lucide-react';
+import { Laptop, Smartphone, Tablet, MapPin, Loader2, MonitorSmartphone, RefreshCw } from 'lucide-react';
 
 interface Device {
   id: string;
@@ -116,8 +116,8 @@ export default function DevicesPanel() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="text-white text-sm font-medium">{d.label}</h4>
                     {d.current && (
-                      <span className="text-[11px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        This device
+                      <span className="inline-flex items-center gap-1.5 h-5 px-2 rounded-full text-[11px] font-medium text-[var(--text-2)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" aria-hidden="true" />This device
                       </span>
                     )}
                   </div>
@@ -138,12 +138,12 @@ export default function DevicesPanel() {
                     </button>
                   )}
                   <button type="button" onClick={() => remove(d.id)} disabled={busy !== null}
-                    className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`inline-flex items-center justify-center gap-1.5 h-8 px-3.5 rounded-lg text-[12.5px] font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                       isConfirming
-                        ? 'bg-red-500/15 border-red-500/40 text-red-300 hover:bg-red-500/25'
-                        : 'border-white/[0.08] text-slate-300 hover:border-red-500/30 hover:text-red-300'
+                        ? 'bg-rose-500 text-white hover:bg-rose-400'
+                        : 'bg-white/[0.04] text-[var(--text-2)] ring-1 ring-inset ring-white/[0.08] hover:bg-white/[0.07] hover:text-white'
                     }`}>
-                    {busy === d.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogOut className="w-3 h-3" />}
+                    {busy === d.id && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                     {isConfirming ? 'Confirm remove' : 'Remove'}
                   </button>
                 </div>
@@ -161,8 +161,8 @@ export default function DevicesPanel() {
               </button>
             )}
             <button type="button" onClick={() => remove('others')} disabled={busy !== null}
-              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border border-red-500/30 text-red-300 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50">
-              {busy === 'others' ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogOut className="w-3 h-3" />}
+              className={`inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-lg text-[13px] font-medium transition-colors cursor-pointer disabled:opacity-50 ${confirming === 'others' ? 'bg-rose-500 text-white hover:bg-rose-400' : 'bg-white/[0.04] text-rose-300 ring-1 ring-inset ring-white/[0.08] hover:bg-rose-500/10 hover:ring-rose-500/25'}`}>
+              {busy === 'others' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               {confirming === 'others' ? `Confirm: sign out ${others.length} devices` : 'Sign out of all other devices'}
             </button>
           </div>

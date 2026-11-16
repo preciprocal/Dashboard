@@ -785,7 +785,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
   const isActive = (href: string) => pathname === href;
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen relative overflow-clip">
       {/* Solid base, so scrolling past the last section never shows a
           different colour (the old purple gradient did, on mobile). */}
       <div className="fixed inset-0 -z-10 bg-[var(--bg)] pointer-events-none" aria-hidden="true" />

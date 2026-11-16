@@ -6,11 +6,8 @@ import { sensitiveValue, SENSITIVE_ANSWERS_VERSION } from '@/lib/config/sensitiv
 import { AppSelect } from '@/components/ui/select';
 import { fetchDefaultResumeInfo } from '@/lib/resume/default-client';
 import type { DefaultResumeInfo } from '@/lib/resume/default-resume';
-import {
-  User, Briefcase, GraduationCap, Shield, Users,
-  Save, CheckCircle, AlertCircle, Plus, Trash2,
-  Building2, FileText, Star, Heart, ChevronDown, Zap, FileBadge, Loader2,
-} from 'lucide-react';
+import { AlertCircle, Plus, FileBadge, Loader2 } from 'lucide-react';
+import { FormSection, Field, SwitchRow, SectionRail, SaveBar, type RailItem } from '@/components/profile/FormKit';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -123,15 +120,7 @@ const fieldCls = "field"; // shared size and style, globals.css .field
 function F({ label, hint, span, children }: {
   label: string; hint?: string; span?: string; children: React.ReactNode;
 }) {
-  return (
-    <div className={span ?? ''}>
-      <label className="block text-[12.5px] font-medium text-slate-300 mb-1.5">
-        {label}
-        {hint && <span className="text-slate-500 font-normal ml-1.5">{hint}</span>}
-      </label>
-      {children}
-    </div>
-  );
+  return <Field label={label} hint={hint} span={span}>{children}</Field>;
 }
 
 function FInput({ label, hint, span, value, onChange, placeholder, type = 'text', disabled }: {
@@ -141,7 +130,7 @@ function FInput({ label, hint, span, value, onChange, placeholder, type = 'text'
   return (
     <F label={label} hint={hint} span={span}>
       <input type={type} value={value} onChange={e => onChange(e.target.value)}
-        placeholder={placeholder} disabled={disabled} className={fieldCls} />
+        placeholder={placeholder} disabled={disabled} className={fieldCls + ' disabled:opacity-50'} />
     </F>
   );
 }
@@ -171,65 +160,28 @@ function FTextarea({ label, hint, span, value, onChange, placeholder, rows = 3 }
 
 /** Yes / No / Not set, for questions autofill must never assume. */
 function FTri({ label, value, onChange }: { label: string; value: boolean | null; onChange: (v: boolean | null) => void }) {
+  const opt = (v: boolean | null, text: string) => {
+    const on = value === v;
+    return (
+      <button type="button" aria-pressed={on} onClick={() => onChange(v)}
+        className={`flex-1 h-8 rounded-md text-[12.5px] font-medium transition-colors ${on ? 'bg-white/[0.1] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]' : 'text-[var(--text-4)] hover:text-[var(--text-1)]'}`}>
+        {text}
+      </button>
+    );
+  };
   return (
-    <FSelect label={label} value={value === true ? 'yes' : value === false ? 'no' : ''}
-      onChange={v => onChange(v === 'yes' ? true : v === 'no' ? false : null)}
-      options={[{ value: '', label: NOT_SET_LABEL }, { value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }]} />
+    <F label={label}>
+      <div role="group" aria-label={label} className="flex gap-1 p-1 rounded-[var(--r-md)] ring-1 ring-inset ring-white/[0.07] bg-white/[0.02]">
+        {opt(null, 'Not set')}{opt(true, 'Yes')}{opt(false, 'No')}
+      </div>
+    </F>
   );
 }
 
 function FToggle({ value, onChange, label, desc }: {
   value: boolean; onChange: (v: boolean) => void; label: string; desc?: string;
 }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!value)}
-      className={`flex items-center justify-between w-full px-4 py-3 rounded-xl border transition-all duration-200 text-left group
-        ${value ? 'bg-[var(--accent-subtle)] border-[var(--accent-border)]' : 'bg-white/[0.02] border-white/[0.06] hover:border-white/10'}`}
-    >
-      <div>
-        <p className={`text-sm font-medium transition-colors ${value ? 'text-white' : 'text-slate-300 group-hover:text-white'}`}>{label}</p>
-        {desc && <p className="text-xs text-slate-400 mt-0.5">{desc}</p>}
-      </div>
-      <div className={`relative w-10 h-5 rounded-full flex-shrink-0 transition-colors duration-200 ${value ? 'bg-[var(--accent)]' : 'bg-white/[0.08]'}`}>
-        <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-200 ${value ? 'translate-x-5' : 'translate-x-0.5'}`} />
-      </div>
-    </button>
-  );
-}
-
-// ─── Collapsible section ──────────────────────────────────────────────────────
-
-function Section({ label, icon: Icon, desc, children, defaultOpen = true }: {
-  label: string; icon: React.ElementType;
-  desc: string; children: React.ReactNode; defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="glass-card overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        aria-expanded={open}
-        className="w-full flex items-center gap-3.5 px-5 py-4 hover:bg-white/[0.02] transition-colors"
-      >
-        <span className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-[var(--accent-subtle)] border border-[var(--accent-border)] text-indigo-200">
-          <Icon className="w-4 h-4" />
-        </span>
-        <div className="flex-1 text-left min-w-0">
-          <p className="text-[14px] font-semibold text-white">{label}</p>
-          <p className="text-[12.5px] text-slate-400 truncate">{desc}</p>
-        </div>
-        <ChevronDown className={`w-4 h-4 text-slate-400 flex-shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {open && (
-        <div className="px-5 pb-5 pt-1 border-t border-white/[0.05]">
-          {children}
-        </div>
-      )}
-    </div>
-  );
+  return <SwitchRow value={value} onChange={onChange} label={label} desc={desc} />;
 }
 
 // ─── Salary field ─────────────────────────────────────────────────────────────
@@ -270,7 +222,7 @@ function LocationPicker({ value, onChange }: { value: string[]; onChange: (v: st
   const toggle = (loc: string) =>
     onChange(value.includes(loc) ? value.filter(l => l !== loc) : [...value, loc]);
   return (
-    <F label="Preferred locations" hint="Select all that apply. Used for office location questions.">
+    <F label="Preferred locations" hint="for office location questions">
       <div className="flex flex-wrap gap-2 mt-1">
         {PREFERRED_LOCS.map(loc => {
           const active = value.includes(loc);
@@ -280,10 +232,10 @@ function LocationPicker({ value, onChange }: { value: string[]; onChange: (v: st
               type="button"
               onClick={() => toggle(loc)}
               aria-pressed={active}
-              className={`h-8 px-3 rounded-lg text-xs font-medium border transition-colors
+              className={`h-8 px-3 rounded-full text-[12.5px] font-medium transition-colors
                 ${active
-                  ? 'bg-[var(--accent-subtle)] border-[var(--accent-border)] text-indigo-100'
-                  : 'border-white/[0.08] text-slate-400 hover:text-white hover:bg-white/[0.04]'}`}
+                  ? 'bg-white/[0.1] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]'
+                  : 'text-[var(--text-4)] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.07)] hover:text-[var(--text-1)] hover:bg-white/[0.03]'}`}
             >
               {loc}
             </button>
@@ -291,7 +243,7 @@ function LocationPicker({ value, onChange }: { value: string[]; onChange: (v: st
         })}
       </div>
       {value.length > 0 && (
-        <p className="text-xs text-slate-500 mt-2">{value.length} location{value.length !== 1 ? 's' : ''} selected</p>
+        <p className="text-[12px] text-[var(--text-4)] mt-2">{value.length} location{value.length !== 1 ? 's' : ''} selected</p>
       )}
     </F>
   );
@@ -317,44 +269,23 @@ const RACE       = opts(['', 'Prefer not to say','American Indian or Alaska Nati
 const VETERAN    = opts(['', 'I am not a protected veteran','I am a protected veteran','I am a disabled veteran','I am a recently separated veteran','Prefer not to say']);
 const DISABILITY = opts(['', 'I do not have a disability','I have a disability','I have a history of disability','Prefer not to say']);
 
-// ─── Completion bar ───────────────────────────────────────────────────────────
-
-function CompletionBar({ pct, filled, total }: { pct: number; filled: number; total: number }) {
-  const label = pct >= 80 ? 'The extension can fill most application questions'
-              : pct >= 50 ? 'Good start. Add more for better coverage'
-              : 'Fill in more fields for better autofill';
-  return (
-    <div className="pt-4 mt-4 border-t border-white/[0.05]">
-      <div className="flex items-center justify-between gap-3 mb-2 text-[12.5px]">
-        <span className="text-slate-300">{label}</span>
-        <span className="text-slate-400 tabular-nums flex-shrink-0"><span className="text-white font-semibold">{pct}%</span> · {filled}/{total} key fields</span>
-      </div>
-      <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-        <div className={`h-full rounded-full transition-all duration-700 ${pct >= 80 ? 'bg-emerald-400' : 'bg-[var(--accent)]'}`} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}
-
 // The default resume from Profile, which the extension uploads.
-function DefaultResumeRow({ onChange }: { onChange: () => void }) {
+function DefaultResumeCard({ onChange }: { onChange: () => void }) {
   const [info, setInfo] = useState<DefaultResumeInfo | null | undefined>(undefined);
   useEffect(() => { fetchDefaultResumeInfo().then(setInfo); }, []);
   const current = info?.current;
   return (
-    <div className="glass-card px-5 py-4 flex items-center gap-3.5">
-      <span className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-[var(--accent-subtle)] border border-[var(--accent-border)] text-indigo-200">
+    <div className="flex items-center gap-3 p-3 pr-2 rounded-xl ring-1 ring-inset ring-white/[0.07] bg-white/[0.02] md:w-[320px] flex-shrink-0">
+      <span className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] text-[var(--text-2)]">
         <FileBadge className="w-4 h-4" />
       </span>
       <div className="flex-1 min-w-0">
-        <p className="text-[14px] font-semibold text-white">Default resume</p>
-        <p className="text-[12.5px] text-slate-400 truncate">
-          {info === undefined ? 'Loading…'
-            : current ? <>Auto-apply and the extension use <span className="text-slate-200">{current.fileName}</span></>
-            : 'None yet. Add one in Profile so auto-apply and the extension can use it.'}
+        <p className="text-[11.5px] text-[var(--text-4)]">Resume the extension uploads</p>
+        <p className="text-[13px] text-white truncate mt-0.5">
+          {info === undefined ? <span className="inline-block h-3 w-28 rounded prc-skeleton align-middle" /> : current ? current.fileName : 'None yet'}
         </p>
       </div>
-      <button type="button" onClick={onChange} className="btn-secondary h-9 flex-shrink-0">
+      <button type="button" onClick={onChange} className="h-8 px-3 rounded-lg text-[12.5px] font-medium text-[var(--text-2)] hover:text-white hover:bg-white/[0.05] transition-colors flex-shrink-0">
         {current ? 'Change' : 'Add'}
       </button>
     </div>
@@ -373,6 +304,10 @@ export default function JobApplicationProfile({ onOpenProfile }: { onOpenProfile
   const [loading, setLoading] = useState(true);
 
   const { pct, filled, total } = useCompletionScore(p);
+  const [base, setBase] = useState<string | null>(null);
+  useEffect(() => { if (!loading && base === null) setBase(JSON.stringify(p)); }, [loading, base, p]);
+  const dirty = base !== null && JSON.stringify(p) !== base;
+  const discard = () => { if (base) setP(JSON.parse(base) as JobAppProfile); };
 
   // Load from /api/profile (named columns + the extendedData jsonb blob)
   useEffect(() => {
@@ -492,6 +427,7 @@ export default function JobApplicationProfile({ onOpenProfile }: { onOpenProfile
         const e = await res.json().catch(() => ({ error: 'Failed to save' }));
         throw new Error(e.error || 'Failed to save');
       }
+      setBase(JSON.stringify(p));
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e) {
@@ -501,263 +437,209 @@ export default function JobApplicationProfile({ onOpenProfile }: { onOpenProfile
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
-      <Loader2 className="w-6 h-6 text-indigo-300 animate-spin" />
+      <Loader2 className="w-6 h-6 text-[var(--text-4)] animate-spin" />
     </div>
   );
 
-  return (
-    <div className="space-y-3 animate-fade-in-up">
+  const filledOf = (xs: unknown[]) => xs.filter(v => (typeof v === 'string' ? v.trim() !== '' : v !== null && v !== undefined && v !== false)).length;
+  const parts: (RailItem & { desc: string })[] = [
+    { id: 'aa-personal', title: 'Contact', desc: 'Phone and mailing address, for the contact part of every application.', done: filledOf([p.phone, p.streetAddress, p.city, p.state, p.zipCode, p.country]), total: 6 },
+    { id: 'aa-pro', title: 'Professional', desc: 'Headline, summary and skills. "Tell us about yourself" answers start here.', done: filledOf([p.headline, p.yearsOfExperience, p.summary, p.skills, p.linkedInUrl]), total: 5 },
+    { id: 'aa-prefs', title: 'Preferences', desc: 'Pay, arrangement and availability questions.', done: filledOf([p.desiredSalary, p.noticePeriod, p.workType, p.employmentType]), total: 4 },
+    { id: 'aa-auth', title: 'Work authorization', desc: 'How you answer the visa questions. Anything not set is left for you on each form.', done: filledOf([p.workAuthorization, p.visaType, p.requireSponsorship]), total: 3 },
+    { id: 'aa-edu', title: 'Education', desc: 'Degrees, schools and graduation dates.', done: p.education.some(e => e.school && e.degree) ? 1 : 0, total: 1 },
+    { id: 'aa-exp', title: 'Experience', desc: 'Your roles, for the work history part of portals.', done: p.experience.some(e => e.company && e.title) ? 1 : 0, total: 1 },
+    { id: 'aa-std', title: 'Standard questions', desc: 'Yes or no questions most portals ask. Not set means you answer it yourself.', done: filledOf([p.over18, p.driverLicense, p.backgroundCheck, p.drugTest, p.criminalRecord]), total: 5 },
+    { id: 'aa-eeo', title: 'EEO and diversity', desc: 'Voluntary. Only used for EEO sections, and never answered unless you set it.', done: filledOf([p.gender, p.pronouns, p.race, p.veteranStatus, p.disabilityStatus]), total: 5 },
+    { id: 'aa-cover', title: 'Cover letter', desc: 'A template for cover letters and "Why us?" questions.', done: filledOf([p.coverLetterIntro, p.coverLetterBody]), total: 2 },
+  ];
+  const part = (id: string) => parts.find(x => x.id === id)!;
+  const sec = (id: string, children: React.ReactNode) => {
+    const x = part(id);
+    return <FormSection id={x.id} title={x.title} desc={x.desc} done={x.done} total={x.total}>{children}</FormSection>;
+  };
+  const entryCard = 'rounded-xl p-4 sm:p-5 space-y-4 ring-1 ring-inset ring-white/[0.07] bg-white/[0.02]';
+  const removeBtn = 'h-7 px-2.5 rounded-md text-[12px] font-medium text-[var(--text-4)] hover:text-rose-300 hover:bg-rose-500/[0.08] transition-colors';
 
-      {/* ── Header ── */}
-      <section className="glass-card p-4 sm:p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <span className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-[var(--accent-subtle)] border border-[var(--accent-border)] text-indigo-200">
-            <Zap className="w-[18px] h-[18px]" />
-          </span>
+  return (
+    <div className="animate-fade-in-up">
+      {/* ── Header: what this is and how complete it is ── */}
+      <section className="glass-card p-5 sm:p-6 mb-3">
+        <div className="flex flex-col md:flex-row md:items-center gap-5">
+          <CompletionRing pct={pct} />
           <div className="flex-1 min-w-0">
-            <h2 className="text-[15px] font-semibold text-white">Auto-apply details</h2>
-            <p className="text-[12.5px] text-slate-400 mt-0.5">Fill these in once. The Chrome extension uses them to answer application questions.</p>
+            <h2 className="font-display text-[18px] font-semibold tracking-[-0.02em] text-white">Auto-apply details</h2>
+            <p className="text-[13px] text-[var(--text-3)] mt-1 max-w-xl">Fill these in once. The Chrome extension uses them to answer application questions, and leaves anything not set for you.</p>
+            <p className="text-[12px] text-[var(--text-4)] mt-2 tabular-nums">
+              {filled} of {total} key fields filled · {pct >= 80 ? 'The extension can fill most questions' : pct >= 50 ? 'Good start. More fields mean fewer questions left to you' : 'Add more for better coverage'}
+            </p>
           </div>
-          <SaveButton saving={saving} saved={saved} onClick={save} />
+          <DefaultResumeCard onChange={() => onOpenProfile?.()} />
         </div>
-        <CompletionBar pct={pct} filled={filled} total={total} />
       </section>
 
-      <DefaultResumeRow onChange={() => onOpenProfile?.()} />
-
       {error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+        <div className="flex items-center gap-2 px-4 py-3 mb-3 rounded-xl bg-rose-500/10 ring-1 ring-inset ring-rose-500/20 text-rose-300 text-[13px]">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />{error}
         </div>
       )}
 
-      {/* ── 1. Personal ── */}
-      <Section label="Personal Information" icon={User} desc="Contact & address details">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
-          <FInput label="Phone" hint="with country code" value={p.phone} onChange={set('phone')} placeholder="+1 (555) 000-0000" />
-          <FInput label="Street Address" value={p.streetAddress} onChange={set('streetAddress')} placeholder="123 Main St, Apt 4" />
-          <FInput label="City" value={p.city} onChange={set('city')} placeholder="Boston" />
-          <FInput label="State / Province" value={p.state} onChange={set('state')} placeholder="MA" />
-          <FInput label="ZIP / Postal Code" value={p.zipCode} onChange={set('zipCode')} placeholder="02101" />
-          <FSelect label="Country" value={p.country} onChange={set('country')} options={COUNTRIES} />
-        </div>
-      </Section>
+      <div className="grid grid-cols-1 xl:grid-cols-[200px_minmax(0,1fr)] gap-6 items-start">
+        <SectionRail items={parts} />
 
-      {/* ── 2. Professional ── */}
-      <Section label="Professional Profile" icon={Briefcase} desc="Skills, links & summary">
-        <div className="space-y-4 mt-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FInput label="Target Role / Headline" value={p.headline} onChange={set('headline')} placeholder="Senior Software Engineer" />
-            <FSelect label="Years of Experience" value={p.yearsOfExperience} onChange={set('yearsOfExperience')} options={YOE} />
-          </div>
-          <FTextarea
-            label="Professional Summary" hint="used for 'About Me' & 'Tell us about yourself' questions"
-            value={p.summary} onChange={set('summary')} rows={4}
-            placeholder="Experienced software engineer with 5+ years building scalable web applications…"
-          />
-          <FTextarea
-            label="Skills" hint="comma-separated"
-            value={p.skills} onChange={set('skills')} rows={2}
-            placeholder="React, TypeScript, Node.js, Python, AWS, PostgreSQL…"
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <FInput label="LinkedIn" value={p.linkedInUrl} onChange={set('linkedInUrl')} placeholder="linkedin.com/in/username" />
-            <FInput label="GitHub"   value={p.githubUrl}   onChange={set('githubUrl')}   placeholder="github.com/username" />
-            <FInput label="Portfolio / Website" value={p.portfolioUrl} onChange={set('portfolioUrl')} placeholder="yoursite.com" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FInput label="Certifications" hint="comma-separated" value={p.certifications} onChange={set('certifications')} placeholder="AWS Solutions Architect, PMP…" />
-            <FInput label="Languages" hint="comma-separated" value={p.languages} onChange={set('languages')} placeholder="English, Spanish" />
-          </div>
-        </div>
-      </Section>
+        <div className="glass-card px-5 sm:px-7 py-6">
+          {sec('aa-personal', (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FInput label="Phone" hint="with country code" value={p.phone} onChange={set('phone')} placeholder="+1 (555) 000-0000" />
+              <FInput label="Street address" value={p.streetAddress} onChange={set('streetAddress')} placeholder="123 Main St, Apt 4" />
+              <FInput label="City" value={p.city} onChange={set('city')} placeholder="Boston" />
+              <FInput label="State or province" value={p.state} onChange={set('state')} placeholder="MA" />
+              <FInput label="ZIP or postal code" value={p.zipCode} onChange={set('zipCode')} placeholder="02101" />
+              <FSelect label="Country" value={p.country} onChange={set('country')} options={COUNTRIES} />
+            </div>
+          ))}
 
-      {/* ── 3. Preferences ── */}
-      <Section label="Job Preferences" icon={Star} desc="Salary, work type & availability">
-        <div className="space-y-4 mt-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <SalaryField salary={p.desiredSalary} salaryType={p.salaryType} onSalary={set('desiredSalary')} onType={set('salaryType')} />
-            <FSelect label="Notice Period"    value={p.noticePeriod}   onChange={set('noticePeriod')}   options={NOTICE} />
-            <FSelect label="Work Arrangement" value={p.workType}       onChange={set('workType')}       options={WORK_TYPE} />
-            <FSelect label="Employment Type"  value={p.employmentType} onChange={set('employmentType')} options={EMP_TYPE} />
-            <FSelect label="Open to Travel"   value={p.openToTravel}   onChange={set('openToTravel')}   options={TRAVEL} />
-            <FSelect label="How did you hear?" hint="default answer" value={p.howDidYouHear} onChange={set('howDidYouHear')} options={REFERRAL} />
-          </div>
-          <LocationPicker value={p.preferredLocations} onChange={set('preferredLocations')} />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <FToggle value={p.willingToRelocate} onChange={set('willingToRelocate')} label="Willing to relocate" />
-            <FToggle value={p.currentlyEmployed} onChange={set('currentlyEmployed')} label="Currently employed" />
-          </div>
-          {p.currentlyEmployed && (
-            <FInput label="Reason for leaving" value={p.reasonForLeaving} onChange={set('reasonForLeaving')}
-              placeholder="Seeking new challenges and growth opportunities…" />
-          )}
-        </div>
-      </Section>
+          {sec('aa-pro', (<>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FInput label="Target role or headline" value={p.headline} onChange={set('headline')} placeholder="Data Analyst" />
+              <FSelect label="Years of experience" value={p.yearsOfExperience} onChange={set('yearsOfExperience')} options={YOE} />
+            </div>
+            <FTextarea label="Professional summary" hint="for About me questions" value={p.summary} onChange={set('summary')} rows={4}
+              placeholder="Data analyst with two years turning messy data into decisions..." />
+            <FTextarea label="Skills" hint="comma separated" value={p.skills} onChange={set('skills')} rows={2}
+              placeholder="SQL, Python, Tableau, Excel..." />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <FInput label="LinkedIn" value={p.linkedInUrl} onChange={set('linkedInUrl')} placeholder="linkedin.com/in/you" />
+              <FInput label="GitHub" value={p.githubUrl} onChange={set('githubUrl')} placeholder="github.com/you" />
+              <FInput label="Portfolio or website" value={p.portfolioUrl} onChange={set('portfolioUrl')} placeholder="yoursite.com" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FInput label="Certifications" hint="comma separated" value={p.certifications} onChange={set('certifications')} placeholder="AWS Cloud Practitioner" />
+              <FInput label="Languages" hint="comma separated" value={p.languages} onChange={set('languages')} placeholder="English, Spanish" />
+            </div>
+          </>))}
 
-      {/* ── 4. Work Auth ── */}
-      <Section label="Work Authorization" icon={Shield} desc="Visa & authorization status">
-        <div className="space-y-4 mt-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FSelect label="Authorized to work in the US?" value={p.workAuthorization} onChange={set('workAuthorization')} options={WORK_AUTH} />
-            <FSelect label="Visa / Work Status" value={p.visaType} onChange={set('visaType')} options={VISA} />
-          </div>
-          <FTri label="Require visa sponsorship (now or in the future)?" value={p.requireSponsorship} onChange={set('requireSponsorship')} />
-        </div>
-      </Section>
+          {sec('aa-prefs', (<>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <SalaryField salary={p.desiredSalary} salaryType={p.salaryType} onSalary={set('desiredSalary')} onType={set('salaryType')} />
+              <FSelect label="Notice period" value={p.noticePeriod} onChange={set('noticePeriod')} options={NOTICE} />
+              <FSelect label="Work arrangement" value={p.workType} onChange={set('workType')} options={WORK_TYPE} />
+              <FSelect label="Employment type" value={p.employmentType} onChange={set('employmentType')} options={EMP_TYPE} />
+              <FSelect label="Open to travel" value={p.openToTravel} onChange={set('openToTravel')} options={TRAVEL} />
+              <FSelect label="How did you hear about us?" hint="default answer" value={p.howDidYouHear} onChange={set('howDidYouHear')} options={REFERRAL} />
+            </div>
+            <LocationPicker value={p.preferredLocations} onChange={set('preferredLocations')} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FToggle value={p.willingToRelocate} onChange={set('willingToRelocate')} label="Willing to relocate" />
+              <FToggle value={p.currentlyEmployed} onChange={set('currentlyEmployed')} label="Currently employed" />
+            </div>
+            {p.currentlyEmployed && (
+              <FInput label="Reason for leaving" value={p.reasonForLeaving} onChange={set('reasonForLeaving')} placeholder="Looking for a role closer to analytics..." />
+            )}
+          </>))}
 
-      {/* ── 5. Education ── */}
-      <Section label="Education" icon={GraduationCap} desc="Degrees & schools">
-        <div className="space-y-3 mt-5">
-          {p.education.map((edu, i) => (
-            <div key={i} className="rounded-xl p-5 space-y-4 bg-white/[0.03] border border-white/[0.06]">
-              <div className="flex items-center justify-between">
-                <span className="text-[12.5px] font-semibold text-slate-200">
-                  {p.education.length > 1 ? `Education #${i + 1}` : 'Education'}
-                </span>
-                {p.education.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeEdu(i)}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FInput label="School / University" value={edu.school} onChange={v => setEdu(i, 'school', v)} placeholder="Northeastern University" />
-                <FSelect label="Degree" value={edu.degree} onChange={v => setEdu(i, 'degree', v)} options={DEGREE} />
-                <FInput label="Field of Study / Major" value={edu.field} onChange={v => setEdu(i, 'field', v)} placeholder="Computer Science" />
-                <FInput label="GPA" hint="optional" value={edu.gpa} onChange={v => setEdu(i, 'gpa', v)} placeholder="3.8" />
-                <FSelect label="Graduation Year" value={edu.year} onChange={v => setEdu(i, 'year', v)} options={GRAD_YEARS} />
-                <div className="flex items-end pb-0.5">
-                  <FToggle value={edu.current} onChange={v => setEdu(i, 'current', v)} label="Currently enrolled" />
+          {sec('aa-auth', (<>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FSelect label="Authorized to work in the US?" value={p.workAuthorization} onChange={set('workAuthorization')} options={WORK_AUTH} />
+              <FSelect label="Visa or work status" value={p.visaType} onChange={set('visaType')} options={VISA} />
+            </div>
+            <FTri label="Will you need visa sponsorship, now or in the future?" value={p.requireSponsorship} onChange={set('requireSponsorship')} />
+          </>))}
+
+          {sec('aa-edu', (<>
+            {p.education.map((edu, i) => (
+              <div key={i} className={entryCard}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[12.5px] font-medium text-[var(--text-2)]">{edu.school || (p.education.length > 1 ? `Education ${i + 1}` : 'Education')}</span>
+                  {p.education.length > 1 && <button type="button" onClick={() => removeEdu(i)} className={removeBtn}>Remove</button>}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FInput label="School or university" value={edu.school} onChange={v => setEdu(i, 'school', v)} placeholder="Northeastern University" />
+                  <FSelect label="Degree" value={edu.degree} onChange={v => setEdu(i, 'degree', v)} options={DEGREE} />
+                  <FInput label="Field of study" value={edu.field} onChange={v => setEdu(i, 'field', v)} placeholder="Computer Science" />
+                  <FInput label="GPA" hint="optional" value={edu.gpa} onChange={v => setEdu(i, 'gpa', v)} placeholder="3.8" />
+                  <FSelect label="Graduation year" value={edu.year} onChange={v => setEdu(i, 'year', v)} options={GRAD_YEARS} />
+                  <div className="flex items-end">
+                    <FToggle value={edu.current} onChange={v => setEdu(i, 'current', v)} label="Currently enrolled" />
+                  </div>
                 </div>
               </div>
+            ))}
+            <button type="button" onClick={addEdu} className="btn-secondary !h-9 !text-[13px]"><Plus className="w-3.5 h-3.5" />Add education</button>
+          </>))}
+
+          {sec('aa-exp', (<>
+            {p.experience.map((exp, i) => (
+              <div key={i} className={entryCard}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[12.5px] font-medium text-[var(--text-2)] truncate">
+                    {exp.title || exp.company ? [exp.title, exp.company].filter(Boolean).join(' at ') : p.experience.length > 1 ? `Position ${i + 1}` : 'Position'}
+                  </span>
+                  {p.experience.length > 1 && <button type="button" onClick={() => removeExp(i)} className={removeBtn}>Remove</button>}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FInput label="Company" value={exp.company} onChange={v => setExp(i, 'company', v)} placeholder="Stripe" />
+                  <FInput label="Job title" value={exp.title} onChange={v => setExp(i, 'title', v)} placeholder="Data Analyst Intern" />
+                  <FInput label="Start date" value={exp.startDate} onChange={v => setExp(i, 'startDate', v)} placeholder="Jan 2025" />
+                  <FInput label="End date" value={exp.current ? 'Present' : exp.endDate} onChange={v => setExp(i, 'endDate', v)} placeholder="Present" disabled={exp.current} />
+                </div>
+                <FToggle value={exp.current} onChange={v => setExp(i, 'current', v)} label="I currently work here" />
+                <FTextarea label="Key responsibilities" hint="for application questions" value={exp.description} onChange={v => setExp(i, 'description', v)} rows={2}
+                  placeholder="Built weekly revenue dashboards in Tableau for the finance team..." />
+              </div>
+            ))}
+            <button type="button" onClick={addExp} className="btn-secondary !h-9 !text-[13px]"><Plus className="w-3.5 h-3.5" />Add position</button>
+          </>))}
+
+          {sec('aa-std', (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FTri label="18 years or older?" value={p.over18} onChange={set('over18')} />
+              <FTri label="Valid driver's license?" value={p.driverLicense} onChange={set('driverLicense')} />
+              <FTri label="Consent to a background check?" value={p.backgroundCheck} onChange={set('backgroundCheck')} />
+              <FTri label="Consent to a drug test?" value={p.drugTest} onChange={set('drugTest')} />
+              <FTri label="Have a criminal record?" value={p.criminalRecord} onChange={set('criminalRecord')} />
             </div>
           ))}
-          <button type="button" onClick={addEdu} className="flex items-center gap-2 text-sm text-indigo-300 hover:text-indigo-200 transition-colors">
-            <div className="w-6 h-6 rounded-lg bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center">
-              <Plus className="w-3.5 h-3.5" />
-            </div>
-            Add another education
-          </button>
-        </div>
-      </Section>
 
-      {/* ── 6. Experience ── */}
-      <Section label="Work Experience" icon={Building2} desc="Work history & roles">
-        <div className="space-y-3 mt-5">
-          {p.experience.map((exp, i) => (
-            <div key={i} className="rounded-xl p-5 space-y-4 bg-white/[0.03] border border-white/[0.06]">
-              <div className="flex items-center justify-between">
-                <span className="text-[12.5px] font-semibold text-slate-200">
-                  {p.experience.length > 1 ? `Position #${i + 1}` : 'Position'}
-                </span>
-                {p.experience.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeExp(i)}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FInput label="Company" value={exp.company} onChange={v => setExp(i, 'company', v)} placeholder="Google" />
-                <FInput label="Job Title" value={exp.title} onChange={v => setExp(i, 'title', v)} placeholder="Software Engineer" />
-                <FInput label="Start Date" value={exp.startDate} onChange={v => setExp(i, 'startDate', v)} placeholder="Jan 2022" />
-                <FInput label="End Date" value={exp.endDate} onChange={v => setExp(i, 'endDate', v)} placeholder="Present" disabled={exp.current} />
-              </div>
-              <FToggle value={exp.current} onChange={v => setExp(i, 'current', v)} label="I currently work here" />
-              <FTextarea
-                label="Key Responsibilities" hint="used for application questions"
-                value={exp.description} onChange={v => setExp(i, 'description', v)} rows={2}
-                placeholder="Built REST APIs serving 1M+ users, led team of 4 engineers…"
-              />
+          {sec('aa-eeo', (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FSelect label="Gender" value={p.gender} onChange={set('gender')} options={GENDER} />
+              <FSelect label="Pronouns" value={p.pronouns} onChange={set('pronouns')} options={PRONOUNS} />
+              <FSelect label="Race or ethnicity" value={p.race} onChange={set('race')} options={RACE} />
+              <FSelect label="Veteran status" value={p.veteranStatus} onChange={set('veteranStatus')} options={VETERAN} />
+              <FSelect label="Disability status" value={p.disabilityStatus} onChange={set('disabilityStatus')} options={DISABILITY} span="sm:col-span-2" />
             </div>
           ))}
-          <button type="button" onClick={addExp} className="flex items-center gap-2 text-sm text-indigo-300 hover:text-indigo-200 transition-colors">
-            <div className="w-6 h-6 rounded-lg bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center">
-              <Plus className="w-3.5 h-3.5" />
-            </div>
-            Add another position
-          </button>
-        </div>
-      </Section>
 
-      {/* ── 7. Standard Questions ── */}
-      <Section label="Standard Questions" icon={FileText} desc="Common yes/no questions on every portal" defaultOpen={false}>
-        <p className="text-xs text-slate-400 mt-5">Left as &ldquo;Not set&rdquo;, autofill leaves the question for you to answer on each application.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
-          <FTri label="18 years or older?"           value={p.over18}          onChange={set('over18')} />
-          <FTri label="Valid driver's license?"      value={p.driverLicense}   onChange={set('driverLicense')} />
-          <FTri label="Consent to background check?" value={p.backgroundCheck} onChange={set('backgroundCheck')} />
-          <FTri label="Consent to drug test?"        value={p.drugTest}        onChange={set('drugTest')} />
-          <FTri label="Have a criminal record?"      value={p.criminalRecord}  onChange={set('criminalRecord')} />
-        </div>
-      </Section>
-
-      {/* ── 8. EEO ── */}
-      <Section label="EEO & Diversity" icon={Users} desc="Optional, voluntary diversity questions" defaultOpen={false}>
-        <div className="space-y-4 mt-5">
-          <div className="px-4 py-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-            <p className="text-[12.5px] text-slate-400">Only used to auto-fill voluntary EEO sections. Never shared for any other purpose. Anything left as &ldquo;Not set&rdquo; is never answered for you.</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FSelect label="Gender"   value={p.gender}   onChange={set('gender')}   options={GENDER} />
-            <FSelect label="Pronouns" value={p.pronouns} onChange={set('pronouns')} options={PRONOUNS} />
-            <FSelect label="Race / Ethnicity" value={p.race} onChange={set('race')} options={RACE} />
-            <FSelect label="Veteran Status"   value={p.veteranStatus} onChange={set('veteranStatus')} options={VETERAN} />
-            {/* Fix: span applied to F wrapper via the span prop */}
-            <FSelect
-              label="Disability Status"
-              value={p.disabilityStatus}
-              onChange={set('disabilityStatus')}
-              options={DISABILITY}
-              span="sm:col-span-2"
-            />
-          </div>
-        </div>
-      </Section>
-
-      {/* ── 9. Cover Letter ── */}
-      <Section label="Cover Letter" icon={Heart} desc="Template for cover letters & 'Why us?' questions" defaultOpen={false}>
-        <div className="space-y-4 mt-5">
-          <FTextarea
-            label="Opening Paragraph" hint="personalize per company" rows={3}
-            value={p.coverLetterIntro} onChange={set('coverLetterIntro')}
-            placeholder="I am writing to express my strong interest in the [Role] position at [Company]. With [X] years of experience in [field], I am confident I can contribute meaningfully…"
-          />
-          <FTextarea
-            label="Body - Why you're a great fit" rows={4}
-            value={p.coverLetterBody} onChange={set('coverLetterBody')}
-            placeholder="In my previous role at [Company], I led the development of [achievement]. I am particularly drawn to [Company] because…"
-          />
-          <div className="px-4 py-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-            <p className="text-[12.5px] text-slate-400">
-              Use <code className="bg-white/[0.06] px-1 rounded text-slate-200">[Company]</code> and <code className="bg-white/[0.06] px-1 rounded text-slate-200">[Role]</code>. The extension replaces them for each job.
+          {sec('aa-cover', (<>
+            <FTextarea label="Opening paragraph" hint="personalized per company" rows={3} value={p.coverLetterIntro} onChange={set('coverLetterIntro')}
+              placeholder="I am writing to apply for the [Role] position at [Company]..." />
+            <FTextarea label="Why you are a good fit" rows={4} value={p.coverLetterBody} onChange={set('coverLetterBody')}
+              placeholder="In my internship at [Company], I built..." />
+            <p className="text-[12px] text-[var(--text-4)]">
+              Write <code className="px-1 rounded bg-white/[0.06] text-[var(--text-2)]">[Company]</code> and <code className="px-1 rounded bg-white/[0.06] text-[var(--text-2)]">[Role]</code>. The extension fills them in for each job.
             </p>
-          </div>
+          </>))}
         </div>
-      </Section>
-
-      {/* ── Footer save ── */}
-      <div className="flex justify-end pt-1 pb-8">
-        <SaveButton saving={saving} saved={saved} onClick={save} label="Save auto-apply details" />
       </div>
 
+      <SaveBar dirty={dirty} saving={saving} saved={saved} onSave={save} onDiscard={dirty ? discard : undefined} label="Save details" />
+      <div className="h-4" />
     </div>
   );
 }
-function SaveButton({ saving, saved, onClick, label = 'Save' }: { saving: boolean; saved: boolean; onClick: () => void; label?: string }) {
+
+/** How much of the key information is in, as a ring. */
+function CompletionRing({ pct }: { pct: number }) {
+  const r = 26, c = 2 * Math.PI * r;
   return (
-    <button type="button" onClick={onClick} disabled={saving}
-      className={`${saved ? 'btn-secondary text-emerald-300' : 'btn-primary'} h-9 flex-shrink-0 justify-center`}>
-      {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-      {saving ? 'Saving' : saved ? 'Saved' : label}
-    </button>
+    <div className="relative w-16 h-16 flex-shrink-0" aria-label={`${pct}% complete`}>
+      <svg viewBox="0 0 64 64" className="w-16 h-16 -rotate-90">
+        <circle cx="32" cy="32" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="5" />
+        <circle cx="32" cy="32" r={r} fill="none" stroke={pct >= 80 ? '#34d399' : '#38bdf8'} strokeWidth="5" strokeLinecap="round"
+          strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} className="transition-[stroke-dashoffset] duration-700" />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center font-display text-[15px] font-semibold text-white tabular-nums">{pct}%</span>
+    </div>
   );
 }

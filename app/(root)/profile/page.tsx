@@ -10,9 +10,9 @@ import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 import {
-  MapPin, User, Bookmark, Phone, Edit, Save, X,
-  Globe, Briefcase, FileText, Zap, AlertCircle,
-  RefreshCw, Upload, Trash2, FileBadge,
+  MapPin, User, Bookmark, Phone, Edit,
+  Globe, FileText, Zap, AlertCircle,
+  RefreshCw, Upload, FileBadge,
 } from "lucide-react";
 import JobApplicationProfile from "@/components/profile/JobApplication";
 import ProfileSaved from "@/components/profile/Saved";
@@ -20,6 +20,7 @@ import { NotificationService } from "@/lib/services/notification-services";
 import ResumePicker, { type ResumeOption } from '@/components/apply/ResumePicker';
 import { DEFAULT_RESUME_EVENT } from '@/components/DefaultResumeBanner';
 import ReadinessStrip from '@/components/profile/ReadinessStrip';
+import { FormSection, Field, AdornedInput, SaveBar } from '@/components/profile/FormKit';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -78,53 +79,56 @@ const inp = 'field';
 
 // ─── File upload row ──────────────────────────────────────────────────────────
 
+const LinkedInMark = () => (
+  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+);
+const GitHubMark = () => (
+  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+);
+
+/** A stored PDF as a file card, or a drop area to add one. */
 function FileRow({
-  label, hint, fileName, isUploading, uploadingLabel,
-  accentClass, iconEl, inputId, inputRef,
-  onDelete, onFileChange,
+  label, hint, fileName, badge, isUploading, uploadingLabel,
+  icon, inputId, inputRef, onDelete, onFileChange,
 }: {
-  label: string; hint?: string; fileName: string | undefined;
-  isUploading: boolean; uploadingLabel: string;
-  accentClass: string; iconEl: React.ReactNode;
+  label: string; hint?: string; fileName: string | undefined; badge?: string;
+  isUploading: boolean; uploadingLabel: string; icon: React.ReactNode;
   inputId: string; inputRef: React.RefObject<HTMLInputElement | null>;
   onDelete: () => void; onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
+  const textBtn = 'h-8 px-3 rounded-lg text-[12.5px] font-medium transition-colors cursor-pointer';
   return (
     <div>
-      <label className="block text-xs font-medium text-slate-400 mb-1.5">
-        {label}
-        {hint && <span className="text-[11px] text-slate-500 ml-1.5 font-normal">{hint}</span>}
-      </label>
+      <input ref={inputRef} id={inputId} type="file" accept=".pdf" onChange={onFileChange} disabled={isUploading} className="hidden" />
       {fileName ? (
-        <div className={`${inp} flex items-center justify-between`}>
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            {iconEl}
-            <span className="text-white text-sm truncate">{fileName}</span>
+        <div className="flex items-center gap-3.5 p-3 pr-2 rounded-xl ring-1 ring-inset ring-white/[0.07] bg-white/[0.02]">
+          <span className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] text-[var(--text-2)]">{icon}</span>
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-2 min-w-0">
+              <span className="text-[13.5px] text-white truncate">{fileName}</span>
+              {badge && <span className="flex-shrink-0 inline-flex items-center h-5 px-2 rounded-full text-[10.5px] font-medium text-[var(--text-2)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]">{badge}</span>}
+            </p>
+            <p className="text-[11.5px] text-[var(--text-4)] truncate mt-0.5">{label}{hint ? `. ${hint}` : ''}</p>
           </div>
-          <button type="button" onClick={onDelete} disabled={isUploading}
-            className="ml-2 p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/[0.08]
-                       transition-all flex-shrink-0 disabled:opacity-40">
-            <Trash2 className="w-3.5 h-3.5" />
+          <label htmlFor={inputId} className={`${textBtn} inline-flex items-center text-[var(--text-2)] hover:text-white hover:bg-white/[0.05] ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+            {isUploading ? uploadingLabel : 'Replace'}
+          </label>
+          <button type="button" onClick={onDelete} disabled={isUploading} className={`${textBtn} text-[var(--text-4)] hover:text-rose-300 hover:bg-rose-500/[0.08] disabled:opacity-40`}>
+            Remove
           </button>
         </div>
       ) : (
-        <>
-          <input ref={inputRef} id={inputId} type="file" accept=".pdf" onChange={onFileChange} disabled={isUploading} className="hidden" />
-          <label htmlFor={inputId}
-            className={`${inp} flex items-center justify-center gap-2 cursor-pointer hover:bg-white/[0.07] ${isUploading ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}>
-            {isUploading ? (
-              <>
-                <div className={`w-3.5 h-3.5 border-2 ${accentClass.replace('text-', 'border-')} border-t-transparent rounded-full animate-spin`} />
-                <span className="text-sm text-slate-400">{uploadingLabel}</span>
-              </>
-            ) : (
-              <>
-                <Upload className={`w-3.5 h-3.5 ${accentClass}`} />
-                <span className="text-sm text-slate-400">{label} <span className="text-slate-500">(PDF, max 5 MB)</span></span>
-              </>
-            )}
-          </label>
-        </>
+        <label htmlFor={inputId}
+          className={`flex items-center gap-3.5 p-3 rounded-xl border border-dashed border-white/[0.12] hover:border-white/[0.22] hover:bg-white/[0.02] transition-colors cursor-pointer ${isUploading ? 'opacity-60 pointer-events-none' : ''}`}>
+          <span className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/[0.03] text-[var(--text-4)]">
+            {isUploading ? <span className="w-4 h-4 border-2 border-[var(--text-3)] border-t-transparent rounded-full animate-spin" /> : <Upload className="w-4 h-4" />}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13.5px] text-[var(--text-1)]">{isUploading ? uploadingLabel : `Add ${label.toLowerCase()}`}</span>
+            <span className="block text-[11.5px] text-[var(--text-4)] truncate mt-0.5">{hint ?? 'PDF, up to 5 MB'}</span>
+          </span>
+          <span className="btn-secondary !h-8 !text-[12.5px] flex-shrink-0">Choose PDF</span>
+        </label>
       )}
     </div>
   );
@@ -378,6 +382,8 @@ const ProfilePage = () => {
     }
   };
 
+  const profileDirty = isEditing && JSON.stringify(editedProfile) !== JSON.stringify(userProfile);
+
   const handleEditToggle = () => {
     if (isEditing) setEditedProfile(userProfile || {});
     setIsEditing(v => !v);
@@ -472,61 +478,29 @@ const ProfilePage = () => {
       {activeTab === 'profile' && (
         <>
           {/* Identity card */}
-          <div className="glass-card p-5 animate-fade-in-up">
-            <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-5">
-              <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                <div className="w-14 h-14 gradient-primary rounded-2xl flex items-center justify-center
-                               text-white text-xl font-bold flex-shrink-0
-                               ">
+          <div className="glass-card p-5 sm:p-6 animate-fade-in-up">
+            <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${isEditing ? 'pb-6 border-b border-white/[0.06]' : 'mb-5'}`}>
+              <div className="flex items-center gap-4 flex-1 min-w-0">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 font-display text-[22px] font-semibold text-white bg-gradient-to-br from-[#6e79d6] to-[#4b55b0] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
                   {userProfile.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-xl font-bold text-white truncate">{userProfile.name}</h2>
-                  <p className="text-xs text-slate-400 truncate mt-0.5">{userProfile.email}</p>
-                  {userProfile.targetRole && (
-                    <div className="flex items-center gap-1.5 mt-1.5">
-                      <Briefcase className="w-3 h-3 text-blue-400 flex-shrink-0" />
-                      <span className="text-xs text-slate-400 truncate">{userProfile.targetRole}</span>
-                    </div>
-                  )}
+                  <h2 className="font-display text-[20px] font-semibold tracking-[-0.02em] text-white truncate">{userProfile.name}</h2>
+                  <p className="mt-0.5 flex items-center gap-2 text-[12.5px] text-[var(--text-4)] min-w-0">
+                    <span className="truncate">{userProfile.email}</span>
+                    {userProfile.targetRole && <><span className="text-[var(--text-5)]" aria-hidden="true">·</span><span className="truncate text-[var(--text-3)]">{userProfile.targetRole}</span></>}
+                  </p>
                 </div>
               </div>
 
-              {/* Edit / save actions */}
               {!isEditing ? (
-                <button
-                  onClick={handleEditToggle}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl flex-shrink-0
-                             bg-white/[0.05] border border-white/[0.08]
-                             text-sm font-semibold text-slate-300
-                             hover:text-white hover:bg-white/[0.08] transition-all w-full sm:w-auto justify-center"
-                >
-                  <Edit className="w-3.5 h-3.5" /> Edit
+                <button onClick={handleEditToggle} className="btn-secondary !h-9 !text-[13px] w-full sm:w-auto justify-center">
+                  <Edit className="w-3.5 h-3.5" /> Edit profile
                 </button>
               ) : (
-                <div className="flex gap-2 w-full sm:w-auto">
-                  <button
-                    onClick={() => handleUpdateProfile(editedProfile)}
-                    disabled={isSaving}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl flex-1 sm:flex-initial justify-center
-                               bg-[var(--accent)]
-                               hover:bg-[var(--accent-hover)]
-                               text-white text-sm font-semibold
-                               transition-all disabled:opacity-50"
-                  >
-                    <Save className="w-3.5 h-3.5" />
-                    {isSaving ? 'Saving…' : 'Save'}
-                  </button>
-                  <button
-                    onClick={handleEditToggle}
-                    disabled={isSaving}
-                    className="w-10 h-10 flex items-center justify-center rounded-xl
-                               bg-white/[0.05] border border-white/[0.08]
-                               text-slate-400 hover:text-white hover:bg-white/[0.08] transition-all"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+                <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11.5px] font-medium text-[var(--text-2)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] self-start sm:self-auto">
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-400" aria-hidden="true" />Editing
+                </span>
               )}
             </div>
 
@@ -592,83 +566,89 @@ const ProfilePage = () => {
             )}
 
             {/* Edit mode */}
-            {isEditing && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1.5">Bio</label>
-                  <textarea
-                    value={editedProfile.bio || ''}
-                    onChange={e => setEditedProfile(p => ({ ...p, bio: e.target.value }))}
-                    placeholder="Tell us about yourself…"
-                    rows={3}
-                    className={`${inp} resize-none`}
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1.5">Phone</label>
-                    <input type="tel" value={editedProfile.phone || ''} onChange={e => setEditedProfile(p => ({ ...p, phone: e.target.value }))} placeholder="Your phone number" className={inp} />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1.5">Street Address</label>
-                  <input type="text" value={editedProfile.streetAddress || ''} onChange={e => setEditedProfile(p => ({ ...p, streetAddress: e.target.value }))} placeholder="123 Main Street" className={inp} />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1.5">City</label>
-                    <input type="text" value={editedProfile.city || ''} onChange={e => setEditedProfile(p => ({ ...p, city: e.target.value }))} placeholder="Boston" className={inp} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1.5">State</label>
-                    <input type="text" value={editedProfile.state || ''} onChange={e => setEditedProfile(p => ({ ...p, state: e.target.value }))} placeholder="Massachusetts" className={inp} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {[
-                    { key: 'linkedIn', label: 'LinkedIn', placeholder: 'LinkedIn URL' },
-                    { key: 'github',   label: 'GitHub',   placeholder: 'GitHub URL'   },
-                    { key: 'website',  label: 'Website',  placeholder: 'Website URL'  },
-                  ].map(f => (
-                    <div key={f.key}>
-                      <label className="block text-xs font-medium text-slate-400 mb-1.5">{f.label}</label>
-                      <input type="url" value={(editedProfile as Record<string,unknown>)[f.key] as string || ''} onChange={e => setEditedProfile(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className={inp} />
+            {isEditing && (() => {
+              const e = editedProfile;
+              const setF = (k: keyof UserProfile) => (ev: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setEditedProfile(p => ({ ...p, [k]: ev.target.value }));
+              const bio = e.bio || '';
+              return (
+                <div className="pt-6">
+                  <FormSection id="pf-about" title="About you" desc="A few lines in your own words. Cover letters and application answers start from this."
+                    done={bio.trim() ? 1 : 0} total={1}>
+                    <Field label="Bio" hint={`${bio.length} characters`} htmlFor="pf-bio">
+                      <textarea id="pf-bio" value={bio} onChange={setF('bio')} rows={4}
+                        placeholder="Data analyst finishing an MS at Northeastern. I like turning messy data into decisions..." className={`${inp} resize-none`} />
+                    </Field>
+                  </FormSection>
+
+                  <FormSection id="pf-contact" title="Contact" desc="Used to fill the contact part of applications. Never shown on job boards."
+                    done={[e.phone, e.streetAddress, e.city, e.state].filter(v => v?.trim()).length} total={4}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Field label="Phone" htmlFor="pf-phone">
+                        <AdornedInput id="pf-phone" lead={<Phone className="w-3.5 h-3.5" />} type="tel" value={e.phone || ''} onChange={setF('phone')} placeholder="(555) 000-0000" />
+                      </Field>
+                      <Field label="Street address" htmlFor="pf-street">
+                        <AdornedInput id="pf-street" lead={<MapPin className="w-3.5 h-3.5" />} value={e.streetAddress || ''} onChange={setF('streetAddress')} placeholder="123 Main Street" />
+                      </Field>
+                      <Field label="City" htmlFor="pf-city">
+                        <input id="pf-city" value={e.city || ''} onChange={setF('city')} placeholder="Boston" className={inp} />
+                      </Field>
+                      <Field label="State" htmlFor="pf-state">
+                        <input id="pf-state" value={e.state || ''} onChange={setF('state')} placeholder="Massachusetts" className={inp} />
+                      </Field>
                     </div>
-                  ))}
+                  </FormSection>
+
+                  <FormSection id="pf-links" title="Links" desc="Recruiters open these first. At least one helps your applications."
+                    done={[e.linkedIn, e.github, e.website].filter(v => v?.trim()).length} total={3}>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Field label="LinkedIn" htmlFor="pf-li">
+                        <AdornedInput id="pf-li" type="url" lead={<LinkedInMark />} value={e.linkedIn || ''} onChange={setF('linkedIn')} placeholder="linkedin.com/in/you" />
+                      </Field>
+                      <Field label="GitHub" htmlFor="pf-gh">
+                        <AdornedInput id="pf-gh" type="url" lead={<GitHubMark />} value={e.github || ''} onChange={setF('github')} placeholder="github.com/you" />
+                      </Field>
+                      <Field label="Website" htmlFor="pf-web">
+                        <AdornedInput id="pf-web" type="url" lead={<Globe className="w-3.5 h-3.5" />} value={e.website || ''} onChange={setF('website')} placeholder="yoursite.com" />
+                      </Field>
+                    </div>
+                  </FormSection>
+
+                  <FormSection id="pf-docs" title="Documents" desc="PDF only, up to 5 MB each. Stored privately in your account."
+                    done={[e.resume, e.transcript].filter(Boolean).length} total={2}>
+                    <FileRow
+                      label="Default resume" hint="Auto-apply, the Apply flow and the extension use this one"
+                      fileName={e.resumeFileName || (e.resume ? 'Resume.pdf' : undefined)} badge="Default"
+                      isUploading={isUploadingResume} uploadingLabel="Uploading resume"
+                      icon={<FileBadge className="w-4 h-4" />}
+                      inputId="resume-upload" inputRef={resumeFileInputRef}
+                      onDelete={() => handleDeleteFile('resume')}
+                      onFileChange={ev => handleFileUpload(ev, 'resume', setIsUploadingResume, resumeFileInputRef)}
+                    />
+                    {(appResumes === null || appResumes.length > 0) && (
+                      <div>
+                        <p className="text-[12px] text-[var(--text-4)] mb-1.5 flex items-center gap-1.5">
+                          Or make a resume you already have in Preciprocal the default
+                          {settingDefault && <span className="w-3 h-3 border-2 border-indigo-300 border-t-transparent rounded-full animate-spin" />}
+                        </p>
+                        <ResumePicker resumes={appResumes} value="" label="Make a resume from the app your default" placeholder="Choose one of your resumes" onChange={id => { void chooseAppResume(id); }} />
+                      </div>
+                    )}
+                    <FileRow
+                      label="Official transcript" hint="Only attached when an application asks for it"
+                      fileName={e.transcriptFileName || (e.transcript ? 'Transcript.pdf' : undefined)}
+                      isUploading={isUploadingTranscript} uploadingLabel="Uploading transcript"
+                      icon={<FileText className="w-4 h-4" />}
+                      inputId="transcript-upload" inputRef={transcriptFileInputRef}
+                      onDelete={() => handleDeleteFile('transcript')}
+                      onFileChange={ev => handleFileUpload(ev, 'transcript', setIsUploadingTranscript, transcriptFileInputRef)}
+                    />
+                  </FormSection>
+
+                  <SaveBar alwaysShow dirty={profileDirty} saving={isSaving}
+                    onSave={() => handleUpdateProfile(editedProfile)} onDiscard={handleEditToggle} label="Save profile" />
                 </div>
-
-                <FileRow
-                  label="Default resume" hint="Auto-apply, the Apply flow and the extension use this one"
-                  fileName={editedProfile.resumeFileName || (editedProfile.resume ? 'Resume.pdf' : undefined)}
-                  isUploading={isUploadingResume} uploadingLabel="Uploading resume…"
-                  accentClass="text-purple-400"
-                  iconEl={<FileBadge className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />}
-                  inputId="resume-upload" inputRef={resumeFileInputRef}
-                  onDelete={() => handleDeleteFile('resume')}
-                  onFileChange={e => handleFileUpload(e, 'resume', setIsUploadingResume, resumeFileInputRef)}
-                />
-                {(appResumes === null || appResumes.length > 0) && (
-                  <div className="-mt-1.5">
-                    <p className="text-[11px] text-slate-500 mb-1.5 flex items-center gap-1.5">
-                      Or use a resume you already have in Preciprocal
-                      {settingDefault && <span className="w-3 h-3 border-2 border-indigo-300 border-t-transparent rounded-full animate-spin" />}
-                    </p>
-                    <ResumePicker resumes={appResumes} value="" label="Make a resume from the app your default" placeholder="Choose one of your resumes" onChange={id => { void chooseAppResume(id); }} />
-                  </div>
-                )}
-
-                <FileRow
-                  label="Official Transcript" hint="Stored securely"
-                  fileName={editedProfile.transcriptFileName || (editedProfile.transcript ? 'Transcript.pdf' : undefined)}
-                  isUploading={isUploadingTranscript} uploadingLabel="Uploading transcript…"
-                  accentClass="text-blue-400"
-                  iconEl={<FileText className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />}
-                  inputId="transcript-upload" inputRef={transcriptFileInputRef}
-                  onDelete={() => handleDeleteFile('transcript')}
-                  onFileChange={e => handleFileUpload(e, 'transcript', setIsUploadingTranscript, transcriptFileInputRef)}
-                />
-              </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* What is left before applying is smooth: answers, resume, dates, links */}

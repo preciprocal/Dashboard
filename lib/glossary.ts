@@ -23,7 +23,7 @@ export const GLOSSARY = {
   },
   h1b: {
     title: 'H-1B approvals',
-    body: 'How many H-1B workers USCIS approved for this employer in the fiscal year shown, new hires and extensions together, on its first decision. It shows the employer has sponsored before. It is not a promise that it will sponsor you.',
+    body: 'Workers USCIS approved for an employer in a fiscal year, new hires and renewals together. Past sponsorship, not a promise for a role.',
     source: 'From the USCIS H-1B Employer Data Hub.',
   },
   h1bNone: {

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import InfoTip from '@/components/ui/info-tip';
 import { CompanyLogo } from '@/components/jobs/CompanyLogo';
+import H1bTip from '@/components/jobs/H1bTip';
 import type { Fit } from '@/components/jobs/JobFit';
 import type { FeedJob, JobFamily, JobLevel } from '@/lib/jobs/feed';
 import type { PayRange } from '@/lib/jobs/posting-facts';
@@ -100,10 +101,10 @@ export function SponsorSignals({ job, fit, h1bYear }: { job: FeedJob; fit: Fit |
         <ShieldCheck className={`w-3.5 h-3.5 ${everified ? 'text-emerald-400' : job.e === 'ended' ? 'text-rose-400' : 'text-[var(--text-5)]'}`} />
         <span className={everified ? 'text-[var(--text-1)]' : 'text-[var(--text-4)]'}>{everified ? 'E-Verified' : job.e === 'ended' ? 'E-Verify ended' : 'E-Verify unknown'}</span>
       </InfoTip>
-      <InfoTip term={approvals > 0 ? 'h1b' : 'h1bNone'} className={cell}>
+      <H1bTip h={job.h} year={h1bYear} className={cell}>
         <Landmark className={`w-3.5 h-3.5 ${approvals > 0 ? 'text-sky-400' : 'text-[var(--text-5)]'}`} />
         <span className={approvals > 0 ? 'text-[var(--text-1)]' : 'text-[var(--text-4)]'}>{approvals > 0 ? <><span className="tabular-nums">{approvals.toLocaleString('en-US')}</span> H-1B{h1bYear ? ` FY${h1bYear.slice(2)}` : ''}</> : 'No H-1B record'}</span>
-      </InfoTip>
+      </H1bTip>
       {fit === undefined ? (
         <span className={cell}><span className="h-3 w-24 rounded prc-skeleton" /></span>
       ) : flag ? (
@@ -220,10 +221,10 @@ function FitSide({ job, fit, hasResume, h1bYear }: { job: FeedJob; fit: Fit | un
           <ShieldCheck className={`w-3.5 h-3.5 flex-shrink-0 ${everified ? 'text-emerald-400' : job.e === 'ended' ? 'text-rose-400' : 'text-[var(--text-5)]'}`} />
           <span className={everified ? 'text-[var(--text-1)]' : 'text-[var(--text-4)]'}>{everified ? 'E-Verified' : job.e === 'ended' ? 'E-Verify ended' : 'E-Verify unknown'}</span>
         </InfoTip></li>
-        <li><InfoTip term={approvals > 0 ? 'h1b' : 'h1bNone'} className={row}>
+        <li><H1bTip h={job.h} year={h1bYear} className={row}>
           <Landmark className={`w-3.5 h-3.5 flex-shrink-0 ${approvals > 0 ? 'text-sky-400' : 'text-[var(--text-5)]'}`} />
           <span className={`truncate ${approvals > 0 ? 'text-[var(--text-1)]' : 'text-[var(--text-4)]'}`}>{approvals > 0 ? <><span className="tabular-nums">{approvals.toLocaleString('en-US')}</span> H-1B{h1bYear ? ` in FY${h1bYear.slice(2)}` : ''}</> : 'No H-1B record'}</span>
-        </InfoTip></li>
+        </H1bTip></li>
         <li>{fit === undefined ? <span className="block h-3.5 w-28 rounded prc-skeleton" /> : flag ? (
           <InfoTip title={FLAG_LABEL[flag.kind]} body={<span className="italic">&ldquo;{flag.quote}&rdquo;</span>} source="Quoted from the posting." className={row}>
             <AlertTriangle className="w-3.5 h-3.5 text-rose-300 flex-shrink-0" /><span className="text-rose-200 truncate">{FLAG_LABEL[flag.kind]}</span>
