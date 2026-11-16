@@ -34,7 +34,7 @@ import { normalizeCompany, shardOf, shardPath } from "./names.mjs";
 const MAX_AGE_DAYS = 60;
 const CONCURRENCY = 8;
 const PAUSE_MS = 150;
-const UA = "PreciprocalJobs/1.0 (+https://preciprocal.com/jobs)";
+const UA = "PreciprocalJobs/1.0 (+https://preciprocal.com)";
 /** A read far below the last run's count means a broken read; keep the old one. */
 const MIN_SHARE_OF_PREVIOUS = 0.6;
 
