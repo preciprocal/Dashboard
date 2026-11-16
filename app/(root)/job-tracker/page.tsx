@@ -952,7 +952,7 @@ export default function JobTrackerPage() {
             ) : (
               <>
                 <p className="text-xs text-slate-500">{filtered.length} application{filtered.length !== 1 ? 's' : ''}{(search || filterStatus !== 'all' || filterWork !== 'all') ? ' matching filters' : ''}</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filtered.map(app => (
                     <AppCard key={app.id} app={app} logoDomain={logos[app.company]} everify={everify.statuses[app.company.trim()]} everifySyncedAt={everify.syncedAt} h1b={h1b?.histories[app.company.trim()]} h1bYears={h1b?.years ?? null}
                       schedule={interviews.schedules[app.id] ?? null} onSchedule={() => setScheduleFor(app.id)} onEdit={() => handleEdit(app)} onDelete={() => handleDelete(app.id)}

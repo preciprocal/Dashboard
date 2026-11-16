@@ -10,13 +10,14 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Loader2, MapPin, Search, Info, ExternalLink, Briefcase, FileText } from 'lucide-react';
+import { Loader2, MapPin, Search, Info, ExternalLink, Briefcase, FileText, History, X } from 'lucide-react';
 import { AppSelect, type SelectOption } from '@/components/ui/select';
 import PercentileBand from '@/components/salary/PercentileBand';
 import { COMMON_OCCUPATIONS } from '@/lib/salary/occupations';
 import { formatUsd, offerPosition, parseOffer } from '@/lib/salary/position';
 import type { SalaryResponse, SalaryOccupation } from '@/lib/salary/lookup';
 import InfoTip from '@/components/ui/info-tip';
+import type { SavedSalarySearch } from '@/app/api/salary/searches/route';
 
 export const OEWS_TABLES_URL = 'https://www.bls.gov/oes/tables.htm';
 
@@ -57,6 +58,21 @@ export default function SalaryView({ initialTitle = '', initialLocation = '', in
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ran = useRef(false);
+  // Searches this student has run, from their profile (app/api/salary/searches).
+  const [saved, setSaved] = useState<SavedSalarySearch[] | null>(null);
+  useEffect(() => {
+    if (preview) return;
+    fetch('/api/salary/searches').then(r => (r.ok ? r.json() : null)).then(j => setSaved(j?.searches ?? [])).catch(() => setSaved([]));
+  }, [preview]);
+  const remember = (body: Record<string, unknown>) => {
+    fetch('/api/salary/searches', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(r => (r.ok ? r.json() : null)).then(j => { if (j?.searches) setSaved(j.searches); }).catch(() => {});
+  };
+  const forget = (id: string | 'all') => {
+    setSaved(prev => (id === 'all' ? [] : (prev ?? []).filter(x => x.id !== id)));
+    fetch(`/api/salary/searches?${id === 'all' ? 'all=1' : `id=${encodeURIComponent(id)}`}`, { method: 'DELETE' })
+      .then(r => (r.ok ? r.json() : null)).then(j => { if (j?.searches) setSaved(j.searches); }).catch(() => {});
+  };
 
   const run = useCallback(async (opts: { title: string; location: string; occ?: string }) => {
     if (!opts.title.trim() && !opts.occ) return;
@@ -69,6 +85,11 @@ export default function SalaryView({ initialTitle = '', initialLocation = '', in
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error || 'Could not look up market pay');
       setResult(body as SalaryResponse);
+      // A search that found figures is kept, with the figures it showed.
+      const r = body as SalaryResponse;
+      if (r.status === 'ok') {
+        remember({ title: opts.title.trim() || r.occupation.title, location: opts.location.trim(), occ: opts.occ ?? null, occTitle: r.occupation.title, area: r.area.name, median: r.wages.p50 });
+      }
       // Keep the URL shareable without adding a history entry per search.
       const url = new URL(window.location.href);
       url.searchParams.set('title', opts.title.trim());
@@ -144,6 +165,38 @@ export default function SalaryView({ initialTitle = '', initialLocation = '', in
           </button>
         </div>
       </form>
+
+      {/* Saved searches: one click runs it again. */}
+      {saved && saved.length > 0 && (
+        <section aria-label="Your recent searches">
+          <div className="flex items-center justify-between gap-3 mb-2 px-0.5">
+            <p className="text-[12px] font-medium text-[var(--text-4)] uppercase tracking-[0.08em] flex items-center gap-1.5"><History className="w-3.5 h-3.5" />Recent searches</p>
+            <button onClick={() => forget('all')} className="text-[12px] text-[var(--text-4)] hover:text-[var(--text-1)] transition-colors">Clear all</button>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {saved.map(x => {
+              const activeNow = ok && x.title.toLowerCase() === title.trim().toLowerCase() && x.location.toLowerCase() === location.trim().toLowerCase();
+              return (
+                <div key={x.id} className={`group relative rounded-xl border transition-colors ${activeNow ? 'border-[var(--accent-border)] bg-[var(--accent-subtle)]' : 'border-[var(--border)] hover:border-[var(--border-hover)] hover:bg-white/[0.02]'}`}>
+                  <button
+                    onClick={() => { setTitle(x.title); setLocation(x.location); setOcc(x.occ ?? ''); void run({ title: x.title, location: x.location, occ: x.occ ?? undefined }); }}
+                    className="w-full text-left px-3.5 py-3 pr-9 min-w-0">
+                    <span className="block text-[13.5px] font-medium text-[var(--text-1)] truncate">{x.title}</span>
+                    <span className="block text-[12px] text-[var(--text-3)] truncate mt-0.5">
+                      {x.area || x.location || 'United States'}
+                      {x.median ? <> · <span className="text-[var(--text-2)] tabular-nums">{formatUsd(x.median, false)}</span> median</> : null}
+                    </span>
+                  </button>
+                  <button onClick={() => forget(x.id)} aria-label={`Remove ${x.title}`} title="Remove"
+                    className="absolute top-2.5 right-2.5 w-6 h-6 rounded-md flex items-center justify-center text-[var(--text-5)] opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-[var(--text-1)] hover:bg-white/[0.06] transition">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {error && (
         <div className="glass-card p-4 text-sm text-slate-300" role="alert">{error}</div>
