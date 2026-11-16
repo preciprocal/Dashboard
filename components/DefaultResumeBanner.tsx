@@ -44,6 +44,9 @@ export default function DefaultResumeBanner() {
   useEffect(() => { void load(); }, [pathname, load]);
 
   const newer = info?.newer;
+  // A single resume's page is a fixed full-screen layout that would sit on
+  // top of the banner; the resume list and every other page still show it.
+  if (/^\/resume\/(?!upload)[^/]+\/?$/.test(pathname ?? '')) return null;
   if (!newer || dismissed === newer.id) return null;
 
   const dismiss = () => {

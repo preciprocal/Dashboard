@@ -10,16 +10,15 @@ import { ResumeService } from '@/lib/services/resume-service';
 import { openResumePdf } from '@/lib/resume/resolve-pdf-url';
 import { Resume } from '@/types/resume';
 import {
-  ArrowLeft, Download, Eye, FileText, Building2, Briefcase,
-  CheckCircle2, Shield, Edit3, Star, TrendingUp, Award,
-  Activity, PenTool, ChevronDown, AlertTriangle, Zap, Clock,
-  BarChart3, Users, Loader2, Save, Check, FileDown,
+  ArrowLeft, Download, Eye, FileText, Building2, Briefcase, Star, Activity, PenTool, BarChart3, Users, Loader2, Save, Check, FileDown,
+  ChevronDown,
 } from 'lucide-react';
 import RecruiterEyeSimulation  from '@/components/resume/RecruiterEyeSimulation';
 import InterviewIntelligence   from '@/components/resume/InterviewIntelligence';
 import CandidateBenchmarking   from '@/components/resume/CandidateBenchmarking';
 import ResumePreview           from '@/components/resume/ResumePreview';
 import IntelligentAIPanel      from '@/components/resume/IntelligentAIPanel';
+import AnalysisPanel, { ScoreChip, type AnalysisData } from '@/components/resume/AnalysisPanel';
 import type { OverallAnalysis, TailorResult } from '@/components/resume/IntelligentAIPanel';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import { SeeExampleButton } from '@/components/ServiceModal';
@@ -40,117 +39,7 @@ async function saveResumeContent(resumeId: string, patch: { resumeHtml?: string;
 
 // ─── Score helpers ────────────────────────────────────────────────────────────
 
-function getScoreColor(s: number) { return s >= 80 ? 'text-emerald-400' : s >= 60 ? 'text-amber-400' : 'text-red-400'; }
 function getScoreBg(s: number) { return s >= 80 ? 'bg-emerald-500/10 border-emerald-500/20' : s >= 60 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 border-red-500/20'; }
-function getScoreLabel(s: number) { return s >= 90 ? 'Excellent' : s >= 80 ? 'Very Good' : s >= 70 ? 'Good' : s >= 60 ? 'Fair' : 'Needs Work'; }
-
-// ─── OverallScoreHero ─────────────────────────────────────────────────────────
-
-function OverallScoreHero({ score }: { score: number }) {
-  const pot = Math.min(95 - score, 95);
-  return (
-    <div className="glass-card p-5 sm:p-6">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shadow-glass flex-shrink-0"><Award className="w-5 h-5 text-white" /></div>
-        <div><h2 className="text-base font-semibold text-white">Overall Score</h2><p className="text-slate-400 text-xs">Comprehensive AI evaluation</p></div>
-      </div>
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-end gap-3">
-          <div className="text-5xl font-bold text-white leading-none">{score}</div>
-          <div className="mb-1"><span className={`text-sm font-semibold ${getScoreColor(score)}`}>{getScoreLabel(score)}</span><p className="text-slate-400 text-xs">out of 100</p></div>
-        </div>
-        <div className="flex-1 max-w-[160px]">
-          <div className="flex justify-between text-xs text-slate-400 mb-1.5"><span>Current</span><span>Potential</span></div>
-          <div className="h-2 bg-[var(--bg-raised)] rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-1000 ${score >= 80 ? 'bg-emerald-500' : score >= 60 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${score}%` }} /></div>
-          <div className="flex justify-between text-xs mt-1.5"><span className={`font-semibold ${getScoreColor(score)}`}>{score}%</span><span className="text-emerald-400 font-semibold">+{pot}%</span></div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── DetailedAnalysisSection ──────────────────────────────────────────────────
-
-interface Tip { type: string; tip?: string; message?: string; explanation?: string; solution?: string; priority?: string; }
-
-function DetailedAnalysisSection({ title, description, score, tips, icon }: { title: string; description: string; score: number; tips: Tip[]; icon: React.ReactNode }) {
-  const [expanded, setExpanded] = useState(false);
-  const goodTips = tips.filter(t => t.type === 'good');
-  const improveTips = tips.filter(t => t.type !== 'good');
-  return (
-    <div className="glass-card overflow-hidden">
-      <button onClick={() => setExpanded(!expanded)} className="w-full p-4 sm:p-5 flex items-center gap-4 text-left cursor-pointer hover:bg-white/[0.02] transition-colors">
-        <div className="w-10 h-10 rounded-[10px] flex items-center justify-center flex-shrink-0 bg-[var(--accent-subtle)] border border-[var(--accent-border)]">{icon}</div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <h3 className="text-sm font-semibold text-white truncate">{title}</h3>
-            <div className="flex items-center gap-2 flex-shrink-0"><span className={`text-sm font-bold ${getScoreColor(score)}`}>{score}</span><div className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${getScoreBg(score)}`}>{getScoreLabel(score)}</div></div>
-          </div>
-          <p className="text-slate-400 text-xs">{description}</p>
-          <div className="mt-2 h-1 bg-[var(--bg-raised)] rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-700 ${score >= 80 ? 'bg-emerald-500' : score >= 60 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${score}%` }} /></div>
-        </div>
-        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${expanded ? 'rotate-180' : ''}`} />
-      </button>
-      {expanded && (
-        <div className="px-4 sm:px-5 pb-4 sm:pb-5 space-y-2 border-t border-white/[0.06] pt-4">
-          {tips.length === 0 ? <p className="text-slate-400 text-sm">No tips available.</p>
-            : [...improveTips, ...goodTips].map((tip, i) => {
-              const isGood = tip.type === 'good';
-              const text = tip.tip || tip.message || '';
-              return (
-                <div key={i} className={`flex gap-3 p-3 rounded-xl border ${isGood ? 'bg-emerald-500/[0.05] border-emerald-500/15' : 'bg-white/[0.042] border-white/[0.06]'}`}>
-                  <div className="flex-shrink-0 mt-0.5">{isGood ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <AlertTriangle className="w-4 h-4 text-amber-400" />}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm ${isGood ? 'text-emerald-300' : 'text-slate-200'}`}>{text}</p>
-                    {tip.explanation && <p className="text-xs text-slate-400 mt-1 leading-relaxed">{tip.explanation}</p>}
-                    {tip.solution && <div className="mt-2 p-2.5 bg-indigo-500/[0.08] border border-indigo-500/20 rounded-lg"><p className="text-xs text-indigo-300 leading-relaxed"><span className="font-semibold">Fix: </span>{tip.solution}</p></div>}
-                  </div>
-                  {!isGood && tip.priority && <span className={`flex-shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full border self-start ${tip.priority === 'high' ? 'bg-red-500/10 border-red-500/20 text-red-400' : tip.priority === 'medium' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-slate-500/10 border-slate-500/20 text-slate-400'}`}>{tip.priority}</span>}
-                </div>
-              );
-            })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── ImprovementRoadmap ───────────────────────────────────────────────────────
-
-interface RoadmapItem { action: string; timeToComplete: string; impact: 'high' | 'medium' | 'low'; }
-interface ImprovementRoadmapData { quickWins?: RoadmapItem[]; mediumTermGoals?: RoadmapItem[]; mediumTerm?: RoadmapItem[]; longTermStrategies?: RoadmapItem[]; longTerm?: RoadmapItem[]; }
-
-function ImprovementRoadmap({ roadmap }: { roadmap: ImprovementRoadmapData }) {
-  const [activeTab, setActiveTab] = useState<'quick' | 'medium' | 'long'>('quick');
-  if (!roadmap) return null;
-  const tabs = [
-    { key: 'quick' as const, label: 'Quick Wins', data: roadmap.quickWins ?? [], icon: <Zap className="w-3.5 h-3.5" /> },
-    { key: 'medium' as const, label: 'Medium Term', data: roadmap.mediumTermGoals ?? roadmap.mediumTerm ?? [], icon: <Clock className="w-3.5 h-3.5" /> },
-    { key: 'long' as const, label: 'Long Term', data: roadmap.longTermStrategies ?? roadmap.longTerm ?? [], icon: <TrendingUp className="w-3.5 h-3.5" /> },
-  ];
-  const activeData = tabs.find(t => t.key === activeTab)?.data ?? [];
-  return (
-    <div className="glass-card p-4 sm:p-5">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-9 h-9 gradient-primary rounded-lg flex items-center justify-center shadow-glass flex-shrink-0"><Activity className="w-4 h-4 text-white" /></div>
-        <div><h3 className="text-sm font-semibold text-white">Improvement Roadmap</h3><p className="text-slate-400 text-xs">Prioritised action plan</p></div>
-      </div>
-      <div className="flex gap-1 p-1 bg-white/[0.024] rounded-xl mb-4">
-        {tabs.map(t => <button key={t.key} onClick={() => setActiveTab(t.key)} className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-medium transition-all ${activeTab === t.key ? 'bg-white/[0.08] text-white' : 'text-slate-400 hover:text-slate-300'}`}>{t.icon}{t.label}</button>)}
-      </div>
-      <div className="space-y-2">
-        {activeData.length === 0 ? <p className="text-slate-400 text-sm text-center py-4">No items.</p>
-          : activeData.map((item, i) => (
-            <div key={i} className="flex gap-3 p-3 bg-white/[0.042] rounded-xl border border-white/[0.06]">
-              <div className={`w-1.5 rounded-full flex-shrink-0 ${item.impact === 'high' ? 'bg-red-400' : item.impact === 'medium' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
-              <div className="flex-1 min-w-0"><p className="text-sm text-slate-200">{item.action}</p><p className="text-xs text-slate-400 mt-0.5">{item.timeToComplete}</p></div>
-              <span className={`flex-shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full border self-start capitalize ${item.impact === 'high' ? 'bg-red-500/10 border-red-500/20 text-red-400' : item.impact === 'medium' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>{item.impact}</span>
-            </div>
-          ))}
-      </div>
-    </div>
-  );
-}
 
 // ─── ToolBtn ──────────────────────────────────────────────────────────────────
 
@@ -495,11 +384,6 @@ export default function ResumeDetailsPage() {
   };
 
   const feedback = resume.feedback;
-  const atsData = feedback?.ATS ?? { score: 0, tips: [] };
-  const contentData = feedback?.content ?? { score: 0, tips: [] };
-  const structureData = feedback?.structure ?? { score: 0, tips: [] };
-  const skillsData = feedback?.skills ?? { score: 0, tips: [] };
-  const toneData = feedback?.toneAndStyle ?? { score: 0, tips: [] };
 
   const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
     { id: 'analysis', label: 'Analysis', icon: BarChart3 }, { id: 'benchmark', label: 'Benchmark', icon: Users },
@@ -508,28 +392,28 @@ export default function ResumeDetailsPage() {
 
   const MetaBadge = () => (
     <div className="flex items-center gap-2 flex-wrap">
-      {resume.jobTitle && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.08] text-xs text-slate-300"><Briefcase className="w-3 h-3 text-slate-400" />{resume.jobTitle}</span>}
-      {resume.companyName && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.08] text-xs text-slate-300"><Building2 className="w-3 h-3 text-slate-400" />{resume.companyName}</span>}
-      {resume.score != null && <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold ${getScoreBg(resume.score)}`}><Star className="w-3 h-3" />{resume.score}/100</span>}
+      {resume.jobTitle && <span className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-white/[0.04] ring-1 ring-inset ring-white/[0.07] text-[12px] text-[var(--text-2)]"><Briefcase className="w-3 h-3 text-slate-400" />{resume.jobTitle}</span>}
+      {resume.companyName && <span className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-white/[0.04] ring-1 ring-inset ring-white/[0.07] text-[12px] text-[var(--text-2)]"><Building2 className="w-3 h-3 text-slate-400" />{resume.companyName}</span>}
+      {feedback?.overallScore != null ? <ScoreChip score={feedback.overallScore} /> : resume.score != null && <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold ${getScoreBg(resume.score)}`}><Star className="w-3 h-3" />{resume.score}/100</span>}
     </div>
   );
 
   const TabBar = ({ size = 'md' }: { size?: 'sm' | 'md' }) => (
-    <div className="flex gap-1 p-1 glass-card">
-      {tabs.map(tab => <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl font-medium transition-all cursor-pointer ${size === 'sm' ? 'py-2 px-2 text-xs' : 'py-2.5 px-3 text-sm'} ${activeTab === tab.id ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'}`}><tab.icon className={size === 'sm' ? 'w-3.5 h-3.5' : 'w-4 h-4'} />{tab.label}</button>)}
+    <div role="tablist" className={`flex items-center ${size === 'sm' ? 'gap-4' : 'gap-6'} border-b border-white/[0.07] overflow-x-auto scrollbar-hide`}>
+      {tabs.map(tab => {
+        const on = activeTab === tab.id;
+        return (
+          <button key={tab.id} role="tab" aria-selected={on} onClick={() => setActiveTab(tab.id)}
+            className={`relative flex items-center gap-1.5 h-11 whitespace-nowrap font-medium transition-colors cursor-pointer ${size === 'sm' ? 'text-[12.5px]' : 'text-[13.5px]'} ${on ? 'text-white' : 'text-[var(--text-3)] hover:text-white'}`}>
+            <tab.icon className={`w-4 h-4 ${on ? 'text-[var(--accent)]' : ''}`} />{tab.label}
+            <span className={`absolute left-0 right-0 -bottom-px h-[2px] rounded-full bg-white transition-transform duration-300 origin-left ${on ? 'scale-x-100' : 'scale-x-0'}`} />
+          </button>
+        );
+      })}
     </div>
   );
 
-  const AnalysisSections = () => (
-    <div className="space-y-3">
-      <DetailedAnalysisSection title="ATS Compatibility" description="ATS optimization" score={atsData.score} tips={atsData.tips} icon={<Shield className="w-4 h-4 text-white" />} />
-      <DetailedAnalysisSection title="Content Quality" description="Relevance and impact" score={contentData.score} tips={contentData.tips} icon={<FileText className="w-4 h-4 text-white" />} />
-      <DetailedAnalysisSection title="Structure & Format" description="Organisation and appeal" score={structureData.score} tips={structureData.tips} icon={<Edit3 className="w-4 h-4 text-white" />} />
-      <DetailedAnalysisSection title="Skills & Keywords" description="Technical and soft skills" score={skillsData.score} tips={skillsData.tips} icon={<Star className="w-4 h-4 text-white" />} />
-      {toneData.score > 0 && <DetailedAnalysisSection title="Tone & Style" description="Writing quality" score={toneData.score} tips={toneData.tips} icon={<Edit3 className="w-4 h-4 text-white" />} />}
-      {feedback?.roadmap && <ImprovementRoadmap roadmap={feedback.roadmap} />}
-    </div>
-  );
+  const AnalysisSections = () => <AnalysisPanel data={feedback as unknown as AnalysisData} />;
 
   // ★ Shared AI Panel props - includes preloaded tailor data
   const aiPanelProps = {
@@ -580,7 +464,6 @@ export default function ResumeDetailsPage() {
         {activeTab !== 'writer' && (<><button onClick={() => setShowPreview(!showPreview)} className="w-full glass-card p-3 text-slate-300 hover:text-white text-sm font-medium flex items-center justify-center gap-2 cursor-pointer"><Eye className="w-4 h-4" />{showPreview ? 'Hide Preview' : 'Show Preview'}</button>{showPreview && <div className="glass-card p-4"><MobilePreviewPanel /></div>}</>)}
 
         <TabBar size="sm" />
-        {activeTab !== 'writer' && <OverallScoreHero score={feedback?.overallScore ?? 0} />}
 
         {activeTab === 'analysis' && feedback && <AnalysisSections />}
         {activeTab === 'benchmark' && <CandidateBenchmarking resumeId={resume.id} overallScore={feedback?.overallScore ?? 0} jobTitle={resume.jobTitle} preloadedData={resumeDoc.benchmarkResult ?? null} />}
@@ -620,26 +503,28 @@ export default function ResumeDetailsPage() {
         </div>
 
         {/* Right column */}
-        <div className="flex-1 flex flex-col overflow-hidden" style={{ maxHeight: 'calc(100dvh - 113px)' }}>
-          <div className="flex-shrink-0 p-4 pl-2 pb-0 space-y-3">
-            <div className="glass-card p-5">
-              <Breadcrumbs crumbs={[{ label: 'Home', href: '/' }, { label: 'Resume', href: '/resume' }, { label: resume.fileName || 'Analysis' }]} />
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="min-w-0"><h1 className="text-[20px] font-semibold text-white tracking-tight truncate">{resume.fileName || 'Resume Analysis'}</h1></div>
-                <SeeExampleButton serviceId="resume" className="flex-shrink-0" initialTab={activeTab as ResumeInitialTab} />
+        <div className="flex-1 flex flex-col overflow-hidden border-l border-white/[0.06]" style={{ maxHeight: 'calc(100dvh - 73px)' }}>
+          <div className="flex-shrink-0 px-6 pt-5">
+            <Breadcrumbs crumbs={[{ label: 'Home', href: '/' }, { label: 'Resume', href: '/resume' }, { label: resume.fileName || 'Analysis' }]} className="mb-2" />
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h1 className="text-[22px] font-semibold text-white tracking-[-0.02em] truncate">{resume.fileName || 'Resume Analysis'}</h1>
+                <div className="mt-2.5"><MetaBadge /></div>
               </div>
-              <MetaBadge />
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <SeeExampleButton serviceId="resume" className="flex-shrink-0" initialTab={activeTab as ResumeInitialTab} />
+                <Link href="/resume/upload" className="btn-primary"><FileText className="w-4 h-4" /> New analysis</Link>
+              </div>
             </div>
-            <TabBar />
+            <div className="mt-4"><TabBar /></div>
           </div>
 
           <div className="flex-1 overflow-y-auto glass-scrollbar">
-            <div className="p-4 pl-2 space-y-4">
+            <div className="px-6 py-6 space-y-4">
               {activeTab === 'writer' && <IntelligentAIPanel {...aiPanelProps} />}
 
               {activeTab !== 'writer' && (
                 <>
-                  <OverallScoreHero score={feedback?.overallScore ?? 0} />
                   {activeTab === 'analysis' && feedback && <AnalysisSections />}
                   {activeTab === 'benchmark' && <CandidateBenchmarking resumeId={resume.id} overallScore={feedback?.overallScore ?? 0} jobTitle={resume.jobTitle} preloadedData={resumeDoc.benchmarkResult ?? null} />}
                   <div style={{ display: activeTab === 'recruiter' ? 'block' : 'none' }}>
@@ -648,9 +533,8 @@ export default function ResumeDetailsPage() {
                   <div style={{ display: activeTab === 'intel' ? 'block' : 'none' }}>
                     <InterviewIntelligence resumeId={resume.id} companyName={resume.companyName} jobTitle={resume.jobTitle} jobDescription={resume.jobDescription} preloadedIntel={resume.interviewIntel as unknown as Parameters<typeof InterviewIntelligence>[0]['preloadedIntel']} />
                   </div>
-                  <div className="flex gap-2.5 pb-4">
-                    <Link href="/resume/upload" className="flex-1 glass-button-primary hover-lift px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2"><FileText className="w-4 h-4" /> New Analysis</Link>
-                    <Link href="/resume" className="flex-1 glass-card hover-lift text-white px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2"><ArrowLeft className="w-4 h-4" /> All Resumes</Link>
+                  <div className="pt-2 pb-4">
+                    <Link href="/resume" className="inline-flex items-center gap-1.5 text-[13px] text-[var(--text-3)] hover:text-white transition-colors"><ArrowLeft className="w-4 h-4" /> All resumes</Link>
                   </div>
                 </>
               )}
