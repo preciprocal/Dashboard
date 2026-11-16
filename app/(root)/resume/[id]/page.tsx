@@ -10,7 +10,7 @@ import { ResumeService } from '@/lib/services/resume-service';
 import { openResumePdf } from '@/lib/resume/resolve-pdf-url';
 import { Resume } from '@/types/resume';
 import {
-  ArrowLeft, Download, Eye, FileText, Building2, Briefcase, Star, Activity, PenTool, BarChart3, Users, Loader2, Save, Check, FileDown,
+  ArrowLeft, Download, Eye, FileText, Building2, Briefcase, Star, Activity, PenTool, ScanSearch, Users, Loader2, Save, Check, FileDown,
   ChevronDown,
 } from 'lucide-react';
 import RecruiterEyeSimulation  from '@/components/resume/RecruiterEyeSimulation';
@@ -386,7 +386,7 @@ export default function ResumeDetailsPage() {
   const feedback = resume.feedback;
 
   const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
-    { id: 'analysis', label: 'Analysis', icon: BarChart3 }, { id: 'benchmark', label: 'Benchmark', icon: Users },
+    { id: 'analysis', label: 'Analysis', icon: ScanSearch }, { id: 'benchmark', label: 'Benchmark', icon: Users },
     { id: 'recruiter', label: 'Recruiter', icon: Eye }, { id: 'intel', label: 'Intel', icon: Activity }, { id: 'writer', label: 'Writer', icon: PenTool },
   ];
 
@@ -399,12 +399,12 @@ export default function ResumeDetailsPage() {
   );
 
   const TabBar = ({ size = 'md' }: { size?: 'sm' | 'md' }) => (
-    <div role="tablist" className={`flex items-center ${size === 'sm' ? 'gap-4' : 'gap-6'} border-b border-white/[0.07] overflow-x-auto scrollbar-hide`}>
+    <div role="tablist" className="flex items-center border-b border-white/[0.07] overflow-x-auto scrollbar-hide">
       {tabs.map(tab => {
         const on = activeTab === tab.id;
         return (
           <button key={tab.id} role="tab" aria-selected={on} onClick={() => setActiveTab(tab.id)}
-            className={`relative flex items-center gap-1.5 h-11 whitespace-nowrap font-medium transition-colors cursor-pointer ${size === 'sm' ? 'text-[12.5px]' : 'text-[13.5px]'} ${on ? 'text-white' : 'text-[var(--text-3)] hover:text-white'}`}>
+            className={`relative flex-1 min-w-fit px-3 flex items-center justify-center gap-1.5 h-11 whitespace-nowrap font-medium transition-colors cursor-pointer ${size === 'sm' ? 'text-[12.5px]' : 'text-[13.5px]'} ${on ? 'text-white' : 'text-[var(--text-3)] hover:text-white'}`}>
             <tab.icon className={`w-4 h-4 ${on ? 'text-[var(--accent)]' : ''}`} />{tab.label}
             <span className={`absolute left-0 right-0 -bottom-px h-[2px] rounded-full bg-white transition-transform duration-300 origin-left ${on ? 'scale-x-100' : 'scale-x-0'}`} />
           </button>
