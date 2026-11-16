@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import ErrorPage from '@/components/Error';
 import InterviewLibrary from '@/components/interview/InterviewLibrary';
+import FeatureEmpty from '@/components/ui/feature-empty';
 import { SeeExampleButton } from '@/components/ServiceModal';
 import { Target, AlertCircle, RefreshCw, Plus, Mic, BarChart3, RotateCcw } from 'lucide-react';
 
@@ -83,34 +84,19 @@ function toDate(val: RawDateField, fallback = new Date()): Date {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function EmptyDashboard() {
-  const points = [
-    { icon: Mic, title: 'A voice interview panel', body: 'Questions for your role and level, asked out loud. You answer the way you would in the real one.' },
-    { icon: BarChart3, title: 'Scored feedback', body: 'An overall score, a score per area, and an annotated transcript of what you said.' },
-    { icon: RotateCcw, title: 'Retake and compare', body: 'Run the same interview again to see if your weakest area moved.' },
-  ];
   return (
-    <div className="glass-card p-6 sm:p-8">
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-8 items-center">
-        <div>
-          <span className="w-11 h-11 rounded-xl bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] flex items-center justify-center"><Target className="w-5 h-5 text-[var(--text-2)]" /></span>
-          <h3 className="font-display text-[20px] font-semibold tracking-[-0.02em] text-white mt-5">Practise before the real one</h3>
-          <p className="text-[13.5px] text-[var(--text-3)] mt-2 leading-relaxed max-w-md">Pick a role, a level and an interview type. You get a mock interview with feedback you can act on.</p>
-          <div className="flex flex-wrap items-center gap-2.5 mt-6">
-            <Link href="/interview/create" className="btn-primary"><Plus className="w-4 h-4" /> Start your first interview</Link>
-            <SeeExampleButton serviceId="interview" />
-          </div>
-        </div>
-        <ul className="grid sm:grid-cols-3 gap-3">
-          {points.map(p => (
-            <li key={p.title} className="rounded-xl ring-1 ring-inset ring-white/[0.07] bg-white/[0.02] p-4">
-              <p.icon className="w-4 h-4 text-[var(--text-3)]" />
-              <p className="text-[13.5px] font-medium text-white mt-3">{p.title}</p>
-              <p className="text-[12.5px] text-[var(--text-4)] mt-1 leading-relaxed">{p.body}</p>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
+    <FeatureEmpty
+      icon={Target}
+      title="Practise before the real one"
+      body="Pick a role, a level and an interview type. You get a voice mock interview with feedback you can act on."
+      steps={[
+        { icon: Mic, title: 'A voice interview panel', text: 'Questions for your role and level, asked out loud. You answer the way you would in the real one.' },
+        { icon: BarChart3, title: 'Scored feedback', text: 'An overall score, a score per area, and an annotated transcript of what you said.' },
+        { icon: RotateCcw, title: 'Retake and compare', text: 'Run the same interview again to see if your weakest area moved.' },
+      ]}
+      primary={{ href: '/interview/create', label: 'Start your first interview', icon: Plus }}
+      secondary={<SeeExampleButton serviceId="interview" />}
+    />
   );
 }
 
