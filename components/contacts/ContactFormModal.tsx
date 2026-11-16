@@ -13,6 +13,7 @@ import {
   type Contact, type ContactStatus, type Relationship,
 } from '@/lib/contacts/model';
 import { ContactsApiError, createContact, tzOffset, updateContact } from '@/lib/contacts/client';
+import DateInput from '@/components/ui/date-input';
 import { Overlay, FieldLabel, FieldError } from './ui';
 
 interface FormState {
@@ -141,7 +142,7 @@ export default function ContactFormModal({ contact, onClose, onSaved }: {
               </div>
               <div>
                 <FieldLabel htmlFor="c-follow" optional>Next follow-up</FieldLabel>
-                <input id="c-follow" type="date" className="field [color-scheme:dark]" value={form.nextFollowUp} onChange={e => set('nextFollowUp', e.target.value)} aria-invalid={!!errors.nextFollowUp} />
+                <DateInput id="c-follow"  value={form.nextFollowUp} onChange={v => set('nextFollowUp', v)} aria-invalid={!!errors.nextFollowUp} />
                 <FieldError>{errors.nextFollowUp}</FieldError>
               </div>
             </div>

@@ -35,6 +35,7 @@ import TrackerKpis from '@/components/job-tracker/TrackerKpis';
 import type { TrackedApp } from '@/lib/overview/metrics';
 import type { InterviewSchedule } from '@/lib/calendar/status';
 import InfoTip from '@/components/ui/info-tip';
+import DateInput from '@/components/ui/date-input';
 import { GLOSSARY } from '@/lib/glossary';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -215,7 +216,7 @@ function FormModal({ form, setForm, onSave, onCancel, saving, isEdit, resumes }:
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Status</label><AppSelect value={form.status} onValueChange={v => setForm(p => ({ ...p, status: v as AppStatus }))} aria-label="Status" options={(Object.keys(STATUS_CONFIG) as AppStatus[]).map(s => ({ value: s, label: STATUS_CONFIG[s].label }))} /></div>
-            <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Applied Date</label><input type="date" value={form.appliedDate} onChange={e => setForm(p => ({ ...p, appliedDate: e.target.value }))} className={inp} /></div>
+            <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Applied Date</label><DateInput value={form.appliedDate} onChange={v => setForm(p => ({ ...p, appliedDate: v }))} /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Location</label><input type="text" value={form.location || ''} onChange={e => f('location', e.target.value)} placeholder="e.g. San Francisco, CA" className={inp} /></div>

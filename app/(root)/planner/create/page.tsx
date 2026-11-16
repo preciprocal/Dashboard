@@ -16,6 +16,7 @@ import UsersFeedback from '@/components/UserFeedback';
 import { toast } from 'sonner';
 import { NotificationService } from '@/lib/services/notification-services';
 import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
+import DateInput from '@/components/ui/date-input';
 import { isUnlimited } from '@/lib/config/usage-limits';
 
 const PROCESSING_STEPS = [
@@ -337,11 +338,7 @@ export default function CreatePlanPage() {
                 </label>
                 <div className="relative group">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none z-10 group-focus-within:text-indigo-400 transition-colors" />
-                  <input type="date" value={formData.interviewDate}
-                    onChange={e => setFormData({ ...formData, interviewDate: e.target.value })}
-                    min={new Date().toISOString().split('T')[0]}
-                    max={new Date(Date.now() + 90 * 86_400_000).toISOString().split('T')[0]}
-                    className="w-full pl-10 pr-4 py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white placeholder-slate-600 hover:bg-white/[0.05] hover:border-white/[0.12] focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/40 focus:bg-white/[0.05] transition-all text-sm cursor-pointer [color-scheme:dark]" required />
+                  <DateInput value={formData.interviewDate} onChange={v => setFormData({ ...formData, interviewDate: v })} min={new Date().toISOString().split('T')[0]} max={new Date(Date.now() + 90 * 86_400_000).toISOString().split('T')[0]}  required inputClassName="pl-10 pr-4 py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white placeholder-slate-600 hover:bg-white/[0.05] hover:border-white/[0.12] focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/40 focus:bg-white/[0.05] transition-all text-sm cursor-pointer" />
                 </div>
                 {formData.interviewDate && (
                   <div className="mt-2 flex items-center gap-3 px-3 py-2.5 bg-indigo-500/[0.06] border border-indigo-500/15 rounded-lg">

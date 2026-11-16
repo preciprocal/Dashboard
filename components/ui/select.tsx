@@ -26,7 +26,7 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={`flex h-11 w-full items-center justify-between gap-2 rounded-[var(--r-md)]
-      border border-[var(--border)] bg-[var(--bg-subtle)] px-3.5 text-left text-sm text-[var(--text-1)]
+      border border-[var(--border)] bg-white/[0.03] px-3.5 text-left text-sm text-[var(--text-1)]
       data-[placeholder]:text-[var(--text-5)]
       hover:border-[var(--border-hover)]
       focus:outline-none focus-visible:border-[var(--accent-border)] focus-visible:shadow-[0_0_0_3px_var(--accent-subtle)]
@@ -81,8 +81,8 @@ const SelectContent = React.forwardRef<
       ref={ref}
       // Above modals (z-[9999]), since several dropdowns live inside one.
       className={`relative z-[10000] max-h-[min(24rem,var(--radix-select-content-available-height))] min-w-[8rem] overflow-hidden rounded-[var(--r-md)]
-        border border-[var(--border-hover)] bg-[var(--bg-raised)] text-[var(--text-2)]
-        shadow-[0_16px_48px_rgba(0,0,0,0.55)]
+        bg-[#151618] text-[var(--text-2)]
+        shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_16px_40px_-12px_rgba(0,0,0,0.75),0_4px_12px_-4px_rgba(0,0,0,0.4)]
         data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ${
         position === "popper"
           ? "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1"
@@ -134,7 +134,7 @@ const SelectItem = React.forwardRef<
   >
     <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
       <SelectPrimitive.ItemIndicator>
-        <Check className="h-3.5 w-3.5 text-indigo-300" />
+        <Check className="h-3.5 w-3.5 text-[var(--accent)]" strokeWidth={2.5} />
       </SelectPrimitive.ItemIndicator>
     </span>
 

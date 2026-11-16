@@ -19,6 +19,21 @@ import { GoogleCalendarIcon } from '@/components/icons/BrandIcons';
 import { DURATIONS, INTERVIEW_STAGES, resolveSchedule, stageForStatus, cleanMeetingUrl, type InterviewStage } from '@/lib/calendar/events';
 import { buildIcs, icsFileName } from '@/lib/calendar/ics';
 import { detectTimeZone, listTimeZones, utcToZonedWallTime } from '@/lib/calendar/time';
+import DateInput from '@/components/ui/date-input';
+
+// Times in 15-minute steps, in the app's dropdown (a native time field draws
+// the OS picker). A time already saved off the grid stays selectable.
+function timeOptions(current: string) {
+  const fmt = (h: number, m: number) => new Date(2000, 0, 1, h, m).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const out: { value: string; label: string }[] = [];
+  for (let h = 0; h < 24; h++) for (const m of [0, 15, 30, 45]) out.push({ value: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`, label: fmt(h, m) });
+  if (/^\d{2}:\d{2}$/.test(current) && !out.some(o => o.value === current)) {
+    const [h, m] = current.split(':').map(Number);
+    out.push({ value: current, label: fmt(h, m) });
+    out.sort((a, b) => a.value.localeCompare(b.value));
+  }
+  return out;
+}
 import { connectHref, type CalendarStatus, type GoogleSyncResult, type InterviewSchedule } from '@/lib/calendar/status';
 
 export interface ScheduleTarget { id: string; company: string; jobTitle: string; status: string }
@@ -178,8 +193,8 @@ export default function InterviewScheduleModal({ app, existing, calendar, schema
 
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4 glass-scrollbar">
           <div className="grid grid-cols-2 gap-3">
-            <div><label htmlFor="sch-date" className={label}>Date</label><input id="sch-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="field [color-scheme:dark]" /></div>
-            <div><label htmlFor="sch-time" className={label}>Time</label><input id="sch-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} className="field [color-scheme:dark]" /></div>
+            <div><label htmlFor="sch-date" className={label}>Date</label><DateInput id="sch-date" value={date} onChange={v => setDate(v)} /></div>
+            <div><span className={label}>Time</span><AppSelect value={time} onValueChange={setTime} options={timeOptions(time)} aria-label="Time" /></div>
           </div>
 
           <div>

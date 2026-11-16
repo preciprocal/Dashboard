@@ -18,6 +18,7 @@ import { AppSelect } from '@/components/ui/select';
 import type { ApplyStepProps } from '@/components/apply/types';
 import type { StarStory } from '@/lib/applications/pack';
 import { AUTH_STAGES, SOURCES, type AuthStage } from '@/lib/applications/sponsorship';
+import DateInput from '@/components/ui/date-input';
 import InfoTip from '@/components/ui/info-tip';
 
 type RoundTab = 'recruiter' | 'technical' | 'behavioral' | 'manager' | 'plan' | 'after';
@@ -364,7 +365,7 @@ function PlanTab({ application, pack, update }: Pick<ApplyStepProps, 'applicatio
         </Link>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
-        <label><span className="block text-xs text-slate-400 mb-1.5">Interview date</span><input type="date" className="field w-full" value={date} onChange={e => setDate(e.target.value)} /></label>
+        <label><span className="block text-xs text-slate-400 mb-1.5">Interview date</span><DateInput  value={date} onChange={v => setDate(v)} /></label>
         <label><span className="block text-xs text-slate-400 mb-1.5">Your level</span>
           <AppSelect value={level} onValueChange={setLevel} aria-label="Your level" options={[
             { value: 'beginner', label: 'Beginner' }, { value: 'intermediate', label: 'Intermediate' }, { value: 'advanced', label: 'Advanced' },

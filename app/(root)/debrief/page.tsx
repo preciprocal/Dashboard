@@ -24,6 +24,7 @@ import UsersFeedback from '@/components/UserFeedback';
 import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
 import { isUnlimited } from '@/lib/config/usage-limits';
 import { SeeExampleButton } from '@/components/ServiceModal';
+import DateInput from '@/components/ui/date-input';
 import NextStepPrompt from '@/components/NextStepPrompt'; // ← NEW
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -934,9 +935,7 @@ export default function InterviewDebriefPage() {
                   ))}
                   <div>
                     <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Interview Date</label>
-                    <input type="date" value={formData.interviewDate}
-                      onChange={e => setFormData(p => ({ ...p, interviewDate: e.target.value }))}
-                      className={inp} />
+                    <DateInput value={formData.interviewDate} onChange={v => setFormData(p => ({ ...p, interviewDate: v }))} />
                   </div>
                 </div>
 

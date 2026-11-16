@@ -16,6 +16,7 @@ import {
 } from '@/lib/contacts/model';
 import { deleteContact, listInteractions, logInteraction, tzOffset, updateContact } from '@/lib/contacts/client';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import DateInput from '@/components/ui/date-input';
 import { Avatar, FollowUpText, InteractionIcon, Overlay } from './ui';
 
 const SOURCE_LABEL: Record<Contact['source'], string> = {
@@ -237,13 +238,7 @@ export default function ContactDrawer({ contact, onClose, onChange, onDeleted, o
                     {busy === `follow-${p.days}` ? <Loader2 className="animate-spin" /> : null}{p.label}
                   </button>
                 ))}
-                <input
-                  type="date"
-                  aria-label="Pick a follow-up date"
-                  className="field !h-9 !w-auto !px-3 !text-[13px] [color-scheme:dark]"
-                  value={isoToLocalDate(contact.nextFollowUpAt, tz)}
-                  onChange={e => { const iso = localDateToIso(e.target.value, tz); if (iso) void patch('follow-date', { nextFollowUpAt: iso }, 'Follow-up set'); }}
-                />
+                <DateInput aria-label="Pick a follow-up date" className="w-[168px]" inputClassName="!h-9 !text-[13px] !px-3" clearable={false} value={isoToLocalDate(contact.nextFollowUpAt, tz)} onChange={v => { const iso = localDateToIso(v, tz); if (iso) void patch('follow-date', { nextFollowUpAt: iso }, 'Follow-up set'); }} />
               </div>
             </Section>
 
@@ -271,7 +266,7 @@ export default function ContactDrawer({ contact, onClose, onChange, onDeleted, o
                   aria-label="Summary"
                 />
                 <div className="grid grid-cols-2 gap-2">
-                  <input type="date" aria-label="Date" className="field !h-10 !text-[13px] [color-scheme:dark]" value={logDate} max={isoToLocalDate(new Date().toISOString(), tz)} onChange={e => setLogDate(e.target.value)} />
+                  <DateInput aria-label="Date"  value={logDate} max={isoToLocalDate(new Date().toISOString(), tz)} onChange={v => setLogDate(v)} inputClassName="!h-10 !text-[13px]" />
                   {isOutreach(logType)
                     ? <AppSelect aria-label="Follow up" className="!h-10 !text-[13px]" value={logFollow} onValueChange={setLogFollow} options={LOG_FOLLOW_UP} />
                     : <div />}

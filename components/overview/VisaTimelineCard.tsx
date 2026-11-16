@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { CalendarClock, Pencil, Loader2, ShieldCheck, AlertTriangle } from 'lucide-react';
 import InfoTip from '@/components/ui/info-tip';
+import DateInput from '@/components/ui/date-input';
 import { EMPTY_TIMELINE, PERIOD_LABEL, periods, summarize, type PeriodKind, type VisaTimeline } from '@/lib/visa/timeline';
 
 const COLOR: Record<PeriodKind, string> = { opt: 'bg-indigo-400', stem: 'bg-sky-400', h1b: 'bg-emerald-400' };
@@ -173,8 +174,8 @@ function Editor({ draft, setDraft, saving, onSave, onCancel }: { draft: VisaTime
             <p className="text-[13px] font-medium text-white flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${COLOR[r.kind]}`} />{PERIOD_LABEL[r.kind]}</p>
             <p className="text-[11px] text-[var(--text-4)]">{r.hint}</p>
           </div>
-          <label className="block"><span className="sr-only">{PERIOD_LABEL[r.kind]} start</span><input type="date" className="field !h-10" value={(draft[r.s] as string) ?? ''} onChange={e => set(r.s, e.target.value)} aria-label={`${PERIOD_LABEL[r.kind]} start date`} /></label>
-          <label className="block"><span className="sr-only">{PERIOD_LABEL[r.kind]} end</span><input type="date" className="field !h-10" value={(draft[r.e] as string) ?? ''} onChange={e => set(r.e, e.target.value)} aria-label={`${PERIOD_LABEL[r.kind]} end date`} /></label>
+          <label className="block"><span className="sr-only">{PERIOD_LABEL[r.kind]} start</span><DateInput  value={(draft[r.s] as string) ?? ''} onChange={v => set(r.s, v)} aria-label={`${PERIOD_LABEL[r.kind]} start date`} inputClassName="!h-10" /></label>
+          <label className="block"><span className="sr-only">{PERIOD_LABEL[r.kind]} end</span><DateInput  value={(draft[r.e] as string) ?? ''} onChange={v => set(r.e, v)} aria-label={`${PERIOD_LABEL[r.kind]} end date`} inputClassName="!h-10" /></label>
         </div>
       ))}
       <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-2 sm:items-center pt-1">

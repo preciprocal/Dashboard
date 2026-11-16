@@ -26,6 +26,7 @@ import { SeeExampleButton } from '@/components/ServiceModal';
 import type { ResumeInitialTab } from '@/components/ServiceModal/types';
 import ServiceFeedback, { recordServiceUse } from '@/components/ServiceFeedback';
 import { toast } from 'sonner';
+import { AppSelect } from '@/components/ui/select';
 import Image from 'next/image';
 
 async function saveResumeContent(resumeId: string, patch: { resumeHtml?: string; resumeText?: string }): Promise<void> {
@@ -62,6 +63,25 @@ function InlineResumeEditor({ resumeId, initialHtml, onContentChange, highlightT
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const prevHighlightedEl = useRef<HTMLElement | null>(null);
   const saveTimer = useRef<NodeJS.Timeout | null>(null);
+  // The font pickers are app dropdowns, which take focus from the editor: the
+  // selection is remembered as it changes and put back before formatting.
+  const savedRange = useRef<Range | null>(null);
+  const [fontName, setFontName] = useState('Calibri');
+  const [fontSize, setFontSize] = useState('3');
+  useEffect(() => {
+    const track = () => {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount && editorRef.current?.contains(sel.anchorNode)) savedRange.current = sel.getRangeAt(0).cloneRange();
+    };
+    document.addEventListener('selectionchange', track);
+    return () => document.removeEventListener('selectionchange', track);
+  }, []);
+  const applyFormat = (cmd: string, value: string) => {
+    editorRef.current?.focus();
+    const sel = window.getSelection();
+    if (sel && savedRange.current) { sel.removeAllRanges(); sel.addRange(savedRange.current); }
+    document.execCommand(cmd, false, value);
+  };
 
   const [scale, setScale] = useState(1);
   const [editorHeight, setEditorHeight] = useState(0);
@@ -204,14 +224,12 @@ function InlineResumeEditor({ resumeId, initialHtml, onContentChange, highlightT
 
         {/* Formatting toolbar: one bar across the full width */}
         <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-t border-white/[0.04]">
-          <select aria-label="Font" onChange={e => { editorRef.current?.focus(); document.execCommand('fontName', false, e.target.value); }} defaultValue="Calibri"
-            className="flex-1 min-w-[120px] h-8 pl-2.5 pr-7 rounded-lg text-[12.5px] text-[var(--text-1)] bg-white/[0.04] ring-1 ring-inset ring-white/[0.08] hover:bg-white/[0.06] outline-none cursor-pointer">
-            {['Calibri', 'Arial', 'Times New Roman', 'Georgia', 'Verdana', 'Helvetica', 'Garamond'].map(f => (<option key={f} value={f}>{f}</option>))}
-          </select>
-          <select aria-label="Font size" onChange={e => { editorRef.current?.focus(); document.execCommand('fontSize', false, e.target.value); }} defaultValue="3"
-            className="w-[86px] flex-shrink-0 h-8 pl-2.5 pr-7 rounded-lg text-[12.5px] text-[var(--text-1)] bg-white/[0.04] ring-1 ring-inset ring-white/[0.08] hover:bg-white/[0.06] outline-none cursor-pointer">
-            {[['1', '8pt'], ['2', '10pt'], ['3', '11pt'], ['4', '12pt'], ['5', '14pt'], ['6', '18pt'], ['7', '24pt']].map(([v, label]) => (<option key={v} value={v}>{label}</option>))}
-          </select>
+          <AppSelect aria-label="Font" value={fontName} onValueChange={v => { setFontName(v); applyFormat('fontName', v); }}
+            className="!h-8 !text-[12.5px] !rounded-lg flex-1 min-w-[130px]"
+            options={['Calibri', 'Arial', 'Times New Roman', 'Georgia', 'Verdana', 'Helvetica', 'Garamond'].map(f => ({ value: f, label: f }))} />
+          <AppSelect aria-label="Font size" value={fontSize} onValueChange={v => { setFontSize(v); applyFormat('fontSize', v); }}
+            className="!h-8 !text-[12.5px] !rounded-lg !w-[92px] flex-shrink-0"
+            options={[['1', '8pt'], ['2', '10pt'], ['3', '11pt'], ['4', '12pt'], ['5', '14pt'], ['6', '18pt'], ['7', '24pt']].map(([v, label]) => ({ value: v, label }))} />
           <ToolGroup>
             <ToolBtn title="Bold (Ctrl+B)" onClick={() => document.execCommand('bold')}><Bold /></ToolBtn>
             <ToolBtn title="Italic (Ctrl+I)" onClick={() => document.execCommand('italic')}><Italic /></ToolBtn>
