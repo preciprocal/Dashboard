@@ -19,6 +19,15 @@ import { planFeatureLines } from "@/lib/config/plan-features";
 import CreditPacks from "@/components/pricing/CreditPacks";
 import BillingPromises from "@/components/pricing/BillingPromises";
 import { PACKS, type PackKey } from "@/lib/config/packs";
+import { featureLabel } from "@/lib/config/plan-features";
+import { USAGE_LIMITS, type FeatureType } from "@/lib/config/usage-limits";
+import { INTERVIEW_DURATION_SECONDS } from "@/lib/config/interview-limits";
+import { FIRST_REFUND_WINDOW_DAYS } from "@/lib/config/refund";
+import PageHeader from "@/components/PageHeader";
+import { CreditCard, CheckCircle2, XCircle, X, Sparkles, ArrowRight, GraduationCap, ChevronDown } from "lucide-react";
+
+/** The quota rows of the comparison table, in the plan cards' order. */
+const COMPARE_FEATURES: FeatureType[] = ["resumes", "coverLetters", "interviews", "studyPlans", "linkedinOptimisations", "coldOutreach", "findContacts", "jobTracker"];
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -880,6 +889,8 @@ export default function PricingPage() {
     <AnimatedLoader isVisible={true} mode="auto" tone="focused" loadingText="Loading pricing..." duration={3000} showNavigation={false}/>
   );
 
+  const current = PLANS.find(p => p.id === currentPlan);
+
   return (
     <>
       {selectedPlan && user && (
@@ -895,176 +906,139 @@ export default function PricingPage() {
           onDone={() => { setShowSuccess(false); window.location.href = "/"; }}/>
       )}
 
-      <div className="w-full px-4 py-12">
+      <div className="w-full space-y-6 pt-4 pb-12">
 
-        {/* Header */}
-        {/* The "Trusted by 10,000+ job seekers" badge that used to sit above
-            the headline was removed: the real number is nowhere near that, and
-            an invented figure in the hero is the first thing that gets checked
-            when a pricing page starts getting traffic. The headline carries
-            this section on its own. */}
-        <div className="text-center mb-10">
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4 leading-tight">
-            We only win when <span className="text-[var(--accent)]">you do.</span>
-          </h1>
-          <p className="text-slate-400 text-base sm:text-lg max-w-3xl mx-auto leading-relaxed">
-            {/* Deliberately no refund terms here: they live in the Terms and
-                the Help page, and two copies of a policy drift apart. Never
-                reintroduce the old "30 day money back guarantee", which the
-                policy does not offer. */}
-            Most tools charge you and disappear. We&apos;ve seen what Preciprocal does for real people, so start on
-            the Free plan and upgrade when it is earning its place. <span className="text-white font-semibold">We stand behind it completely.</span>
-          </p>
-        </div>
+        {/* No "Trusted by 10,000+" style badge: the real number is nowhere near
+            that. No refund terms in the header either: they live in the Terms,
+            the Help page and BillingPromises below, and never promise a "30 day
+            money back guarantee", which the policy does not offer. */}
+        <PageHeader
+          title="Plans and pricing"
+          description="Start on Free and upgrade when it is earning its place. Every plan is monthly."
+          icon={<CreditCard strokeWidth={1.75} aria-hidden="true" />}
+        />
 
         {/* Pack checkout result */}
         {packResult && (
-          <div className={`mb-8 p-4 rounded-2xl border flex items-start gap-3 ${
-            packResult.status === "success"
-              ? "border-emerald-500/20 bg-emerald-500/5"
-              : "border-white/[0.08] bg-white/[0.02]"
-          }`}>
-            <svg className={`w-5 h-5 flex-shrink-0 mt-0.5 ${packResult.status === "success" ? "text-emerald-400" : "text-slate-400"}`}
-              fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {packResult.status === "success"
-                ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
-                : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>}
-            </svg>
+          <div className={`p-4 rounded-2xl ring-1 ring-inset flex items-start gap-3 ${packResult.status === "success" ? "ring-emerald-500/20 bg-emerald-500/[0.05]" : "ring-white/[0.08] bg-white/[0.02]"}`}>
+            {packResult.status === "success"
+              ? <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5 text-emerald-400" />
+              : <XCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-[var(--text-4)]" />}
             <div className="min-w-0">
               {packResult.status === "success" ? (
                 <>
                   <p className="text-sm font-semibold text-emerald-300">{packResult.name} purchased</p>
                   {/* Credits are granted by the Stripe webhook, which can land a
-                      moment after this redirect. Promising they are ready right
-                      now would be wrong often enough to generate support mail. */}
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Your credits are being added and will appear within a minute. Nothing else to do.
-                  </p>
+                      moment after this redirect. */}
+                  <p className="text-xs text-[var(--text-3)] mt-0.5">Your credits are being added and will appear within a minute. Nothing else to do.</p>
                 </>
               ) : (
                 <>
                   <p className="text-sm font-semibold text-white">Checkout cancelled</p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    No payment was taken and nothing changed on your account.
-                  </p>
+                  <p className="text-xs text-[var(--text-3)] mt-0.5">No payment was taken and nothing changed on your account.</p>
                 </>
               )}
             </div>
-            <button onClick={() => setPackResult(null)}
-              className="ml-auto text-slate-400 hover:text-slate-300 transition-colors cursor-pointer flex-shrink-0"
-              aria-label="Dismiss">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
-              </svg>
+            <button onClick={() => setPackResult(null)} className="ml-auto text-[var(--text-4)] hover:text-white transition-colors cursor-pointer flex-shrink-0" aria-label="Dismiss">
+              <X className="w-4 h-4" />
             </button>
           </div>
         )}
 
-        {/* Student banner */}
-        {!isStudent && (
-          <div className="mb-8 p-4 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0112 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/>
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-white">University student? Get Pro free for 1 month</p>
-                <p className="text-xs text-slate-400">Verify your .edu email. Nothing is charged for 30 days.</p>
-              </div>
+        {/* Current plan and the student offer, side by side */}
+        <div className="grid gap-3 lg:grid-cols-[1fr_1.4fr]">
+          <div className="glass-card px-5 py-4 flex items-center gap-4">
+            <span className="w-10 h-10 rounded-xl bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-[18px] h-[18px] text-[var(--accent)]" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[12px] text-[var(--text-3)]">{user ? "Your plan" : "Signed out"}</p>
+              <p className="text-[16px] font-semibold text-white">
+                {user ? (current?.name ?? "Free") : "Sign in to see your plan"}
+                {user && current && !current.enterprise && current.monthlyPrice > 0 && <span className="text-[13px] font-normal text-[var(--text-3)]"> · ${current.monthlyPrice}/mo</span>}
+              </p>
             </div>
-            <button onClick={() => user ? setShowStudent(true) : (window.location.href = "/sign-in?redirect=/pricing")}
-              className="btn-primary flex-shrink-0 cursor-pointer">
-              Claim student deal
-            </button>
+            {user && currentPlan !== "free" && (
+              <a href="/settings?section=billing" className="ml-auto text-[12.5px] font-medium text-[var(--text-3)] hover:text-white inline-flex items-center gap-1 flex-shrink-0">Manage <ArrowRight className="w-3.5 h-3.5" /></a>
+            )}
           </div>
-        )}
 
-        {isStudent && (
-          <div className="mb-8 p-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 flex items-center gap-3">
-            <svg className="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
-            </svg>
-            <p className="text-sm text-emerald-300 font-medium">Student status verified - your first month is on us!</p>
-          </div>
-        )}
-
+          {!isStudent ? (
+            <div className="relative overflow-hidden rounded-2xl ring-1 ring-inset ring-[var(--accent-border)] bg-[var(--bg-surface)] px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(120%_140%_at_0%_0%,rgba(94,106,210,0.18),transparent_60%)]" aria-hidden="true" />
+              <span className="relative w-10 h-10 rounded-xl bg-[var(--accent-subtle)] ring-1 ring-inset ring-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
+                <GraduationCap className="w-5 h-5 text-[#c5cbf5]" />
+              </span>
+              <div className="relative min-w-0 flex-1">
+                <p className="text-[14.5px] font-semibold text-white">University student? Pro is free for your first month</p>
+                <p className="text-[12.5px] text-[var(--text-3)] mt-0.5">Verify your .edu email. Nothing is charged for 30 days.</p>
+              </div>
+              <button onClick={() => user ? setShowStudent(true) : (window.location.href = "/sign-in?redirect=/pricing")}
+                className="relative btn-primary flex-shrink-0 cursor-pointer">
+                Claim student offer
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-2xl ring-1 ring-inset ring-emerald-500/20 bg-emerald-500/[0.05] px-5 py-4 flex items-center gap-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+              <p className="text-sm text-emerald-300 font-medium">Student status verified. Your first month of Pro is on us.</p>
+            </div>
+          )}
+        </div>
 
         {/* Plan cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 w-full">
           {PLANS.map((plan) => {
-            const isCurrent    = plan.id === currentPlan;
-            const displayPrice = plan.monthlyPrice;
+            const isCurrent = plan.id === currentPlan;
             return (
               <div key={plan.id}
-                className={`relative flex flex-col rounded-2xl border bg-[var(--bg-surface)] ${plan.popular ? "border-[var(--accent-border)]" : "border-white/[0.08]"} p-6 transition-colors duration-200`}>
+                className={`relative flex flex-col rounded-2xl p-6 transition-colors duration-200 ${plan.popular
+                  ? "ring-1 ring-inset ring-[var(--accent-border)] bg-[var(--bg-surface)] bg-[radial-gradient(120%_70%_at_50%_0%,rgba(94,106,210,0.16),transparent_70%)]"
+                  : "ring-1 ring-inset ring-white/[0.07] bg-[var(--bg-surface)]"}`}>
 
-                {plan.badge && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="px-2.5 py-1 text-xs font-semibold text-indigo-100 rounded-md whitespace-nowrap bg-[var(--accent-subtle)] border border-[var(--accent-border)]">
-                      {plan.badge}
-                    </span>
-                  </div>
-                )}
-
-                <div className="mb-5">
-                  <h2 className="text-lg font-bold text-white mb-1">{plan.name}</h2>
-                  <p className="text-sm text-slate-400">{plan.description}</p>
+                <div className="flex items-center justify-between gap-2 min-h-[24px]">
+                  <h2 className="text-[16px] font-semibold text-white">{plan.name}</h2>
+                  {isCurrent
+                    ? <span className="px-2 py-0.5 text-[11px] font-semibold text-emerald-300 rounded-full bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/25">Current</span>
+                    : plan.badge && <span className="px-2 py-0.5 text-[11px] font-semibold text-[#c5cbf5] rounded-full bg-[var(--accent-subtle)] ring-1 ring-inset ring-[var(--accent-border)]">{plan.badge}</span>}
                 </div>
+                <p className="text-[13px] text-[var(--text-3)] mt-1 min-h-[40px]">{plan.description}</p>
 
-                <div className="mb-5">
+                <div className="mt-5 mb-5 flex items-end gap-1.5 min-h-[48px]">
                   {plan.enterprise ? (
-                    <span className="text-4xl font-bold text-white">Custom</span>
+                    <span className="font-display text-[38px] leading-none font-semibold tracking-[-0.03em] text-white">Custom</span>
                   ) : (
                     <>
-                      <div className="flex items-end gap-1">
-                        <span className="text-4xl font-bold text-white">{plan.id === "free" ? "Free" : `$${displayPrice}`}</span>
-                        {plan.id !== "free" && <span className="text-slate-400 text-sm mb-1.5">/mo</span>}
-                      </div>
+                      <span className="font-display text-[42px] leading-none font-semibold tracking-[-0.03em] text-white tabular-nums">{plan.id === "free" ? "$0" : `$${plan.monthlyPrice}`}</span>
+                      <span className="text-[var(--text-3)] text-[13px] mb-1">{plan.id === "free" ? "forever" : "per month"}</span>
                     </>
                   )}
                 </div>
 
                 {plan.enterprise ? (
-                  <div className="mb-6">
-                    <a href="mailto:support@preciprocal.com?subject=Enterprise%20Plan%20Enquiry"
-                      className="btn-secondary w-full">
-                      Contact us
-                    </a>
-                    <p className="text-center text-xs text-slate-400 mt-2 invisible">placeholder</p>
-                  </div>
+                  <a href="mailto:support@preciprocal.com?subject=Enterprise%20Plan%20Enquiry" className="btn-secondary w-full">Contact us</a>
                 ) : (
-                  <button onClick={() => handleSelectPlan(plan)} disabled={isCurrent}
-                    className={`w-full mb-6 cursor-pointer disabled:cursor-default ${isCurrent ? "btn-secondary opacity-60" : plan.popular ? "btn-primary" : "btn-secondary"}`}>
-                    {isCurrent ? "Current plan" : plan.cta}
+                  <button onClick={() => handleSelectPlan(plan)} disabled={isCurrent || plan.id === "free"}
+                    className={`w-full cursor-pointer disabled:cursor-default ${isCurrent ? "btn-secondary opacity-60" : plan.popular ? "btn-primary" : "btn-secondary"} ${plan.id === "free" && !isCurrent ? "opacity-60" : ""}`}>
+                    {isCurrent ? "Your current plan" : plan.id === "free" ? "Included" : plan.cta}
                   </button>
                 )}
 
+                <div className="h-px bg-white/[0.06] my-6" />
                 <ul className="space-y-2.5 flex-1">
                   {plan.features.map((f, i) => (
                     <li key={i} className="flex items-start gap-2.5">
                       <Check highlight={f.highlight}/>
-                      <span className={`text-sm leading-snug ${f.highlight ? "text-slate-200" : "text-slate-400"}`}>{f.text}</span>
+                      <span className={`text-[13px] leading-snug ${f.highlight ? "text-[var(--text-1)]" : "text-[var(--text-3)]"}`}>{f.text}</span>
                     </li>
                   ))}
                 </ul>
-
                 {plan.enterprise && (
-                  <div className="mt-5 space-y-2.5">
-                    {[
-                      "End-to-end encryption · Google Cloud secured",
-                      "No data selling · Your data stays yours",
-                      "GDPR & CCPA ready · Full privacy compliance",
-                      "Custom DPA available · On request for universities",
-                      "Pricing based on team size & needs",
-                    ].map(t => (
-                      <li key={t} className="flex items-start gap-2.5 list-none">
-                        <Check highlight={false}/>
-                        <span className="text-sm leading-snug text-slate-400">{t}</span>
-                      </li>
+                  <ul className="mt-4 space-y-2.5">
+                    {["Your data is never sold", "A data processing agreement on request", "Pricing based on team size and needs"].map(t => (
+                      <li key={t} className="flex items-start gap-2.5"><Check highlight={false}/><span className="text-[13px] leading-snug text-[var(--text-3)]">{t}</span></li>
                     ))}
-                  </div>
+                  </ul>
                 )}
               </div>
             );
@@ -1072,18 +1046,112 @@ export default function PricingPage() {
         </div>
 
         {/* Tax-inclusive pricing (lib/stripe/tax.ts): what is shown is what is paid. */}
-        <p className="text-center text-xs text-slate-400 mt-6">
+        <p className="text-center text-[12px] text-[var(--text-4)]">
           Prices are in US dollars and include any applicable sales tax or VAT. What you see is what you pay.
         </p>
+
+        <Compare currentPlan={currentPlan} />
 
         {/* One-time credit packs */}
         <CreditPacks user={user}/>
 
-        {/* Trust signals. Every claim has to be one the code enforces; each
-            line in BillingPromises names its source. */}
+        {/* Billing rules. Every claim is one the code enforces; each line in
+            BillingPromises names its source. */}
         <BillingPromises/>
 
+        <Faq />
       </div>
     </>
+  );
+}
+
+// ─── Comparison table ─────────────────────────────────────────────────────────
+
+const TABLE_PLANS = ["free", "pro", "premium"] as const;
+
+// The quota rows come from USAGE_LIMITS (the same numbers the usage guard
+// enforces); the other rows restate the plan cards above.
+function Compare({ currentPlan }: { currentPlan: PlanId }) {
+  const quota = (planKey: (typeof TABLE_PLANS)[number], feature: FeatureType) => {
+    const limit = USAGE_LIMITS[planKey][feature];
+    if (limit === -1) return "Unlimited";
+    if (feature === "jobTracker") return `${limit}`;
+    const minutes = feature === "interviews" ? ` · ${Math.round(INTERVIEW_DURATION_SECONDS[planKey] / 60)} min` : "";
+    return `${limit} / mo${minutes}`;
+  };
+  const rows: { label: string; cells: (string | boolean)[] }[] = [
+    ...COMPARE_FEATURES.map(f => ({ label: featureLabel(f, 2).replace(/^2 /, ""), cells: TABLE_PLANS.map(p => quota(p, f)) })),
+    { label: "Chrome extension", cells: [true, true, true] },
+    { label: "Resume editor with PDF and Word export", cells: [false, true, true] },
+    { label: "Priority support (24 hour reply)", cells: [false, false, true] },
+  ];
+  return (
+    <section aria-labelledby="compare-h">
+      <h2 id="compare-h" className="text-[16px] font-semibold tracking-[-0.01em] text-white mb-3">Compare plans</h2>
+      <div className="glass-card overflow-x-auto">
+        <table className="w-full min-w-[620px] text-left">
+          <thead>
+            <tr className="border-b border-[var(--border)]">
+              <th className="px-5 py-3.5 text-[12px] font-medium text-[var(--text-4)] w-[40%]">Per month</th>
+              {TABLE_PLANS.map(p => (
+                <th key={p} className={`px-5 py-3.5 text-[13px] font-semibold ${p === "pro" ? "text-white" : "text-[var(--text-2)]"}`}>
+                  {PLANS.find(x => x.id === p)!.name}
+                  {p === currentPlan && <span className="ml-2 text-[11px] font-medium text-emerald-300">Current</span>}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.label} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.015]">
+                <td className="px-5 py-3 text-[13px] text-[var(--text-2)] capitalize-first">{r.label.charAt(0).toUpperCase() + r.label.slice(1)}</td>
+                {r.cells.map((c, i) => (
+                  <td key={i} className={`px-5 py-3 text-[13px] tabular-nums ${TABLE_PLANS[i] === "pro" ? "bg-[var(--accent-subtle)]/40" : ""}`}>
+                    {c === true ? <CheckCircle2 className="w-4 h-4 text-emerald-400" aria-label="Included" />
+                      : c === false ? <span className="text-[var(--text-5)]" aria-label="Not included">-</span>
+                      : <span className={c === "Unlimited" ? "text-white font-medium" : "text-[var(--text-2)]"}>{c}</span>}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[12px] text-[var(--text-4)] mt-2">Enterprise includes everything in Premium, with terms agreed per organisation.</p>
+    </section>
+  );
+}
+
+// ─── FAQ ──────────────────────────────────────────────────────────────────────
+
+// Answers restate rules the code and policy already set (BillingPromises,
+// lib/config/refund.ts, the student flow and the extension's free access).
+const FAQS: { q: string; a: string }[] = [
+  { q: "Can I cancel any time?", a: "Yes. Settings, Plan & Billing, Cancel. You keep what you paid for until the period ends." },
+  { q: "Can I get a refund?", a: `Your first payment back within ${FIRST_REFUND_WINDOW_DAYS} days if you barely used it. After that, the unused part of the month back at any point, and the plan ends. You can do it yourself in Settings.` },
+  { q: "How does the student offer work?", a: "Verify a .edu email and Pro is free for your first month. Nothing is charged for 30 days, and we email you before any charge." },
+  { q: "What happens if I reach a monthly limit?", a: "That feature pauses until the month resets. You can upgrade, or buy a one-time credit pack above that tops up just what you need." },
+  { q: "Is the Chrome extension included on Free?", a: "Yes. The extension is not limited by plan." },
+  { q: "Are prices shown with tax?", a: "Yes. Prices include any sales tax or VAT, so the amount at checkout is the amount you pay." },
+];
+
+function Faq() {
+  const [open, setOpen] = useState<number | null>(0);
+  return (
+    <section aria-labelledby="faq-h">
+      <h2 id="faq-h" className="text-[16px] font-semibold tracking-[-0.01em] text-white mb-3">Questions</h2>
+      <div className="glass-card divide-y divide-white/[0.05] overflow-hidden">
+        {FAQS.map((f, i) => (
+          <div key={f.q}>
+            <button onClick={() => setOpen(open === i ? null : i)} aria-expanded={open === i}
+              className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-white/[0.015] transition-colors cursor-pointer">
+              <span className="text-[14px] font-medium text-white">{f.q}</span>
+              <ChevronDown className={`w-4 h-4 text-[var(--text-4)] flex-shrink-0 transition-transform duration-200 ${open === i ? "rotate-180" : ""}`} />
+            </button>
+            {open === i && <p className="px-5 pb-4 -mt-1 text-[13px] text-[var(--text-3)] leading-relaxed max-w-[75ch]">{f.a}</p>}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
