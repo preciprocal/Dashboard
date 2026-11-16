@@ -77,7 +77,7 @@ function Collapsible({ title, children, badge }: { title: string; children: Reac
       <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-4 py-3 bg-white/[0.03] hover:bg-white/[0.05] transition-colors duration-150">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-slate-300">{title}</span>
-          {badge && <span className="text-[11px] px-2 py-0.5 bg-violet-500/15 text-violet-400 border border-violet-500/25 rounded-full font-medium">{badge}</span>}
+          {badge && <span className="text-[11px] px-2 py-0.5 bg-[var(--accent-subtle)] text-[#a9b0f7] border border-[var(--accent-border)] rounded-full font-medium">{badge}</span>}
         </div>
         {open ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
       </button>
@@ -159,7 +159,7 @@ function LinkedInResults({ data }: { data: LinkedInResult }) {
 
       <ResultCard>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2"><Users className="w-3.5 h-3.5 text-violet-400" /> About Section</h3>
+          <h3 className="text-sm font-bold text-white flex items-center gap-2"><Users className="w-3.5 h-3.5 text-[#a9b0f7]" /> About Section</h3>
           <ScoreChip score={data.about.currentScore} />
         </div>
         {data.about.problems?.length > 0 && (
@@ -223,7 +223,7 @@ function LinkedInResults({ data }: { data: LinkedInResult }) {
         <div className="space-y-3">
           <div className="flex flex-wrap gap-1.5">
             {data.sectionRecommendations?.skills?.map((s, i) => (
-              <span key={i} className="text-xs px-2 py-0.5 bg-violet-500/10 text-violet-400 border border-violet-500/20 rounded-full">{s}</span>
+              <span key={i} className="text-xs px-2 py-0.5 bg-[var(--accent-subtle)] text-[#a9b0f7] border border-[var(--accent-border)] rounded-full">{s}</span>
             ))}
           </div>
           {[
@@ -270,9 +270,9 @@ function OutreachResults({ data, platform }: { data: OutreachResult; platform: s
         {activeMsg && (
           <div className="space-y-3">
             {activeMsg.approach && (
-              <div className="flex items-start gap-2 p-2.5 bg-violet-500/[0.06] border border-violet-500/15 rounded-lg">
-                <Info className="w-3.5 h-3.5 text-violet-400 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-violet-300 leading-relaxed">{activeMsg.approach}</p>
+              <div className="flex items-start gap-2 p-2.5 bg-[var(--accent-subtle)] border border-[var(--accent-border)] rounded-lg">
+                <Info className="w-3.5 h-3.5 text-[#a9b0f7] flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-[#a9b0f7] leading-relaxed">{activeMsg.approach}</p>
               </div>
             )}
             {'bestFor' in activeMsg && (activeMsg as OutreachVersion & { bestFor: string }).bestFor && (
@@ -466,13 +466,17 @@ function UpgradeGate({ feature, used, limit }: { feature: 'linkedin' | 'outreach
 function ToolTabs({ active, setActive }: { active: 'linkedin' | 'outreach'; setActive: (v: 'linkedin' | 'outreach') => void }) {
   const tabs = [{ id: 'linkedin' as const, label: 'LinkedIn', icon: LinkedInIcon }, { id: 'outreach' as const, label: 'Cold Outreach', icon: Send }];
   return (
-    <div className="flex gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-xl">
-      {tabs.map(t => (
-        <button key={t.id} onClick={() => setActive(t.id)}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-150 ${active === t.id ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : 'text-slate-400 hover:text-slate-300 hover:bg-white/[0.04]'}`}>
-          <t.icon className="w-3.5 h-3.5" />{t.label}
-        </button>
-      ))}
+    <div role="tablist" className="flex border-b border-white/[0.07]">
+      {tabs.map(t => {
+        const on = active === t.id;
+        return (
+          <button key={t.id} role="tab" aria-selected={on} onClick={() => setActive(t.id)}
+            className={`relative flex-1 flex items-center justify-center gap-1.5 h-10 text-[13px] font-medium transition-colors ${on ? 'text-white' : 'text-[var(--text-3)] hover:text-white'}`}>
+            <t.icon className="w-4 h-4" />{t.label}
+            <span className={`absolute left-2 right-2 -bottom-px h-[2px] rounded-full bg-white transition-transform duration-300 origin-left ${on ? 'scale-x-100' : 'scale-x-0'}`} />
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -512,7 +516,7 @@ function ErrorBanner({ message }: { message: string }) {
 function SubmitButton({ onClick, loading, disabled, loadingLabel, label }: { onClick: () => void; loading: boolean; disabled: boolean; loadingLabel: string; label: string; gradient?: string; shadow?: string }) {
   return (
     <button onClick={onClick} disabled={loading || disabled}
-      className="w-full h-11 glass-button-primary text-white rounded-[10px] font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+      className="btn-primary w-full !h-11 justify-center disabled:opacity-40 disabled:cursor-not-allowed">
       {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> {loadingLabel}</> : <><Sparkles className="w-4 h-4" /> {label}</>}
     </button>
   );
@@ -829,10 +833,10 @@ export default function CareerToolsPage() {
           <div className="flex-shrink-0 px-5 py-4 border-b border-white/[0.05]">
             <Breadcrumbs crumbs={crumbsFor('/career-tools', 'Career Tools')} />
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0"><Sparkles className="w-5 h-5 text-indigo-200" strokeWidth={1.75} /></div>
+              <div className="w-9 h-9 rounded-[10px] app-glass bg-[var(--bg-surface)] border border-[var(--border)] flex items-center justify-center flex-shrink-0"><Sparkles className="w-[18px] h-[18px] text-[var(--accent)]" strokeWidth={1.75} /></div>
               <div>
-                <h1 className="text-[20px] font-semibold text-white tracking-tight leading-tight">Career Tools</h1>
-                <p className="text-[13px] text-slate-400 mt-0.5">LinkedIn profile and outreach</p>
+                <h1 className="text-[22px] font-semibold text-white tracking-[-0.02em] leading-tight">Career Tools</h1>
+                <p className="text-[13px] text-[var(--text-3)] mt-0.5">LinkedIn profile and outreach</p>
               </div>
             </div>
             <div className="flex items-center gap-2 mb-3">

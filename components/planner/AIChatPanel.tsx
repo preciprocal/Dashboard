@@ -176,7 +176,7 @@ function FormattedText({ content }: { content: string }) {
         if (line.match(/^[•\-\*]\s/)) {
           return (
             <div key={idx} className="flex items-start gap-2 ml-2">
-              <span className="text-purple-400 mt-1">•</span>
+              <span className="text-[#a9b0f7] mt-1">•</span>
               <span className="flex-1 text-slate-300">{line.replace(/^[•\-\*]\s/, '')}</span>
             </div>
           );
@@ -186,7 +186,7 @@ function FormattedText({ content }: { content: string }) {
           const [num, ...rest] = line.split(/\.\s/);
           return (
             <div key={idx} className="flex items-start gap-2 ml-2">
-              <span className="text-purple-400 font-medium min-w-[20px]">
+              <span className="text-[#a9b0f7] font-medium min-w-[20px]">
                 {num}.
               </span>
               <span className="flex-1 text-slate-300">{rest.join('. ')}</span>
@@ -220,7 +220,7 @@ function FormattedText({ content }: { content: string }) {
                 return (
                   <code
                     key={`${i}-${j}`}
-                    className="px-1.5 py-0.5 bg-purple-500/10 text-purple-400 rounded text-sm font-mono border border-purple-500/20"
+                    className="px-1.5 py-0.5 bg-[var(--accent-subtle)] text-[#a9b0f7] rounded text-sm font-mono border border-[var(--accent-border)]"
                   >
                     {subpart.slice(1, -1)}
                   </code>
@@ -342,7 +342,7 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
       {/* Header - Dark Mode */}
       <div className="p-4 border-b border-[var(--border)]">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[var(--accent)] rounded-lg flex items-center justify-center shadow-lg ">
+          <div className="w-10 h-10 bg-white/[0.06] ring-1 ring-inset ring-white/[0.08] rounded-lg flex items-center justify-center ">
             <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -370,10 +370,10 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
             >
               {message.role === 'assistant' && (
                 <div className="flex items-center gap-2 mb-3 pb-3 border-b border-[var(--border)]">
-                  <div className="w-6 h-6 bg-[var(--accent)] rounded flex items-center justify-center">
+                  <div className="w-6 h-6 bg-white/[0.06] ring-1 ring-inset ring-white/[0.08] rounded flex items-center justify-center">
                     <Sparkles className="w-3.5 h-3.5 text-white" />
                   </div>
-                  <span className="text-xs font-medium text-purple-400">
+                  <span className="text-xs font-medium text-[#a9b0f7]">
                     AI COACH
                   </span>
                 </div>
@@ -403,7 +403,7 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
           <div className="flex justify-start">
             <div className="max-w-[85%] rounded-lg p-5 bg-white/[0.042] backdrop-blur-xl border border-[var(--border)]">
               <div className="flex items-center gap-3">
-                <Loader2 className="w-5 h-5 animate-spin text-purple-400" />
+                <Loader2 className="w-5 h-5 animate-spin text-[#a9b0f7]" />
                 <div>
                   <span className="text-sm font-medium text-white">
                     Analyzing...
@@ -433,14 +433,14 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
                 <button
                   key={index}
                   onClick={() => handleSend(prompt.text)}
-                  className="text-left p-3 rounded-lg bg-white/[0.042] backdrop-blur-xl border border-[var(--border)] hover:border-purple-500/30 transition-all group"
+                  className="text-left p-3 rounded-lg bg-white/[0.042] backdrop-blur-xl border border-[var(--border)] hover:border-[var(--accent-border)] transition-all group"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
-                      <Icon className="w-4 h-4 text-purple-400" />
+                    <div className="w-8 h-8 rounded bg-[var(--accent-subtle)] flex items-center justify-center border border-[var(--accent-border)]">
+                      <Icon className="w-4 h-4 text-[#a9b0f7]" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-xs text-purple-400 mb-1">
+                      <p className="text-xs text-[#a9b0f7] mb-1">
                         {prompt.category}
                       </p>
                       <p className="text-sm text-slate-300">
@@ -466,7 +466,7 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
               onKeyPress={handleKeyPress}
               placeholder="Ask your AI coach anything..."
               rows={1}
-              className="w-full px-4 py-2.5 rounded-lg bg-white/[0.042] backdrop-blur-xl border border-[var(--border)] text-white placeholder-slate-600 resize-none max-h-32 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+              className="w-full px-4 py-2.5 rounded-lg bg-white/[0.042] backdrop-blur-xl border border-[var(--border)] text-white placeholder-slate-600 resize-none max-h-32 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-border)]"
               disabled={isLoading}
             />
           </div>

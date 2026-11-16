@@ -44,7 +44,7 @@ export default function TaskList({ plan, onTaskUpdate }: TaskListProps) {
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'technical': return 'bg-blue-500/10 border-blue-500/20 text-blue-400';
-      case 'behavioral': return 'bg-purple-500/10 border-purple-500/20 text-purple-400';
+      case 'behavioral': return 'bg-[var(--accent-subtle)] border-[var(--accent-border)] text-[#a9b0f7]';
       case 'communication': return 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400';
       case 'mock': return 'bg-orange-500/10 border-orange-500/20 text-orange-400';
       default: return 'bg-slate-500/10 border-slate-500/20 text-slate-400';
@@ -211,11 +211,11 @@ export default function TaskList({ plan, onTaskUpdate }: TaskListProps) {
           {(filter === 'all' || filter === 'in-progress') && inProgressTasks.length > 0 && (
             <div>
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 bg-purple-500/10 rounded-lg flex items-center justify-center">
-                  <Clock className="w-4 h-4 text-purple-400" />
+                <div className="w-8 h-8 bg-[var(--accent-subtle)] rounded-lg flex items-center justify-center">
+                  <Clock className="w-4 h-4 text-[#a9b0f7]" />
                 </div>
                 <h3 className="text-lg font-semibold text-white">In Progress</h3>
-                <span className="px-2 py-1 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded text-sm font-medium">
+                <span className="px-2 py-1 bg-[var(--accent-subtle)] border border-[var(--accent-border)] text-[#a9b0f7] rounded text-sm font-medium">
                   {inProgressTasks.length}
                 </span>
               </div>

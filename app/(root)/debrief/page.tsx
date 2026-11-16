@@ -2,15 +2,16 @@
 import { AppSelect } from '@/components/ui/select';
 import PageHeader from '@/components/PageHeader';
 import { NotebookPen as HeaderIcon } from 'lucide-react';
+import InfoTip from '@/components/ui/info-tip';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import {
   BookOpen, Plus, Loader2, Trash2, ChevronDown, ChevronUp,
-  Calendar, Building2, TrendingUp, AlertTriangle, CheckCircle2,
+  Calendar, Building2, AlertTriangle, CheckCircle2,
   Brain, MessageSquare, Target, BarChart3, Lightbulb, Clock,
-  Star, Edit3, X, Save, Activity, Award, Zap, Eye,
+  Star, Edit3, X, Save, Activity, Zap, Eye,
   Heart, Filter, Search, RefreshCw, XCircle, ArrowRight, Flame,
   Users, MapPin, Sparkles, Shield,
 } from 'lucide-react';
@@ -126,7 +127,7 @@ const OUTCOME_COLORS: Record<InterviewOutcome, string> = {
   'moved-forward': 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
   rejected:        'text-red-400    bg-red-400/10    border-red-400/20',
   ghosted:         'text-slate-400  bg-slate-400/10  border-slate-400/20',
-  withdrew:        'text-purple-400 bg-purple-400/10 border-purple-400/20',
+  withdrew:        'text-slate-300  bg-white/[0.05]  border-white/[0.1]',
   offer:           'text-blue-400   bg-blue-400/10   border-blue-400/20',
   practice:        'text-sky-300    bg-sky-400/10    border-sky-400/20',
 };
@@ -170,19 +171,13 @@ const ta = `${inp} resize-none`;
 
 // ─── Small helpers ────────────────────────────────────────────────────────────
 
-function StatCard({ icon: Icon, label, value, sub, accentClass }: {
-  icon: React.ElementType; label: string; value: string | number; sub?: string; accentClass: string;
-}) {
+// One cell of the KPI strip: label with how it is counted, value, a line under it.
+function Kpi({ label, tip, value, sub, tone, className = '' }: { label: string; tip: string; value: React.ReactNode; sub?: string; tone?: string; className?: string }) {
   return (
-    <div className="glass-card p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${accentClass.replace('text-', 'bg-').replace('-400', '-500/10')}`}>
-          <Icon className={`w-4 h-4 ${accentClass}`} />
-        </div>
-        <span className="text-2xl font-bold text-white tabular-nums">{value}</span>
-      </div>
-      <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">{label}</p>
-      {sub && <p className="text-xs text-slate-500 mt-0.5">{sub}</p>}
+    <div className={`px-5 py-4 border-[var(--border)] ${className}`}>
+      <p className="text-[12px] text-[var(--text-3)] flex items-center gap-1.5">{label}<InfoTip title={label} body={tip} /></p>
+      <p className={`font-display text-[26px] font-semibold tracking-[-0.02em] tabular-nums mt-1.5 ${tone ?? 'text-white'}`}>{value}</p>
+      {sub && <p className="text-[12px] text-[var(--text-4)] mt-0.5 truncate">{sub}</p>}
     </div>
   );
 }
@@ -235,7 +230,7 @@ function SectionHeader({ icon: Icon, title, sub, accentClass }: {
 }) {
   return (
     <div className="flex items-center gap-2.5 mb-4">
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${accentClass.replace('text-', 'bg-').replace('-400', '-500/15')}`}>
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]">
         <Icon className={`w-4 h-4 ${accentClass}`} />
       </div>
       <div>
@@ -290,7 +285,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
       <div className="relative overflow-hidden rounded-2xl border border-white/[0.08]
                       bg-[var(--bg-surface)]">
         <div className="absolute -top-24 -right-24 w-56 h-56 rounded-full
-                        bg-violet-500/[0.06] blur-3xl pointer-events-none" />
+                        bg-[var(--accent-subtle)] blur-3xl pointer-events-none" />
         <div className="relative p-6">
           <div className="inline-flex items-center gap-1.5 bg-amber-500/[0.08] border border-amber-500/20
                           rounded-full px-3 py-1 mb-4">
@@ -308,7 +303,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
           </p>
           <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06]
                           rounded-xl px-5 py-4 mb-6 min-h-[64px]">
-            <span className="text-3xl font-black text-violet-400 flex-shrink-0 w-16 text-center">
+            <span className="text-3xl font-black text-[#a9b0f7] flex-shrink-0 w-16 text-center">
               {STATS[activeStat].num}
             </span>
             <span className="text-sm text-slate-400 leading-snug">
@@ -330,7 +325,7 @@ function UpgradeGate({ used, limit }: { used: number; limit: number }) {
           { num: '25%',  label: 'more offers with follow-up'},
         ].map(s => (
           <div key={s.num} className="glass-card py-4 text-center">
-            <p className="text-xl font-black text-violet-400">{s.num}</p>
+            <p className="text-xl font-black text-[#a9b0f7]">{s.num}</p>
             <p className="text-xs text-slate-400 mt-1">{s.label}</p>
           </div>
         ))}
@@ -372,9 +367,9 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
       <SectionCard>
         <div className="flex flex-col items-center justify-center py-14 gap-4">
           <div className="relative">
-            <Loader2 className="w-9 h-9 text-violet-400 animate-spin" />
+            <Loader2 className="w-9 h-9 text-[#a9b0f7] animate-spin" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <Brain className="w-3.5 h-3.5 text-violet-300" />
+              <Brain className="w-3.5 h-3.5 text-[#a9b0f7]" />
             </div>
           </div>
           <div className="text-center">
@@ -392,7 +387,7 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
         <XCircle className="w-9 h-9 text-red-400 mx-auto mb-4" />
         <p className="text-[14px] font-semibold text-white mb-1">Analysis failed</p>
         <p className="text-[12px] text-slate-400 mb-5">{error}</p>
-        <button onClick={runAnalysis} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white text-[13px] font-semibold transition-all">
+        <button onClick={runAnalysis} className="btn-primary">
           <RefreshCw className="w-3.5 h-3.5" /> Retry
         </button>
       </SectionCard>
@@ -402,8 +397,8 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
   if (!analysis) {
     return (
       <SectionCard className="text-center">
-        <div className="w-12 h-12 bg-violet-500/15 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <Brain className="w-6 h-6 text-violet-400" />
+        <div className="w-12 h-12 bg-[var(--accent-subtle)] rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Brain className="w-6 h-6 text-[#a9b0f7]" />
         </div>
         <h3 className="text-[15px] font-bold text-white mb-2">AI Pattern Analysis</h3>
         <p className="text-[13px] text-slate-400 mb-1.5 max-w-sm mx-auto leading-relaxed">
@@ -432,7 +427,7 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
             <h3 className="text-[13px] font-bold text-white">AI Career Coach Analysis</h3>
             <p className="text-xs text-slate-500 mt-0.5">Based on {entries.length} entries</p>
           </div>
-          <button onClick={runAnalysis} title="Re-run analysis" className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-violet-400 hover:bg-white/[0.05] transition-all">
+          <button onClick={runAnalysis} title="Re-run analysis" className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-[#a9b0f7] hover:bg-white/[0.05] transition-all">
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -510,8 +505,8 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
                   <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold mb-1">Anxiety impact</p>
                   <p className="text-[12px] text-slate-300">{analysis.emotionalProfile.anxietyImpact}</p>
                 </div>
-                <div className="p-2.5 bg-violet-500/[0.06] border border-violet-500/15 rounded-xl">
-                  <p className="text-[11px] text-violet-400 uppercase tracking-wide font-semibold mb-1">Recommendation</p>
+                <div className="p-2.5 bg-[var(--accent-subtle)] border border-[var(--accent-border)] rounded-xl">
+                  <p className="text-[11px] text-[#a9b0f7] uppercase tracking-wide font-semibold mb-1">Recommendation</p>
                   <p className="text-[12px] text-slate-300">{analysis.emotionalProfile.recommendation}</p>
                 </div>
               </div>
@@ -581,7 +576,7 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
           {analysis.next30DayPlan?.length > 0 ? analysis.next30DayPlan.map((week, i) => (
             <SectionCard key={i}>
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-8 h-8 bg-[var(--accent)] rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                <div className="w-8 h-8 bg-white/[0.06] ring-1 ring-inset ring-white/[0.08] rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                   W{week.week}
                 </div>
                 <div>
@@ -597,8 +592,8 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
                   </div>
                 ))}
               </div>
-              <div className="p-2.5 bg-violet-500/[0.06] border border-violet-500/15 rounded-lg">
-                <p className="text-xs text-violet-400 font-semibold flex items-center gap-1">
+              <div className="p-2.5 bg-[var(--accent-subtle)] border border-[var(--accent-border)] rounded-lg">
+                <p className="text-xs text-[#a9b0f7] font-semibold flex items-center gap-1">
                   <Target className="w-3 h-3" /> {week.successMetric}
                 </p>
               </div>
@@ -616,7 +611,7 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
           {analysis.questionsToMaster?.length > 0 ? analysis.questionsToMaster.map((q, i) => (
             <SectionCard key={i}>
               <div className="flex items-start gap-3 mb-3">
-                <div className="w-7 h-7 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
+                <div className="w-7 h-7 bg-white/[0.06] ring-1 ring-inset ring-white/[0.08] rounded-lg flex items-center justify-center text-[var(--text-1)] text-xs font-bold flex-shrink-0 mt-0.5">
                   {i + 1}
                 </div>
                 <p className="text-[13px] font-semibold text-white leading-relaxed">&ldquo;{q.question}&rdquo;</p>
@@ -837,6 +832,7 @@ export default function InterviewDebriefPage() {
   const advancedCount = realEntries.filter(e => e.outcome === 'moved-forward' || e.outcome === 'offer').length;
   const advanceRate   = realEntries.length > 0 ? Math.round((advancedCount / realEntries.length) * 100) : 0;
   const offerCount    = entries.filter(e => e.outcome === 'offer').length;
+  const questionCount = entries.reduce((n, e) => n + (e.questionsAsked ?? []).filter(q => q && q.trim()).length, 0);
 
   const filtered = entries.filter(e => {
     const matchSearch  = !searchTerm || e.companyName.toLowerCase().includes(searchTerm.toLowerCase()) || e.jobTitle.toLowerCase().includes(searchTerm.toLowerCase());
@@ -888,12 +884,20 @@ export default function InterviewDebriefPage() {
       ) : (
         <>
           {/* Stats row */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in-up" style={{ animationDelay: '60ms' }}>
-            <StatCard icon={BookOpen}   label="Total Logged"   value={totalEntries}        accentClass="text-violet-400" />
-            <StatCard icon={Star}       label="Avg Self-Score" value={`${avgSelfScore}%`}  accentClass="text-amber-400" />
-            <StatCard icon={TrendingUp} label="Advance Rate"   value={`${advanceRate}%`}   sub={`${advancedCount} of ${realEntries.length}`} accentClass="text-emerald-400" />
-            <StatCard icon={Award}      label="Offers"         value={offerCount}           accentClass="text-blue-400" />
-          </div>
+          {entries.length > 0 && (
+            <div className="glass-card grid grid-cols-2 lg:grid-cols-5 overflow-hidden animate-fade-in-up">
+              <Kpi label="Rounds logged" tip="Real interview rounds in your journal. Practice sessions are counted separately and left out of the other figures."
+                value={realEntries.length} sub={`${totalEntries - realEntries.length} practice session${totalEntries - realEntries.length === 1 ? '' : 's'}`} />
+              <Kpi className="border-l" label="Moved forward" tip="Real rounds you marked Moved forward or Offer, out of all real rounds."
+                value={realEntries.length ? `${advanceRate}%` : '-'} sub={`${advancedCount} of ${realEntries.length} rounds`} tone={realEntries.length && advanceRate >= 50 ? 'text-emerald-300' : undefined} />
+              <Kpi className="border-t lg:border-t-0 lg:border-l" label="Offers" tip="Entries whose outcome is Offer."
+                value={offerCount} sub={offerCount ? 'Congratulations' : 'None yet'} tone={offerCount ? 'text-emerald-300' : undefined} />
+              <Kpi className="border-t border-l lg:border-t-0" label="Avg self-score" tip="The average of the score you gave yourself after each real round."
+                value={realEntries.length ? `${avgSelfScore}%` : '-'} sub="How you rated your rounds" />
+              <Kpi className="col-span-2 lg:col-span-1 border-t lg:border-t-0 lg:border-l" label="Questions saved" tip="Questions you wrote down across all entries, ready to practise."
+                value={questionCount} sub={questionCount ? 'Across all entries' : 'Add the questions you were asked'} />
+            </div>
+          )}
 
           {/* ← NEW: NextStepPrompt after saving a new debrief */}
           {debriefNextStep && (
@@ -909,7 +913,7 @@ export default function InterviewDebriefPage() {
             <div className="glass-card overflow-hidden animate-fade-in-up" style={{ animationDelay: '120ms' }}>
               <div className="px-5 py-4 border-b border-white/[0.06] bg-[var(--accent-subtle)]">
                 <h2 className="text-[14px] font-bold text-white flex items-center gap-2">
-                  <Edit3 className="w-4 h-4 text-violet-400" />
+                  <Edit3 className="w-4 h-4 text-[#a9b0f7]" />
                   {editingId ? 'Edit Entry' : 'New Debrief Entry'}
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">The more detail you log, the better the AI insights.</p>
@@ -1029,7 +1033,7 @@ export default function InterviewDebriefPage() {
                     ))}
                     <button type="button"
                       onClick={() => setFormData(p => ({ ...p, questionsAsked: [...p.questionsAsked, ''] }))}
-                      className="inline-flex items-center gap-1.5 text-[12px] text-violet-400 hover:text-violet-300 transition-colors">
+                      className="inline-flex items-center gap-1.5 text-[12px] text-[#a9b0f7] hover:text-[#a9b0f7] transition-colors">
                       <Plus className="w-3.5 h-3.5" /> Add question
                     </button>
                   </div>
@@ -1123,7 +1127,7 @@ export default function InterviewDebriefPage() {
                 </div>
               </SectionCard>
               <SectionCard>
-                <SectionHeader icon={Users} title="Performance by Stage" accentClass="text-violet-400" />
+                <SectionHeader icon={Users} title="Performance by Stage" accentClass="text-[#a9b0f7]" />
                 <div className="space-y-3">
                   {(Object.keys(STAGE_LABELS) as InterviewStage[]).map(stage => {
                     const se = entries.filter(e => e.stage === stage);
@@ -1172,26 +1176,26 @@ export default function InterviewDebriefPage() {
                   </p>
                   {entries.length === 0 && canUseFeature('interviewDebriefs') && (
                     <button onClick={() => setShowForm(true)}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white text-[13px] font-semibold transition-all duration-150">
+                      className="btn-primary">
                       <Plus className="w-4 h-4" /> Log Your First Interview
                     </button>
                   )}
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="glass-card overflow-hidden divide-y divide-white/[0.06]">
                   {filtered.map(entry => {
                     const isExpanded = expandedId === entry.id;
                     const dateStr    = entry.interviewDate
                       ? new Date(entry.interviewDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                       : '';
                     return (
-                      <div key={entry.id} id={`entry-${entry.id}`} className={`glass-card overflow-hidden scroll-mt-24 ${highlightId === entry.id ? 'ring-1 ring-[var(--accent-border)]' : ''}`}>
+                      <div key={entry.id} id={`entry-${entry.id}`} className={`scroll-mt-24 ${highlightId === entry.id ? 'bg-[var(--accent-subtle)]' : ''}`}>
                         <div className="p-4 cursor-pointer hover:bg-white/[0.02] transition-colors"
                           onClick={() => setExpandedId(isExpanded ? null : entry.id)}>
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3 flex-1 min-w-0">
-                              <div className="w-9 h-9 bg-violet-500/[0.12] border border-violet-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                                <Building2 className="w-4 h-4 text-violet-400" />
+                              <div className="w-9 h-9 bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] rounded-xl flex items-center justify-center flex-shrink-0">
+                                <Building2 className="w-4 h-4 text-[var(--text-3)]" />
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -1222,7 +1226,7 @@ export default function InterviewDebriefPage() {
                             </div>
                             <div className="flex items-center gap-0.5 flex-shrink-0">
                               <button onClick={ev => { ev.stopPropagation(); handleEdit(entry); }}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-violet-400 hover:bg-violet-500/[0.08] transition-all">
+                                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-[#a9b0f7] hover:bg-[var(--accent-subtle)] transition-all">
                                 <Edit3 className="w-3.5 h-3.5" />
                               </button>
                               <button onClick={ev => { ev.stopPropagation(); handleDelete(entry.id); }}
@@ -1246,7 +1250,7 @@ export default function InterviewDebriefPage() {
                                 <ul className="space-y-1">
                                   {entry.questionsAsked.filter(Boolean).map((q, i) => (
                                     <li key={i} className="text-[13px] text-slate-300 flex items-start gap-2">
-                                      <span className="text-violet-400 flex-shrink-0 mt-0.5">›</span> {q}
+                                      <span className="text-[#a9b0f7] flex-shrink-0 mt-0.5">›</span> {q}
                                     </li>
                                   ))}
                                 </ul>

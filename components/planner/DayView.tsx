@@ -63,7 +63,7 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
           <div className="flex-1">
             <div className="flex items-center gap-4 mb-4">
               {/* Day Badge */}
-              <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-[var(--accent)] border border-blue-500/30 shadow-lg ">
+              <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-white/[0.06] ring-1 ring-inset ring-white/[0.08] ">
                 <div className="text-center">
                   <span className="block text-xs text-blue-200">Day</span>
                   <span className="block text-xl font-semibold text-white">{dailyPlan.day}</span>
@@ -207,8 +207,8 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
           {dailyPlan.resources.length > 0 && (
             <div>
               <h4 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
-                <div className="w-6 h-6 bg-purple-500/10 rounded flex items-center justify-center border border-purple-500/20">
-                  <FileText className="w-3 h-3 text-purple-400" />
+                <div className="w-6 h-6 bg-[var(--accent-subtle)] rounded flex items-center justify-center border border-[var(--accent-border)]">
+                  <FileText className="w-3 h-3 text-[#a9b0f7]" />
                 </div>
                 Resources
               </h4>
@@ -245,19 +245,19 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
 
           {/* Behavioral */}
           {dailyPlan.behavioral && (
-            <div className="bg-white/[0.042] backdrop-blur-xl rounded-xl p-5 border border-purple-500/20">
+            <div className="bg-white/[0.042] backdrop-blur-xl rounded-xl p-5 border border-[var(--accent-border)]">
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0 border border-purple-500/20">
-                  <MessageSquare className="w-5 h-5 text-purple-400" />
+                <div className="w-10 h-10 bg-[var(--accent-subtle)] rounded-lg flex items-center justify-center flex-shrink-0 border border-[var(--accent-border)]">
+                  <MessageSquare className="w-5 h-5 text-[#a9b0f7]" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <h5 className="font-medium text-white text-sm">Behavioral Interview</h5>
-                    <span className="px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded text-xs">
+                    <span className="px-2 py-0.5 bg-[var(--accent-subtle)] border border-[var(--accent-border)] text-[#a9b0f7] rounded text-xs">
                       {dailyPlan.behavioral.framework}
                     </span>
                   </div>
-                  <p className="text-sm font-medium text-purple-300 mb-1">
+                  <p className="text-sm font-medium text-[#a9b0f7] mb-1">
                     {dailyPlan.behavioral.topic}
                   </p>
                   <p className="text-sm text-slate-400 mb-3 italic">
@@ -266,7 +266,7 @@ export default function DayView({ dailyPlan, onTaskUpdate }: DayViewProps) {
                   <div className="space-y-2">
                     {dailyPlan.behavioral.tips.map((tip, index) => (
                       <div key={index} className="flex items-start gap-2">
-                        <Sparkles className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                        <Sparkles className="w-4 h-4 text-[#a9b0f7] flex-shrink-0 mt-0.5" />
                         <span className="text-sm text-slate-400">{tip}</span>
                       </div>
                     ))}

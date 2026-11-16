@@ -23,7 +23,7 @@ interface Props { planId: string; }
 
 const LEVEL_CONFIG: Record<string, { color: string; bg: string; border: string }> = {
   'Interview Ready': { color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
-  'Almost Ready':    { color: 'text-indigo-400',  bg: 'bg-indigo-500/10',  border: 'border-indigo-500/20'  },
+  'Almost Ready':    { color: 'text-[#a9b0f7]',  bg: 'bg-[var(--accent-subtle)]',  border: 'border-[var(--accent-border)]'  },
   'Building Up':     { color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20'   },
   'Getting Started': { color: 'text-orange-400',  bg: 'bg-orange-500/10',  border: 'border-orange-500/20'  },
   'Just Beginning':  { color: 'text-slate-400',   bg: 'bg-slate-500/10',   border: 'border-slate-500/20'   },

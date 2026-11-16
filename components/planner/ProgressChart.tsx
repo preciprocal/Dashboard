@@ -73,8 +73,8 @@ export default function ProgressChart({ plan }: ProgressChartProps) {
       {/* Bar chart */}
       <div className="glass-card p-5">
         <div className="flex items-center gap-3 mb-5">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center border border-indigo-500/20 bg-indigo-500/[0.08]">
-            <TrendingUp className="w-4 h-4 text-indigo-400" />
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center border border-[var(--accent-border)] bg-[var(--accent-subtle)]">
+            <TrendingUp className="w-4 h-4 text-[#a9b0f7]" />
           </div>
           <h3 className="text-sm font-semibold text-white">Daily Completion</h3>
         </div>
@@ -95,10 +95,10 @@ export default function ProgressChart({ plan }: ProgressChartProps) {
                   </div>
                 </div>
                 <div
-                  className={`w-full rounded-md transition-all duration-500 ${isDone ? 'bg-emerald-500' : isToday ? 'bg-[var(--accent)]' : 'bg-indigo-500/40'}`}
+                  className={`w-full rounded-md transition-all duration-500 ${isDone ? 'bg-emerald-500' : isToday ? 'bg-[var(--accent)]' : 'bg-white/[0.12]'}`}
                   style={{ height: `${barH}%`, minHeight: '4px' }}
                 />
-                <span className={`text-[11px] font-medium tabular-nums ${isToday ? 'text-indigo-400' : 'text-slate-500'}`}>
+                <span className={`text-[11px] font-medium tabular-nums ${isToday ? 'text-[#a9b0f7]' : 'text-slate-500'}`}>
                   {day.day}
                 </span>
               </div>
@@ -115,7 +115,7 @@ export default function ProgressChart({ plan }: ProgressChartProps) {
             <span className="w-2 h-2 rounded-full bg-emerald-500" /> Complete
           </span>
           <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
-            <span className="w-2 h-2 rounded-full bg-indigo-500/40" /> Not Started
+            <span className="w-2 h-2 rounded-full bg-white/[0.12]" /> Not Started
           </span>
         </div>
       </div>
@@ -136,7 +136,7 @@ export default function ProgressChart({ plan }: ProgressChartProps) {
         {/* Average */}
         <div className="glass-card p-4">
           <div className="flex items-center gap-2.5 mb-3">
-            <Calendar className="w-4 h-4 text-indigo-400" />
+            <Calendar className="w-4 h-4 text-[#a9b0f7]" />
             <span className="text-xs text-slate-400 uppercase tracking-widest font-medium">Avg Progress</span>
           </div>
           <p className="text-lg font-bold text-white tabular-nums">{avgProgress}%</p>
@@ -146,7 +146,7 @@ export default function ProgressChart({ plan }: ProgressChartProps) {
         {/* Projection */}
         <div className="glass-card p-4">
           <div className="flex items-center gap-2.5 mb-3">
-            <Sparkles className="w-4 h-4 text-violet-400" />
+            <Sparkles className="w-4 h-4 text-[#a9b0f7]" />
             <span className="text-xs text-slate-400 uppercase tracking-widest font-medium">Projection</span>
           </div>
           {projectedDays > 0 ? (
@@ -171,8 +171,8 @@ export default function ProgressChart({ plan }: ProgressChartProps) {
       {/* Daily breakdown list */}
       <div className="glass-card p-5">
         <div className="flex items-center gap-3 mb-5">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center border border-indigo-500/20 bg-indigo-500/[0.08]">
-            <TrendingUp className="w-4 h-4 text-indigo-400" />
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center border border-[var(--accent-border)] bg-[var(--accent-subtle)]">
+            <TrendingUp className="w-4 h-4 text-[#a9b0f7]" />
           </div>
           <h3 className="text-sm font-semibold text-white">Daily Breakdown</h3>
         </div>
@@ -182,15 +182,15 @@ export default function ProgressChart({ plan }: ProgressChartProps) {
             const isDone = day.percentage === 100;
             return (
               <div key={day.day}
-                className={`rounded-xl p-3 border transition-all ${isToday ? 'border-indigo-500/20 bg-indigo-500/[0.04]' : isDone ? 'border-emerald-500/15 bg-emerald-500/[0.03]' : 'border-white/[0.05] bg-white/[0.02]'}`}>
+                className={`rounded-xl p-3 border transition-all ${isToday ? 'border-[var(--accent-border)] bg-[var(--accent-subtle)]' : isDone ? 'border-emerald-500/15 bg-emerald-500/[0.03]' : 'border-white/[0.05] bg-white/[0.02]'}`}>
                 <div className="flex items-center gap-3 mb-2">
                   <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-semibold flex-shrink-0 ${isDone ? 'bg-emerald-500 text-white' : isToday ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : 'bg-white/[0.04] text-slate-400 border border-white/[0.08]'}`}>
                     {day.day}
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className={`text-xs font-medium truncate ${isToday ? 'text-indigo-300' : 'text-slate-200'}`}>{day.focus}</p>
-                      {isToday && <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-indigo-500/15 border border-indigo-500/25 text-indigo-400 flex-shrink-0">Today</span>}
+                      <p className={`text-xs font-medium truncate ${isToday ? 'text-[#a9b0f7]' : 'text-slate-200'}`}>{day.focus}</p>
+                      {isToday && <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-[var(--accent-subtle)] border border-[var(--accent-border)] text-[#a9b0f7] flex-shrink-0">Today</span>}
                       {isDone && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />}
                     </div>
                     <p className="text-[11px] text-slate-500 mt-0.5">
@@ -198,7 +198,7 @@ export default function ProgressChart({ plan }: ProgressChartProps) {
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className={`text-xs font-semibold tabular-nums ${isDone ? 'text-emerald-400' : day.percentage >= 50 ? 'text-indigo-400' : 'text-slate-400'}`}>
+                    <p className={`text-xs font-semibold tabular-nums ${isDone ? 'text-emerald-400' : day.percentage >= 50 ? 'text-[#a9b0f7]' : 'text-slate-400'}`}>
                       {day.percentage}%
                     </p>
                     <p className="text-[11px] text-slate-500 tabular-nums">{day.completedTasks}/{day.totalTasks}</p>

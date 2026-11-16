@@ -70,6 +70,13 @@ interface CategoryData {
   color: string;
 }
 
+// Category colours, written out so Tailwind generates them.
+const CAT_TONE: Record<string, { text: string; bar: string }> = {
+  blue: { text: 'text-sky-300', bar: 'bg-sky-400' },
+  purple: { text: 'text-violet-300', bar: 'bg-violet-400' },
+  amber: { text: 'text-amber-300', bar: 'bg-amber-400' },
+};
+
 export default function InterviewQuiz({ planId, onClose }: QuizProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -167,8 +174,8 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
       emoji: '🌟',
       icon: Trophy, 
       color: 'text-yellow-400', 
-      bg: 'bg-gradient-to-br from-yellow-900/20 to-amber-900/20',
-      border: 'border-yellow-800',
+      bg: 'bg-amber-500/[0.06]',
+      border: 'border-amber-500/25',
       message: 'You have mastered your preparation material!'
     };
     if (percentage >= 75) return { 
@@ -176,8 +183,8 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
       emoji: '⭐',
       icon: Star, 
       color: 'text-blue-400', 
-      bg: 'bg-gradient-to-br from-blue-900/20 to-cyan-900/20',
-      border: 'border-blue-800',
+      bg: 'bg-[var(--accent-subtle)]',
+      border: 'border-[var(--border)]',
       message: 'You are well-prepared for your interview!'
     };
     if (percentage >= 60) return { 
@@ -185,17 +192,17 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
       emoji: '🎯',
       icon: Target, 
       color: 'text-green-400', 
-      bg: 'bg-gradient-to-br from-green-900/20 to-emerald-900/20',
-      border: 'border-green-800',
+      bg: 'bg-emerald-500/[0.08]',
+      border: 'border-emerald-500/25',
       message: 'Review a few topics and you will be ready!'
     };
     return { 
       level: 'Keep Practicing', 
       emoji: '💪',
       icon: Zap, 
-      color: 'text-purple-400', 
-      bg: 'bg-gradient-to-br from-purple-900/20 to-pink-900/20',
-      border: 'border-purple-800',
+      color: 'text-[#a9b0f7]', 
+      bg: 'bg-[var(--accent-subtle)]',
+      border: 'border-[var(--border)]',
       message: 'Review your materials and try again!'
     };
   };
@@ -211,10 +218,10 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
 
   const getCategoryColor = (category: string): string => {
     switch(category) {
-      case 'Technical': return 'from-blue-500 to-cyan-500';
-      case 'Behavioral': return 'from-purple-500 to-pink-500';
-      case 'Conceptual': return 'from-amber-500 to-orange-500';
-      default: return 'from-slate-500 to-gray-500';
+      case 'Technical': return 'text-sky-300';
+      case 'Behavioral': return 'text-violet-300';
+      case 'Conceptual': return 'text-amber-300';
+      default: return 'text-slate-300';
     }
   };
 
@@ -225,7 +232,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
         <div className="text-center max-w-md">
           <div className="relative w-32 h-32 mx-auto mb-8">
             <div className="absolute inset-0 bg-[var(--accent)] rounded-full opacity-20 animate-pulse"></div>
-            <div className="absolute inset-4 bg-[var(--accent)] rounded-full flex items-center justify-center">
+            <div className="absolute inset-4 bg-white/[0.06] ring-1 ring-inset ring-white/[0.08] rounded-full flex items-center justify-center">
               <Loader2 className="w-12 h-12 text-white animate-spin" />
             </div>
           </div>
@@ -253,13 +260,13 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
     return (
       <div className="min-h-[600px] flex items-center justify-center p-6">
         <div className="text-center max-w-xl">
-          <div className="w-24 h-24 bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-red-800">
+          <div className="w-24 h-24 bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-rose-500/25">
             <AlertCircle className="w-12 h-12 text-red-400" />
           </div>
           <h3 className="text-3xl font-bold text-white mb-4">
             Unable to Generate Quiz
           </h3>
-          <div className="bg-red-900/20 border border-red-800 rounded-2xl p-6 mb-8">
+          <div className="bg-red-900/20 border border-rose-500/25 rounded-2xl p-6 mb-8">
             <p className="text-red-200 font-medium">
               {error}
             </p>
@@ -294,7 +301,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
         <div className="text-center mb-10">
           <div className="relative w-32 h-32 mx-auto mb-6">
             <div className="absolute inset-0 bg-[var(--accent)] rounded-3xl opacity-20 animate-pulse"></div>
-            <div className="absolute inset-2 bg-[var(--accent)] rounded-3xl flex items-center justify-center shadow-2xl">
+            <div className="absolute inset-2 bg-white/[0.06] ring-1 ring-inset ring-white/[0.08] rounded-3xl flex items-center justify-center ">
               <Brain className="w-16 h-16 text-white" />
             </div>
           </div>
@@ -308,7 +315,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
             Knowledge Assessment
           </h1>
           <p className="text-xl text-slate-300">
-            for <span className="font-bold text-transparent bg-clip-text bg-[var(--accent)]">{metadata?.role || 'Your Interview'}</span>
+            for <span className="font-bold text-white">{metadata?.role || 'Your Interview'}</span>
           </p>
           {metadata?.company && (
             <p className="text-lg text-slate-400 mt-2">
@@ -319,24 +326,24 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-gradient-to-br from-blue-900/20 to-cyan-900/20 border border-blue-800 rounded-2xl p-6 text-center">
-            <div className="w-14 h-14 bg-[var(--accent)] rounded-xl flex items-center justify-center mx-auto mb-3">
+          <div className="bg-[var(--accent-subtle)] border border-[var(--border)] rounded-2xl p-6 text-center">
+            <div className="w-14 h-14 bg-white/[0.06] ring-1 ring-inset ring-white/[0.08] rounded-xl flex items-center justify-center mx-auto mb-3">
               <TrendingUp className="w-7 h-7 text-white" />
             </div>
             <div className="text-4xl font-bold text-blue-400 mb-1">{metadata?.totalDays || 0}</div>
             <div className="text-sm font-medium text-slate-300">Study Days Covered</div>
           </div>
 
-          <div className="bg-gradient-to-br from-purple-900/20 to-pink-900/20 border border-purple-800 rounded-2xl p-6 text-center">
-            <div className="w-14 h-14 bg-[var(--accent)] rounded-xl flex items-center justify-center mx-auto mb-3">
+          <div className="bg-[var(--accent-subtle)] border border-[var(--border)] rounded-2xl p-6 text-center">
+            <div className="w-14 h-14 bg-white/[0.06] ring-1 ring-inset ring-white/[0.08] rounded-xl flex items-center justify-center mx-auto mb-3">
               <Brain className="w-7 h-7 text-white" />
             </div>
-            <div className="text-4xl font-bold text-purple-400 mb-1">{questions.length}</div>
+            <div className="text-4xl font-bold text-[#a9b0f7] mb-1">{questions.length}</div>
             <div className="text-sm font-medium text-slate-300">Total Questions</div>
           </div>
 
-          <div className="bg-gradient-to-br from-amber-900/20 to-orange-900/20 border border-amber-800 rounded-2xl p-6 text-center">
-            <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl flex items-center justify-center mx-auto mb-3">
+          <div className="bg-amber-500/[0.06] border border-amber-500/25 rounded-2xl p-6 text-center">
+            <div className="w-14 h-14 bg-amber-500 rounded-xl flex items-center justify-center mx-auto mb-3">
               <Clock className="w-7 h-7 text-white" />
             </div>
             <div className="text-4xl font-bold text-amber-400 mb-1">~{questions.length * 2}</div>
@@ -345,9 +352,9 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
         </div>
 
         {/* Features */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-[var(--border)] rounded-2xl p-8 mb-8">
+        <div className="bg-white/[0.02] border border-[var(--border)] rounded-2xl p-8 mb-8">
           <h3 className="text-xl font-bold text-white mb-6 flex items-center">
-            <Sparkles className="w-5 h-5 mr-2 text-purple-600" />
+            <Sparkles className="w-5 h-5 mr-2 text-[#a9b0f7]" />
             What to Expect
           </h3>
           
@@ -373,8 +380,8 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
             </div>
 
             <div className="flex items-start space-x-3">
-              <div className="w-10 h-10 bg-purple-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                <CheckCircle className="w-5 h-5 text-purple-400" />
+              <div className="w-10 h-10 bg-white/[0.03] rounded-lg flex items-center justify-center flex-shrink-0">
+                <CheckCircle className="w-5 h-5 text-[#a9b0f7]" />
               </div>
               <div>
                 <p className="font-semibold text-white">Instant Feedback</p>
@@ -472,7 +479,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
               </defs>
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-7xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+              <span className="text-7xl font-bold text-white">
                 {percentage}%
               </span>
               <span className="text-sm text-slate-400 font-medium">Accuracy</span>
@@ -489,11 +496,11 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
             const percent = total > 0 ? Math.round((correct / total) * 100) : 0;
             
             return (
-              <div key={key} className="bg-[var(--bg-raised)] border-2 border-[var(--border)] rounded-2xl p-6 hover:shadow-xl transition-shadow">
+              <div key={key} className="rounded-2xl ring-1 ring-inset ring-white/[0.07] bg-white/[0.02] p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
-                    <div className={`w-12 h-12 bg-gradient-to-br from-${data.color}-500 to-${data.color}-600 rounded-xl flex items-center justify-center`}>
-                      <Icon className="w-6 h-6 text-white" />
+                    <div className="w-12 h-12 rounded-xl bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] flex items-center justify-center">
+                      <Icon className={`w-6 h-6 ${CAT_TONE[data.color]?.text ?? 'text-slate-300'}`} />
                     </div>
                     <div>
                       <p className="font-bold text-white capitalize">{key}</p>
@@ -501,12 +508,12 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className={`text-3xl font-bold text-${data.color}-400`}>{percent}%</p>
+                    <p className={`text-3xl font-bold ${CAT_TONE[data.color]?.text ?? 'text-white'}`}>{percent}%</p>
                   </div>
                 </div>
-                <div className="relative h-4 bg-white/[0.08] rounded-full overflow-hidden">
-                  <div 
-                    className={`absolute inset-y-0 left-0 bg-gradient-to-r from-${data.color}-500 to-${data.color}-600 transition-all duration-1000 rounded-full`}
+                <div className="relative h-2 bg-white/[0.08] rounded-full overflow-hidden">
+                  <div
+                    className={`absolute inset-y-0 left-0 ${CAT_TONE[data.color]?.bar ?? 'bg-slate-400'} transition-all duration-1000 rounded-full`}
                     style={{ width: `${percent}%` }}
                   />
                 </div>
@@ -519,7 +526,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
         </div>
 
         {/* Question Results */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-[var(--border)] rounded-2xl p-8 mb-10">
+        <div className="bg-white/[0.02] border border-[var(--border)] rounded-2xl p-8 mb-10">
           <h3 className="text-2xl font-bold text-white mb-6">
             Question-by-Question Results
           </h3>
@@ -530,7 +537,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
                 className={`relative group flex items-center justify-center w-full aspect-square rounded-xl font-bold transition-all hover:scale-110 ${
                   isCorrect
                     ? 'bg-emerald-500 text-white shadow-lg'
-                    : 'bg-gradient-to-br from-red-500 to-rose-500 text-white shadow-lg'
+                    : 'bg-rose-500 text-white shadow-lg'
                 }`}
               >
                 <span className="text-sm">{index + 1}</span>
@@ -577,7 +584,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-[var(--accent)] rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-white/[0.06] ring-1 ring-inset ring-white/[0.08] rounded-xl flex items-center justify-center">
               <span className="text-white font-bold">{currentQuestion + 1}</span>
             </div>
             <div>
@@ -591,7 +598,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
           </div>
           <div className="text-right">
             <p className="text-sm font-semibold text-slate-400">Score</p>
-            <p className="text-2xl font-bold text-transparent bg-clip-text bg-[var(--accent)]">
+            <p className="text-2xl font-bold text-white">
               {score}/{currentQuestion + (showResult ? 1 : 0)}
             </p>
           </div>
@@ -610,8 +617,8 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
         {/* Category Header */}
         <div className="flex items-center justify-between flex-wrap gap-3 mb-8">
           <div className="flex items-center space-x-3">
-            <div className={`w-12 h-12 bg-gradient-to-r ${getCategoryColor(question.category)} rounded-xl flex items-center justify-center`}>
-              <CategoryIcon className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 rounded-xl bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] flex items-center justify-center">
+              <CategoryIcon className={`w-6 h-6 ${getCategoryColor(question.category)}`} />
             </div>
             <div>
               <p className="font-bold text-white">{question.category}</p>
@@ -640,13 +647,13 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
             
             if (!showResult) {
               buttonClass += isSelected
-                ? 'border-blue-600 bg-gradient-to-r from-blue-900/30 to-purple-900/30 shadow-xl scale-[1.02]'
+                ? 'border-blue-600 bg-[var(--accent-subtle)] shadow-xl scale-[1.02]'
                 : 'border-slate-600 hover:border-slate-500 hover:bg-slate-700/50 hover:shadow-lg';
             } else {
               if (isCorrectOption) {
-                buttonClass += 'border-green-500 bg-gradient-to-r from-green-900/30 to-emerald-900/30 shadow-xl';
+                buttonClass += 'border-green-500 bg-emerald-500/[0.08] shadow-xl';
               } else if (isSelected && !isCorrect) {
-                buttonClass += 'border-red-500 bg-gradient-to-r from-red-900/30 to-rose-900/30 shadow-xl';
+                buttonClass += 'border-red-500 bg-rose-500/[0.08] shadow-xl';
               } else {
                 buttonClass += 'border-[var(--border-hover)] opacity-40';
               }
@@ -689,8 +696,8 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
         {showResult && (
           <div className={`p-6 rounded-2xl mb-8 border-2 ${
             isCorrect 
-              ? 'bg-gradient-to-r from-green-900/20 to-emerald-900/20 border-green-800'
-              : 'bg-gradient-to-r from-blue-900/20 to-cyan-900/20 border-blue-800'
+              ? 'bg-emerald-500/[0.08] border-emerald-500/25'
+              : 'bg-[var(--accent-subtle)] border-[var(--border)]'
           }`}>
             <div className="flex items-start space-x-4">
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
@@ -730,7 +737,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
             className={`w-full py-6 px-6 rounded-2xl font-bold text-lg transition-all duration-200 flex items-center justify-center space-x-3 ${
               selectedAnswer === null
                 ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
-                : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white shadow-xl hover:shadow-2xl transform hover:scale-[1.02]'
+                : 'bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] shadow-[var(--shadow-btn)]'
             }`}
           >
             <span>Submit Answer</span>

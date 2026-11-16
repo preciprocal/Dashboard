@@ -9,39 +9,18 @@ import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { PlannerService } from '@/lib/services/planner-services';
 import { InterviewPlan, PlanStats } from '@/types/planner';
 import Link from 'next/link';
-import {
-  Plus, Calendar, Target, Clock, CheckCircle2, Flame,
-  AlertCircle, RefreshCw, Search, Filter, ChevronDown,
-} from 'lucide-react';
+import { Plus, Calendar, Target, Clock, CheckCircle2, AlertCircle, RefreshCw, Search, Filter, ChevronDown } from 'lucide-react';
 import PlanCard from '@/components/planner/PlanCard';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 import { SeeExampleButton } from '@/components/ServiceModal';
+import InfoTip from '@/components/ui/info-tip';
 
 interface CriticalError {
   code: string;
   title: string;
   message: string;
   details?: string;
-}
-
-function StatCard({ icon: Icon, value, label, accentClass }: {
-  icon: React.ElementType;
-  value: string | number;
-  label: string;
-  accentClass: string;
-}) {
-  return (
-    <div className="glass-card p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${accentClass.replace('text-', 'bg-').replace('-400', '-500/10')}`}>
-          <Icon className={`w-4 h-4 ${accentClass}`} />
-        </div>
-        <span className="text-2xl font-bold text-white tabular-nums">{value}</span>
-      </div>
-      <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">{label}</p>
-    </div>
-  );
 }
 
 export default function PlannerPage() {
@@ -188,174 +167,149 @@ export default function PlannerPage() {
     );
   }
 
+  // Figures from the plans themselves.
+  const now = Date.now();
+  const weekAgo = now - 7 * 86_400_000;
+  const allTasks = plans.flatMap(p => [...p.dailyPlans.flatMap(d => d.tasks ?? []), ...(p.customTasks ?? [])]);
+  const doneThisWeek = allTasks.filter(t => t.status === 'done' && t.completedAt && Date.parse(t.completedAt) >= weekAgo).length;
+  const nextInterview = plans
+    .filter(p => p.status === 'active' && Date.parse(p.interviewDate) > now)
+    .sort((a, b) => Date.parse(a.interviewDate) - Date.parse(b.interviewDate))[0];
+  const nextDays = nextInterview ? Math.ceil((Date.parse(nextInterview.interviewDate) - now) / 86_400_000) : null;
+
   return (
-    <div className="space-y-4 pt-4">
+    <div className="space-y-5 pt-4">
 
       <PageHeader
         title="Preparation Planner" description="Day-by-day study plans for your interviews" icon={HeaderIcon}
         actions={<>
           <SeeExampleButton serviceId="planner" />
-          <Link href="/planner/create" className="btn-primary"><Plus /> New Plan</Link>
+          <Link href="/planner/create" className="btn-primary"><Plus /> New plan</Link>
         </>}
       />
 
       {/* Plans error */}
       {plansError && (
-        <div className="glass-card p-4">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm text-red-300 mb-3">{plansError}</p>
-              <button onClick={() => { setPlansError(''); loadUserPlans(); }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-xs font-medium text-slate-300 hover:text-white transition-colors">
-                <RefreshCw className="w-3.5 h-3.5" /> Try again
-              </button>
-            </div>
+        <div className="glass-card p-4 flex items-start gap-3">
+          <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-[13px] text-rose-200 mb-3">{plansError}</p>
+            <button onClick={() => { setPlansError(''); loadUserPlans(); }} className="btn-secondary !h-8 !text-[12.5px]"><RefreshCw className="w-3.5 h-3.5" /> Try again</button>
           </div>
         </div>
       )}
 
-      {/* Stats */}
-      {!statsError && stats && plans.length > 0 && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <StatCard icon={Calendar} value={stats.activePlans} label="Active Plans" accentClass="text-blue-400" />
-          <StatCard icon={Flame} value={stats.currentStreak} label="Day Streak" accentClass="text-orange-400" />
-          <StatCard icon={CheckCircle2} value={stats.tasksCompleted} label="Completed" accentClass="text-emerald-400" />
-          <StatCard icon={Clock} value={`${stats.totalStudyHours}h`} label="Study Hours" accentClass="text-violet-400" />
+      {/* KPIs */}
+      {plans.length > 0 && (
+        <div className="glass-card grid grid-cols-2 lg:grid-cols-4 overflow-hidden">
+          <Kpi i={0} label="Next interview" tip="The earliest interview date among your active plans that is still ahead."
+            value={nextDays === null ? '-' : nextDays === 0 ? 'Today' : nextDays === 1 ? 'Tomorrow' : <>{nextDays}<span className="text-[14px] text-[var(--text-4)] font-normal"> days</span></>}
+            sub={nextInterview ? `${nextInterview.role}${nextInterview.company ? ` at ${nextInterview.company}` : ''}` : 'No upcoming interview in an active plan'}
+            href={nextInterview ? `/planner/${nextInterview.id}` : undefined} tone={nextDays !== null && nextDays <= 3 ? 'text-amber-300' : undefined} />
+          <Kpi i={1} label="Done this week" tip="Tasks you marked done in the last 7 days, across all your plans."
+            value={doneThisWeek} sub={`${stats?.tasksCompleted ?? allTasks.filter(t => t.status === 'done').length} done in total`} />
+          <Kpi i={2} label="Day streak" tip="Consecutive days with at least one task done, from your most recently active plan. It resets after a day without activity."
+            value={statsError ? '-' : stats?.currentStreak ?? 0} sub={stats?.longestStreak ? `Best ${stats.longestStreak} days` : 'Finish a task today to start one'} tone={stats?.currentStreak ? 'text-orange-300' : undefined} />
+          <Kpi i={3} label="Active plans" tip="Plans you have not completed or archived."
+            value={stats?.activePlans ?? plans.filter(p => p.status === 'active').length} sub={`${plans.filter(p => p.status === 'completed').length} completed`} />
         </div>
       )}
 
       {/* Stats error */}
       {statsError && plans.length > 0 && (
-        <div className="glass-card p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
-              <p className="text-xs text-amber-300">{statsError}</p>
-            </div>
-            <button onClick={() => { setStatsError(''); loadUserStats(); }}
-              className="text-xs text-slate-400 hover:text-slate-300 transition-colors whitespace-nowrap flex-shrink-0">
-              Retry
-            </button>
-          </div>
+        <div className="flex items-center justify-between gap-3 px-1 text-[12.5px]">
+          <span className="flex items-center gap-2 text-amber-300"><AlertCircle className="w-4 h-4" />{statsError}</span>
+          <button onClick={() => { setStatsError(''); loadUserStats(); }} className="text-[var(--text-3)] hover:text-white">Retry</button>
         </div>
       )}
 
-      {/* Search + sort + filter */}
+      {/* Search, filter, sort */}
       {plans.length > 0 && (
-        <div className="glass-card p-4">
-          <div className="flex flex-col sm:flex-row gap-2.5 mb-4">
-            <div className="relative flex-1">
-              <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-              <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search by role or company…"
-                className="w-full pl-10 pr-3 py-2.5 rounded-xl text-sm text-white bg-white/[0.04] border border-white/[0.08] placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 focus:border-indigo-500/40 transition-all duration-150" />
-            </div>
-            <div className="relative sort-dropdown sm:min-w-[160px]">
-              <button type="button" onClick={() => setShowSortMenu(!showSortMenu)}
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium bg-white/[0.04] border transition-all w-full justify-between ${showSortMenu ? 'border-indigo-500/40 text-slate-200' : 'border-white/[0.07] text-slate-400 hover:border-white/[0.12] hover:text-slate-200'}`}>
-                <span className="flex items-center gap-1.5">
-                  <Filter className="w-3.5 h-3.5" /> {sortLabel}
-                </span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${showSortMenu ? 'rotate-180' : ''}`} />
-              </button>
-              {showSortMenu && (
-                <div className="absolute right-0 top-full mt-2 w-full bg-[var(--bg-raised)] border border-white/[0.08] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.5)] z-20 overflow-hidden">
-                  {sortOptions.map(opt => (
-                    <button key={opt.value} type="button"
-                      onClick={() => { setSortBy(opt.value); setShowSortMenu(false); }}
-                      className={`w-full px-4 py-2.5 text-left text-xs font-medium transition-colors ${sortBy === opt.value ? 'bg-indigo-500/15 text-indigo-300' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'}`}>
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+        <div className="flex flex-col md:flex-row md:items-center gap-3">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-4)] pointer-events-none" />
+            <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search by role or company" className="field !pl-10" />
           </div>
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+          <div role="radiogroup" aria-label="Status" className="flex p-0.5 rounded-full bg-white/[0.035] ring-1 ring-inset ring-white/[0.06] self-start md:self-auto">
             {filterTabs.map(tab => (
-              <button key={tab.value} onClick={() => setFilter(tab.value)}
-                className={`px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap flex-shrink-0 transition-all duration-150 ${filter === tab.value
-                  ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]'
-                  : 'text-slate-400 hover:text-slate-300 hover:bg-white/[0.04]'}`}>
-                {tab.label} <span className={`ml-1 ${filter === tab.value ? 'opacity-70' : 'opacity-40'}`}>({tab.count})</span>
+              <button key={tab.value} role="radio" aria-checked={filter === tab.value} onClick={() => setFilter(tab.value)}
+                className={`h-8 px-3.5 rounded-full text-[12.5px] font-medium whitespace-nowrap transition-colors ${filter === tab.value ? 'bg-white/[0.1] text-white' : 'text-[var(--text-3)] hover:text-white'}`}>
+                {tab.label} <span className="tabular-nums opacity-60">{tab.count}</span>
               </button>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Upcoming alert */}
-      {stats && stats.upcomingInterviews > 0 && (
-        <div className="glass-card p-4" style={{ borderColor: 'rgba(245,158,11,0.2)' }}>
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 bg-amber-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Calendar className="w-4 h-4 text-amber-400" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-white mb-0.5">Upcoming Deadlines</p>
-              <p className="text-xs text-amber-400/80 leading-relaxed">
-                You have {stats.upcomingInterviews} upcoming deadline{stats.upcomingInterviews > 1 ? 's' : ''}. Stay consistent with your preparation.
-              </p>
-            </div>
+          <div className="relative sort-dropdown">
+            <button type="button" onClick={() => setShowSortMenu(!showSortMenu)} aria-expanded={showSortMenu} className="btn-secondary !h-9 !text-[12.5px] w-full md:w-auto justify-between">
+              <span className="flex items-center gap-1.5"><Filter className="w-3.5 h-3.5" /> {sortLabel}</span>
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showSortMenu ? 'rotate-180' : ''}`} />
+            </button>
+            {showSortMenu && (
+              <div className="absolute right-0 top-full mt-1.5 w-44 z-20 rounded-xl bg-[var(--bg-raised)] p-1 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_16px_40px_-12px_rgba(0,0,0,0.75)]">
+                {sortOptions.map(opt => (
+                  <button key={opt.value} type="button" onClick={() => { setSortBy(opt.value); setShowSortMenu(false); }}
+                    className={`w-full px-3 h-9 rounded-lg text-left text-[12.5px] transition-colors ${sortBy === opt.value ? 'bg-white/[0.06] text-white' : 'text-[var(--text-2)] hover:bg-white/[0.05] hover:text-white'}`}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Plans grid / empty */}
+      {/* Plans */}
       {filteredPlans.length === 0 ? (
-        <div className="glass-card p-12 text-center">
-          <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-4">
-            {searchQuery ? <Search className="w-5 h-5 text-slate-500" /> : <Calendar className="w-5 h-5 text-slate-500" />}
+        plans.length > 0 ? (
+          <div className="rounded-2xl border border-dashed border-white/[0.1] p-10 text-center">
+            <Search className="w-5 h-5 text-[var(--text-5)] mx-auto" />
+            <p className="text-[14px] text-white mt-3">{searchQuery ? 'No matching plans' : `No ${filter} plans`}</p>
+            <p className="text-[12.5px] text-[var(--text-3)] mt-1">{searchQuery ? 'Try a different role or company.' : 'Change the filter to see your other plans.'}</p>
           </div>
-          <h3 className="text-sm font-bold text-slate-400 mb-2">
-            {searchQuery ? 'No matching plans' : filter === 'all' ? 'No plans yet' : `No ${filter} plans`}
-          </h3>
-          <p className="text-xs text-slate-500 mb-6 max-w-xs mx-auto leading-relaxed">
-            {searchQuery ? 'Try adjusting your search criteria' : filter === 'all' ? 'Create your first preparation plan to get started' : `You have no ${filter} plans at the moment`}
-          </p>
-          {filter === 'all' && !searchQuery && (
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <Link href="/planner/create"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] text-sm font-semibold transition-all duration-150">
-                <Plus className="w-4 h-4" /> Create Plan
-              </Link>
-              <SeeExampleButton
-                serviceId="planner"
-                className="!px-5 !py-2.5 !text-sm !font-semibold"
-              />
+        ) : (
+          <div className="glass-card p-8 sm:p-10">
+            <div className="max-w-xl">
+              <span className="w-11 h-11 rounded-xl bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] flex items-center justify-center"><Calendar className="w-5 h-5 text-[var(--accent)]" /></span>
+              <h3 className="text-[18px] font-semibold text-white mt-4">Plan your prep, day by day</h3>
+              <p className="text-[13.5px] text-[var(--text-3)] mt-1.5 leading-relaxed">Tell us the role, company and interview date. You get a schedule of topics, practice tasks and behavioral questions for each day, and you tick tasks off as you go.</p>
+              <ul className="mt-5 grid gap-2.5 sm:grid-cols-3">
+                {[
+                  { icon: Target, text: 'A plan sized to your timeline' },
+                  { icon: CheckCircle2, text: 'Progress and a daily streak' },
+                  { icon: Clock, text: 'Tasks with time estimates' },
+                ].map(({ icon: Icon, text }) => (
+                  <li key={text} className="flex items-center gap-2.5 rounded-xl bg-white/[0.025] ring-1 ring-inset ring-white/[0.05] px-3 py-2.5 text-[12.5px] text-[var(--text-2)]"><Icon className="w-4 h-4 text-[var(--accent)] flex-shrink-0" />{text}</li>
+                ))}
+              </ul>
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <Link href="/planner/create" className="btn-primary"><Plus className="w-4 h-4" /> Create a plan</Link>
+                <SeeExampleButton serviceId="planner" />
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="glass-card overflow-hidden divide-y divide-white/[0.06]">
+          <div className="hidden md:grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_150px_40px] gap-5 px-5 py-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-4)]">
+            <span>Plan</span><span>Progress</span><span>Interview</span><span />
+          </div>
           {filteredPlans.map(plan => (
             <PlanCard key={plan.id} plan={plan} onUpdate={loadUserPlans} />
           ))}
         </div>
       )}
-
-      {/* Feature overview (empty state) */}
-      {plans.length === 0 && (
-        <div className="glass-card p-6">
-          <h3 className="text-sm font-bold text-white mb-5 text-center">What you can do with Preparation Planner</h3>
-          <div className="grid sm:grid-cols-3 gap-4">
-            {[
-              { icon: Target, title: 'Custom Plans', desc: 'AI-generated study schedules tailored to your timeline and goals' },
-              { icon: CheckCircle2, title: 'Track Progress', desc: 'Monitor completion and maintain study streaks' },
-              { icon: Clock, title: 'Time Management', desc: 'Optimise preparation with structured daily tasks' },
-            ].map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="text-center">
-                <div className="w-10 h-10 bg-white/[0.03] border border-white/[0.07] rounded-xl flex items-center justify-center mx-auto mb-3">
-                  <Icon className="w-5 h-5 text-slate-500" />
-                </div>
-                <p className="text-sm font-semibold text-white mb-1">{title}</p>
-                <p className="text-xs text-slate-500 leading-relaxed">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
+}
+
+function Kpi({ i, label, tip, value, sub, href, tone }: { i: number; label: string; tip: string; value: React.ReactNode; sub: string; href?: string; tone?: string }) {
+  const edge = ['', 'border-l', 'border-t lg:border-t-0 lg:border-l', 'border-l border-t lg:border-t-0'][i];
+  const inner = (
+    <>
+      <p className="text-[12px] text-[var(--text-3)] flex items-center gap-1.5">{label}<InfoTip title={label} body={tip} /></p>
+      <p className={`font-display text-[26px] font-semibold tracking-[-0.02em] tabular-nums mt-1.5 ${tone ?? 'text-white'}`}>{value}</p>
+      <p className="text-[12px] text-[var(--text-4)] mt-0.5 truncate">{sub}</p>
+    </>
+  );
+  const cls = `block px-5 py-4 border-[var(--border)] ${edge}`;
+  return href ? <Link href={href} className={`${cls} hover:bg-white/[0.02] transition-colors`}>{inner}</Link> : <div className={cls}>{inner}</div>;
 }
