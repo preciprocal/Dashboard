@@ -8,20 +8,18 @@ import {
   Mic,
   MicOff,
   Settings,
-  Users,
   Clock,
   CheckCircle2,
   AlertCircle,
-  Crown,
   Volume2,
   VolumeX,
-  Camera,
   ArrowRight,
   Loader2,
-  Headphones,
-  ArrowLeft,
+  Check,
 } from "lucide-react";
 import FullScreenInterviewPanel from "./FullScreenInterviewpanel";
+import PageHeader from "@/components/PageHeader";
+import RetakeButton from "@/components/interview/RetakeButton";
 import CameraFeedbackToggle from "@/components/interview/CameraFeedbackToggle";
 import { panelFor } from "@/lib/config/interview-personas";
 import { muteRemoteAudio } from "@/lib/interview/media-controls";
@@ -45,7 +43,7 @@ const TechStackDisplay = ({ techStack }: { techStack: string[] }) => {
       {techStack.map((tech, index) => (
         <span
           key={index}
-          className="px-2 py-0.5 sm:py-1 bg-blue-500/10 text-blue-400 rounded text-xs border border-blue-500/20 break-words max-w-full"
+          className="px-2 py-0.5 rounded-md text-[11.5px] text-[var(--text-2)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.07] break-words max-w-full"
         >
           {tech}
         </span>
@@ -326,25 +324,6 @@ const InterviewDetailsClient = ({
 
   const interviewPanel = getInterviewPanel();
 
-  // ── Colour helpers ─────────────────────────────────────────────────────────
-  const getTypeColor = (type: string) => {
-    switch (type.toLowerCase()) {
-      case "technical":                    return "bg-blue-500/10 text-blue-400 border-blue-500/20";
-      case "behavioural": case "behavioral": return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-      case "mixed":                        return "bg-purple-500/10 text-purple-400 border-purple-500/20";
-      default:                             return "bg-slate-500/10 text-slate-400 border-slate-500/20";
-    }
-  };
-
-  const getLevelColor = (level: string) => {
-    switch (level.toLowerCase()) {
-      case "entry":  return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-      case "mid":    return "bg-amber-500/10 text-amber-400 border-amber-500/20";
-      case "senior": return "bg-red-500/10 text-red-400 border-red-500/20";
-      default:       return "bg-slate-500/10 text-slate-400 border-slate-500/20";
-    }
-  };
-
   // getDeviceStatusIcon was here. It mapped a permission state to an icon and
   // knew nothing about whether the user had switched the device off, which is
   // the bug deviceTile below exists to fix. Removed rather than left in place:
@@ -403,6 +382,7 @@ const InterviewDetailsClient = ({
    * handled here falls to "technical" by an visible decision rather than by a
    * silent type assertion.
    */
+  const TYPE_NAME = { technical: "Technical", behavioral: "Behavioral", mixed: "Mixed" } as const;
   function toPanelType(raw: string): "technical" | "behavioral" | "mixed" {
     const t = raw.trim().toLowerCase();
     if (t === "behavioural" || t === "behavioral") return "behavioral";
@@ -484,299 +464,187 @@ const InterviewDetailsClient = ({
     // Pages without fixed descendants can use the class safely, which is why
     // job-tracker does. This one cannot.
     <div className="space-y-4 sm:space-y-6 min-w-0">
-      {/* Breadcrumb. Kept, but as ordinary content rather than a bar spanning
-          a width this component does not own. */}
-      <div className="flex items-center justify-between gap-3 min-w-0">
-        <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-400 min-w-0">
-          <Link href="/" className="hover:text-slate-300 transition-colors flex-shrink-0">Dashboard</Link>
-          <span className="flex-shrink-0">/</span>
-          <span className="text-slate-300 truncate">Waiting Room</span>
-        </div>
-        <div className="text-xs sm:text-sm text-slate-400 hidden sm:block flex-shrink-0">
-          {currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-        </div>
-      </div>
+      <PageHeader
+        title={interview.role}
+        description={`${TYPE_NAME[toPanelType(interview.type)]} interview · ${interview.questions.length} questions · about ${Math.ceil(interview.questions.length * 3)} min`}
+        icon={Video}
+        crumbs={[{ label: "Home", href: "/" }, { label: "Interviews", href: "/interview" }, { label: "Waiting room" }]}
+        actions={<span className="hidden sm:inline-flex items-center gap-1.5 text-[12.5px] text-[var(--text-4)] tabular-nums"><Clock className="w-3.5 h-3.5" />{currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
+      />
 
-      <div className="min-w-0">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 min-w-0">
-          {/* Main Panel */}
-          <div className="lg:col-span-2 space-y-4 sm:space-y-6 min-w-0">
-            {/* Header */}
-            <div className="bg-[var(--bg-surface)] rounded-2xl border border-white/[0.08] hover:border-[var(--border)] transition-all duration-300">
-              <div className="p-4 sm:p-6">
-                <Link
-                  href="/interview"
-                  className="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-slate-300 mb-3 sm:mb-4 transition-colors"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Interviews
-                </Link>
+      <div className="glass-card grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] min-w-0">
+        {/* Camera, devices and joining */}
+        <div className="p-5 sm:p-6 min-w-0 space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center h-6 px-2.5 rounded-full text-[11.5px] font-medium text-[var(--text-2)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]">{TYPE_NAME[toPanelType(interview.type)]}</span>
+            <span className="inline-flex items-center h-6 px-2.5 rounded-full text-[11.5px] font-medium text-[var(--text-2)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]">{interview.level.charAt(0).toUpperCase() + interview.level.slice(1)} level</span>
+            {interview.company && <span className="inline-flex items-center h-6 px-2.5 rounded-full text-[11.5px] font-medium text-[var(--text-2)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]">{interview.company}</span>}
+          </div>
 
-                <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 bg-[var(--accent)] rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Users className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+          <div className="relative aspect-video bg-[var(--bg)] rounded-xl overflow-hidden ring-1 ring-inset ring-white/[0.08]">
+            <video
+              ref={videoRef}
+              autoPlay muted playsInline
+              className={`w-full h-full object-cover scale-x-[-1] ${!isVideoOn || deviceStatus.camera !== "ready" ? 'hidden' : ''}`}
+            />
+            {(!isVideoOn || deviceStatus.camera !== "ready") && (
+              <div className="absolute inset-0 flex items-center justify-center bg-[var(--bg)]">
+                <div className="text-center px-4">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-[#6e79d6] to-[#4b55b0] flex items-center justify-center mx-auto mb-3">
+                    <span className="font-display text-white text-xl sm:text-2xl font-semibold">{userName?.charAt(0)?.toUpperCase() || "C"}</span>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h1 className="text-xl sm:text-2xl font-semibold text-white mb-0.5 sm:mb-1 truncate">
-                      {interview.role}
-                    </h1>
-                    <p className="text-slate-400 text-xs sm:text-sm truncate">
-                      Panel Interview • {interview.questions.length} Questions • {Math.ceil(interview.questions.length * 3)} min
+                  <p className="text-[var(--text-3)] text-[13px]">
+                    {deviceStatus.camera === "denied" ? "Camera access denied"
+                      : deviceStatus.camera === "error" ? "Camera error"
+                      : !isVideoOn ? "Camera is off"
+                      : "Camera not available"}
+                  </p>
+                  {(deviceStatus.camera === "denied" || deviceStatus.microphone === "denied") && (
+                    <p className="mt-2 text-[12px] text-amber-300 max-w-xs mx-auto leading-relaxed">
+                      Click the camera icon in your browser&apos;s address bar to allow access, then refresh the page.
                     </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2 sm:gap-3">
-                  <div className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg border font-medium text-xs sm:text-sm ${getTypeColor(interview.type)}`}>
-                    {interview.type}
-                  </div>
-                  <div className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg border font-medium text-xs sm:text-sm ${getLevelColor(interview.level)}`}>
-                    {interview.level.charAt(0).toUpperCase() + interview.level.slice(1)}
-                  </div>
-                </div>
-
-                <div className="mt-3 sm:mt-4 bg-white/[0.042] backdrop-blur-xl rounded-xl p-3 sm:p-4 border border-[var(--border)]">
-                  <div className="flex flex-col xs:flex-row items-start xs:items-center gap-2 xs:gap-3 min-w-0">
-                    <span className="text-slate-400 text-xs sm:text-sm flex-shrink-0">Technologies:</span>
-                    <div className="min-w-0 w-full xs:flex-1">
-                      <TechStackDisplay techStack={interview.techstack} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Video Preview */}
-            <div className="bg-[var(--bg-surface)] rounded-2xl border border-white/[0.08]">
-              <div className="p-4 sm:p-6">
-                <h3 className="text-white font-medium mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
-                  <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
-                  <span>Camera Preview</span>
-                </h3>
-
-                <div className="relative aspect-video bg-[var(--bg)] rounded-lg overflow-hidden border border-[var(--border)]">
-                  <video
-                    ref={videoRef}
-                    autoPlay muted playsInline
-                    className={`w-full h-full object-cover scale-x-[-1] ${!isVideoOn || deviceStatus.camera !== "ready" ? 'hidden' : ''}`}
-                  />
-                  {(!isVideoOn || deviceStatus.camera !== "ready") && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-[var(--bg)]">
-                      <div className="text-center px-4">
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[var(--accent)] rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                          <span className="text-white text-xl sm:text-2xl font-semibold">
-                            {userName?.charAt(0)?.toUpperCase() || "C"}
-                          </span>
-                        </div>
-                        <p className="text-slate-400 text-sm sm:text-base">
-                          {deviceStatus.camera === "denied"
-                            ? "Camera access denied"
-                            : deviceStatus.camera === "error"
-                            ? "Camera error"
-                            : !isVideoOn
-                            ? "Camera is off"
-                            : "Camera not available"}
-                        </p>
-                        {/* Actionable guidance when permission is denied */}
-                        {(deviceStatus.camera === "denied" || deviceStatus.microphone === "denied") && (
-                          <p className="mt-2 text-xs text-amber-400 max-w-xs mx-auto leading-relaxed">
-                            Click the camera icon in your browser&apos;s address bar to allow access, then refresh the page.
-                          </p>
-                        )}
-                      </div>
-                    </div>
                   )}
-
-                  {/* Controls */}
-                  <div className="absolute bottom-3 sm:bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 sm:gap-3">
-                    <button
-                      onClick={toggleVideo}
-                      aria-label={isVideoOn ? "Turn off camera" : "Turn on camera"}
-                      className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-all backdrop-blur-sm ${isVideoOn ? 'bg-[var(--bg-raised)] hover:bg-white/[0.1] text-white' : 'bg-red-600/90 hover:bg-red-700/90 text-white'}`}
-                    >
-                      {isVideoOn ? <Video className="w-4 h-4 sm:w-5 sm:h-5" /> : <VideoOff className="w-4 h-4 sm:w-5 sm:h-5" />}
-                    </button>
-                    <button
-                      onClick={() => setIsAudioOn(!isAudioOn)}
-                      aria-label={isAudioOn ? "Mute microphone" : "Unmute microphone"}
-                      className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-all backdrop-blur-sm ${isAudioOn ? 'bg-[var(--bg-raised)] hover:bg-white/[0.1] text-white' : 'bg-red-600/90 hover:bg-red-700/90 text-white'}`}
-                    >
-                      {isAudioOn ? <Mic className="w-4 h-4 sm:w-5 sm:h-5" /> : <MicOff className="w-4 h-4 sm:w-5 sm:h-5" />}
-                    </button>
-                    <button
-                      onClick={toggleSpeaker}
-                      aria-label={isSpeakerOn ? "Mute speaker" : "Unmute speaker"}
-                      className={`p-2 sm:p-2.5 md:p-3 rounded-full transition-all backdrop-blur-sm ${isSpeakerOn ? 'bg-[var(--bg-raised)] hover:bg-white/[0.1] text-white' : 'bg-red-600/90 hover:bg-red-700/90 text-white'}`}
-                    >
-                      {isSpeakerOn ? <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" /> : <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />}
-                    </button>
-                    <button
-                      onClick={() => setShowDeviceSettings(!showDeviceSettings)}
-                      aria-label="Open device settings"
-                      className="p-2 sm:p-2.5 md:p-3 rounded-full bg-[var(--bg-raised)] hover:bg-white/[0.1] text-white transition-all backdrop-blur-sm"
-                    >
-                      <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Device Status.
-                    `enabled` is what makes these live: without it the tiles
-                    reported the permission state only, so a muted mic still
-                    read "Ready" with a green tick. */}
-                <div className="mt-3 sm:mt-4 grid grid-cols-3 gap-2 sm:gap-3 md:gap-4">
-                  {([
-                    { key: "camera",     label: "Camera",  status: deviceStatus.camera,     enabled: isVideoOn },
-                    { key: "microphone", label: "Mic",     status: deviceStatus.microphone, enabled: isAudioOn },
-                    { key: "speaker",    label: "Speaker", status: deviceStatus.speaker,    enabled: isSpeakerOn },
-                  ] as const).map(device => {
-                    const tile  = deviceTileState(device.key, device.status, device.enabled);
-                    const tone  = DEVICE_TONE_CLASSES[tile.tone];
-                    return (
-                      <div
-                        key={device.key}
-                        className={`bg-white/[0.042] backdrop-blur-xl rounded-xl p-2.5 sm:p-3 border transition-colors duration-200 ${tone.border}`}
-                      >
-                        <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2 min-w-0">
-                          <span className="flex-shrink-0">{deviceIcon(tile.icon)}</span>
-                          <span className="text-xs sm:text-sm text-white truncate">{device.label}</span>
-                        </div>
-                        <p className={`text-xs ${tone.text}`}>{tile.text}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* On-camera feedback. Opt-in; needs the camera on and working. */}
-                <div className="mt-3 sm:mt-4">
-                  <CameraFeedbackToggle
-                    checked={cameraFeedback}
-                    onChange={setCameraFeedback}
-                    available={deviceStatus.camera === "ready" && isVideoOn}
-                    unavailableReason={
-                      deviceStatus.camera === "checking" ? undefined
-                        : deviceStatus.camera !== "ready" ? "Needs a working camera. You can still take the interview audio-only."
-                        : "Turn your camera on to use this."
-                    }
-                  />
-                </div>
-
-                {/* Join Button */}
-                <div className="mt-4 sm:mt-6">
-                  {/* Tooltip container - shows reason why join is disabled */}
-                  <div className="relative group">
-                    <button
-                      onClick={handleJoinInterview}
-                      disabled={!!joinDisabledReason}
-                      aria-disabled={!!joinDisabledReason}
-                      className={`w-full py-2.5 sm:py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 sm:gap-3 text-sm sm:text-base ${
-                        !joinDisabledReason
-                          ? 'bg-emerald-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg '
-                          : 'bg-slate-800 text-slate-400 cursor-not-allowed'
-                      }`}
-                    >
-                      <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" /><span>Join Interview</span>
-                    </button>
-                    {/* Show reason tooltip when disabled */}
-                    {joinDisabledReason && (
-                      <p className="mt-2 text-xs text-center text-slate-400 leading-relaxed">
-                        {joinDisabledReason}
-                      </p>
-                    )}
-                  </div>
                 </div>
               </div>
+            )}
+
+            {/* Controls */}
+            <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 p-1.5 rounded-full bg-black/55 backdrop-blur-md ring-1 ring-inset ring-white/[0.1]">
+              {[
+                { on: isVideoOn, onClick: toggleVideo, label: isVideoOn ? "Turn off camera" : "Turn on camera", icon: isVideoOn ? Video : VideoOff },
+                { on: isAudioOn, onClick: () => setIsAudioOn(!isAudioOn), label: isAudioOn ? "Mute microphone" : "Unmute microphone", icon: isAudioOn ? Mic : MicOff },
+                { on: isSpeakerOn, onClick: toggleSpeaker, label: isSpeakerOn ? "Mute speaker" : "Unmute speaker", icon: isSpeakerOn ? Volume2 : VolumeX },
+              ].map(c => (
+                <button key={c.label} onClick={c.onClick} aria-label={c.label} title={c.label}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${c.on ? 'text-white hover:bg-white/[0.12]' : 'bg-rose-500 text-white hover:bg-rose-400'}`}>
+                  <c.icon className="w-[18px] h-[18px]" />
+                </button>
+              ))}
+              <button onClick={() => setShowDeviceSettings(!showDeviceSettings)} aria-label="Open device settings" title="Device settings"
+                className="w-10 h-10 rounded-full flex items-center justify-center text-white hover:bg-white/[0.12] transition-colors">
+                <Settings className="w-[18px] h-[18px]" />
+              </button>
             </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-4 sm:space-y-6">
-            {/* Interview Panel */}
-            <div className="bg-[var(--bg-surface)] rounded-2xl border border-white/[0.08]">
-              <div className="p-4 sm:p-6">
-                <h3 className="text-white font-medium mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
-                  <Users className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
-                  <span>Interview Panel</span>
-                </h3>
-                <div className="space-y-3 sm:space-y-4">
-                  {interviewPanel.map((panelist) => (
-                    <div key={panelist.id} className="flex items-center gap-2.5 sm:gap-3">
-                      <div className={`w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br ${panelist.avatar.gradient} rounded-full flex items-center justify-center flex-shrink-0`}>
-                        <span className="text-white text-xs sm:text-sm font-semibold">{panelist.avatar.initials}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 sm:gap-2">
-                          <p className="text-white font-medium text-xs sm:text-sm truncate">{panelist.name}</p>
-                          {panelist.isLead && <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 flex-shrink-0" />}
-                        </div>
-                        <p className="text-slate-400 text-xs truncate">{panelist.role}</p>
-                      </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-amber-500 rounded-full animate-pulse"></div>
-                        <span className="text-amber-400 text-xs hidden sm:inline">Waiting</span>
-                      </div>
-                    </div>
-                  ))}
+          {/* Device status. `enabled` makes these live: a muted mic does not read "Ready". */}
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            {([
+              { key: "camera",     label: "Camera",  status: deviceStatus.camera,     enabled: isVideoOn },
+              { key: "microphone", label: "Mic",     status: deviceStatus.microphone, enabled: isAudioOn },
+              { key: "speaker",    label: "Speaker", status: deviceStatus.speaker,    enabled: isSpeakerOn },
+            ] as const).map(device => {
+              const tile = deviceTileState(device.key, device.status, device.enabled);
+              const tone = DEVICE_TONE_CLASSES[tile.tone];
+              return (
+                <div key={device.key} className="rounded-xl px-3 py-2.5 ring-1 ring-inset ring-white/[0.07] bg-white/[0.02] min-w-0">
+                  <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                    <span className="flex-shrink-0">{deviceIcon(tile.icon)}</span>
+                    <span className="text-[12.5px] text-white truncate">{device.label}</span>
+                  </div>
+                  <p className={`text-[11.5px] mt-1 truncate ${tone.text}`}>{tile.text}</p>
                 </div>
-              </div>
-            </div>
-
-            {/* Tips */}
-            <div className="bg-[var(--bg-surface)] rounded-2xl border border-white/[0.08]">
-              <div className="p-4 sm:p-6">
-                <h3 className="text-white font-medium mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
-                  <Headphones className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
-                  <span>Interview Tips</span>
-                </h3>
-                <ul className="space-y-2 sm:space-y-3 text-xs sm:text-sm text-slate-400">
-                  {[
-                    "Ensure you're in a quiet, well-lit environment",
-                    "Test your audio and video before joining",
-                    "Have your resume and portfolio ready",
-                    "Make eye contact with the camera",
-                    "Prepare thoughtful questions for the panel",
-                  ].map((tip, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-emerald-400 rounded-full mt-1.5 sm:mt-2 flex-shrink-0"></div>
-                      <span className="leading-relaxed">{tip}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            {/* Session Info */}
-            <div className="bg-[var(--bg-surface)] rounded-2xl border border-white/[0.08]">
-              <div className="p-4 sm:p-6">
-                <h3 className="text-white font-medium mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
-                  <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
-                  <span>Session Details</span>
-                </h3>
-                <div className="space-y-2.5 sm:space-y-3 text-xs sm:text-sm">
-                  {[
-                    { label: "Duration",   value: `${Math.ceil(interview.questions.length * 3)} min` },
-                    { label: "Questions",  value: interview.questions.length.toString() },
-                    { label: "Panel Size", value: (interviewPanel.length + 1).toString() },
-                    { label: "Format",     value: "Panel Interview" },
-                  ].map((item, index) => (
-                    <div key={index} className="flex justify-between text-slate-400">
-                      <span>{item.label}:</span>
-                      <span className="text-white font-medium">{item.value}</span>
-                    </div>
-                  ))}
-                </div>
-                {feedbackId && (
-                  <Link
-                    href={`/interview/${interviewId}/feedback`}
-                    className="mt-3 sm:mt-4 block w-full px-4 py-2 sm:py-2.5 bg-white/[0.042] backdrop-blur-xl hover:bg-white/[0.09] text-white text-center rounded-lg text-xs sm:text-sm border border-[var(--border)] transition-all duration-300"
-                  >
-                    View Previous Results
-                  </Link>
-                )}
-              </div>
-            </div>
+              );
+            })}
           </div>
+
+          {/* On-camera feedback. Opt-in; needs the camera on and working. */}
+          <CameraFeedbackToggle
+            checked={cameraFeedback}
+            onChange={setCameraFeedback}
+            available={deviceStatus.camera === "ready" && isVideoOn}
+            unavailableReason={
+              deviceStatus.camera === "checking" ? undefined
+                : deviceStatus.camera !== "ready" ? "Needs a working camera. You can still take the interview audio-only."
+                : "Turn your camera on to use this."
+            }
+          />
+
+          {/* Join, or retake when this one already has feedback */}
+          {feedbackId ? (
+            <div className="rounded-xl ring-1 ring-inset ring-white/[0.08] bg-white/[0.03] p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[13.5px] font-medium text-white">You have taken this interview</p>
+                <p className="text-[12.5px] text-[var(--text-3)] mt-0.5">A retake is a new attempt with the same questions. Your first attempt and its feedback stay as they are.</p>
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <Link href={`/interview/${interviewId}/feedback`} className="btn-secondary !h-10">View feedback</Link>
+                <RetakeButton interviewId={interviewId} className="btn-primary !h-10 !px-5" label="Retake" />
+              </div>
+            </div>
+          ) : (
+            <div>
+              <button
+                onClick={handleJoinInterview}
+                disabled={!!joinDisabledReason}
+                aria-disabled={!!joinDisabledReason}
+                className="btn-primary w-full !h-11 justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Join interview <ArrowRight className="w-4 h-4" />
+              </button>
+              {joinDisabledReason && <p className="mt-2 text-[12px] text-center text-[var(--text-4)] leading-relaxed">{joinDisabledReason}</p>}
+            </div>
+          )}
         </div>
+
+        {/* Panel, session and tips */}
+        <aside className="border-t lg:border-t-0 lg:border-l border-white/[0.06] p-5 sm:p-6 space-y-6 min-w-0">
+          <section>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-4)] mb-3">Your panel</p>
+            <ul className="space-y-3">
+              {interviewPanel.map(panelist => (
+                <li key={panelist.id} className="flex items-center gap-3 min-w-0">
+                  <span className={`w-9 h-9 bg-gradient-to-br ${panelist.avatar.gradient} rounded-full flex items-center justify-center flex-shrink-0`}>
+                    <span className="text-white text-[12px] font-semibold">{panelist.avatar.initials}</span>
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-[13px] font-medium text-white truncate">{panelist.name}</span>
+                      {panelist.isLead && <span className="text-[10.5px] text-[var(--text-4)] flex-shrink-0">Lead</span>}
+                    </span>
+                    <span className="block text-[12px] text-[var(--text-4)] truncate">{panelist.role}</span>
+                  </span>
+                  <span className="flex items-center gap-1.5 text-[11.5px] text-[var(--text-4)] flex-shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" aria-hidden="true" />Waiting
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="pt-6 border-t border-white/[0.06]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-4)] mb-3">Session</p>
+            <dl className="space-y-2 text-[13px]">
+              {[
+                { label: "Length", value: `About ${Math.ceil(interview.questions.length * 3)} min` },
+                { label: "Questions", value: interview.questions.length.toString() },
+                { label: "Panel", value: `${interviewPanel.length} interviewers` },
+              ].map(item => (
+                <div key={item.label} className="flex justify-between gap-3">
+                  <dt className="text-[var(--text-4)]">{item.label}</dt>
+                  <dd className="text-white font-medium tabular-nums">{item.value}</dd>
+                </div>
+              ))}
+            </dl>
+            {interview.techstack?.length > 0 && (
+              <div className="mt-4"><TechStackDisplay techStack={interview.techstack} /></div>
+            )}
+          </section>
+
+          <section className="pt-6 border-t border-white/[0.06]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-4)] mb-3">Before you join</p>
+            <ul className="space-y-2 text-[12.5px] text-[var(--text-3)]">
+              {[
+                "Find a quiet, well-lit spot",
+                "Check your mic and speaker above",
+                "Look at the camera when you answer",
+                "Have a question ready for the panel",
+              ].map(tip => (
+                <li key={tip} className="flex items-start gap-2"><Check className="w-3.5 h-3.5 text-[var(--text-5)] mt-0.5 flex-shrink-0" strokeWidth={2.5} /><span className="leading-relaxed">{tip}</span></li>
+              ))}
+            </ul>
+          </section>
+        </aside>
       </div>
 
       {/* Device Settings Modal */}

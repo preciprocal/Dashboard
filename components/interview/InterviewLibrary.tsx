@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowUpRight, CalendarClock, Mic, Plus } from 'lucide-react';
 import InfoTip from '@/components/ui/info-tip';
+import RetakeButton from '@/components/interview/RetakeButton';
 
 export interface LibraryInterview {
   id: string;
@@ -19,7 +20,7 @@ export interface LibraryInterview {
   techstack?: string[];
   createdAt: Date;
   score?: number;
-  feedback?: { categoryScores?: Record<string, number> } | null;
+  feedback?: { categoryScores?: Record<string, number> | { name: string; score: number }[] } | null;
 }
 
 type Schedule = { applicationId: string; startsAt: string; stage?: string };
@@ -61,7 +62,11 @@ export default function InterviewLibrary({ interviews }: { interviews: LibraryIn
   // Average of each feedback category across scored sessions.
   const areas = useMemo(() => {
     const sum = new Map<string, { t: number; n: number }>();
-    for (const i of scored) for (const [k, v] of Object.entries(i.feedback?.categoryScores ?? {})) {
+    // Stored as [{ name, score }] by the feedback writer; older rows used { name: score }.
+    const pairs = (c: unknown): [string, unknown][] => Array.isArray(c)
+      ? c.map(x => [String((x as { name?: unknown })?.name ?? ''), (x as { score?: unknown })?.score] as [string, unknown]).filter(([k]) => k)
+      : Object.entries((c as Record<string, unknown>) ?? {});
+    for (const i of scored) for (const [k, v] of pairs(i.feedback?.categoryScores)) {
       if (typeof v !== 'number' || !Number.isFinite(v)) continue;
       const a = sum.get(k) ?? { t: 0, n: 0 }; a.t += v; a.n++; sum.set(k, a);
     }
@@ -121,14 +126,14 @@ export default function InterviewLibrary({ interviews }: { interviews: LibraryIn
 
       {list.length > 0 ? (
         <div className="glass-card overflow-hidden divide-y divide-white/[0.06]">
-          <div className="hidden lg:grid grid-cols-[minmax(0,2fr)_130px_minmax(0,1.2fr)_100px_110px] gap-4 px-5 py-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-4)]">
+          <div className="hidden lg:grid grid-cols-[minmax(0,2fr)_120px_minmax(0,1.2fr)_96px_190px] gap-4 px-5 py-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-4)]">
             <span>Interview</span><span>Type</span><span>Stack</span><span>Date</span><span />
           </div>
           {list.map(i => {
             const hasFeedback = (i.score ?? 0) > 0;
             const href = hasFeedback ? `/interview/${i.id}/feedback` : `/interview/${i.id}`;
             return (
-              <div key={i.id} className="group grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_130px_minmax(0,1.2fr)_100px_110px] gap-x-4 gap-y-2 items-center px-5 py-3.5 hover:bg-white/[0.015] transition-colors">
+              <div key={i.id} className="group grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_120px_minmax(0,1.2fr)_96px_190px] gap-x-4 gap-y-2 items-center px-5 py-3.5 hover:bg-white/[0.015] transition-colors">
                 <Link href={href} className="flex items-center gap-3.5 min-w-0">
                   <Ring score={hasFeedback ? i.score! : null} />
                   <span className="min-w-0">
@@ -139,9 +144,12 @@ export default function InterviewLibrary({ interviews }: { interviews: LibraryIn
                 <span className="text-[12.5px] text-[var(--text-2)]">{TYPE_LABEL[i.type] ?? pretty(i.type)}</span>
                 <span className="text-[12px] text-[var(--text-4)] truncate">{(i.techstack ?? []).slice(0, 4).join(' · ') || '-'}</span>
                 <span className="text-[12.5px] text-[var(--text-3)] tabular-nums">{when(i.createdAt)}</span>
-                <Link href={href} className="justify-self-start lg:justify-self-end inline-flex items-center gap-1 h-8 px-3 rounded-lg text-[12.5px] font-medium text-[var(--text-2)] ring-1 ring-inset ring-white/[0.08] hover:text-white hover:bg-white/[0.05] transition-colors">
-                  {hasFeedback ? 'Feedback' : 'Continue'}<ArrowUpRight className="w-3.5 h-3.5" />
-                </Link>
+                <div className="justify-self-start lg:justify-self-end flex items-center gap-1.5">
+                  {hasFeedback && <RetakeButton interviewId={i.id} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[12.5px] font-medium text-[var(--text-3)] hover:text-white hover:bg-white/[0.05] transition-colors [&_svg]:w-3.5 [&_svg]:h-3.5" />}
+                  <Link href={href} className="inline-flex items-center gap-1 h-8 px-3 rounded-lg text-[12.5px] font-medium text-[var(--text-2)] ring-1 ring-inset ring-white/[0.08] hover:text-white hover:bg-white/[0.05] transition-colors">
+                    {hasFeedback ? 'Feedback' : 'Continue'}<ArrowUpRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </div>
             );
           })}

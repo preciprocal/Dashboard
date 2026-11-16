@@ -6,11 +6,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
-import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
 import ErrorPage from '@/components/Error';
 import InterviewLibrary from '@/components/interview/InterviewLibrary';
 import { SeeExampleButton } from '@/components/ServiceModal';
-import { Target, AlertCircle, RefreshCw, Plus } from 'lucide-react';
+import { Target, AlertCircle, RefreshCw, Plus, Mic, BarChart3, RotateCcw } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -84,32 +83,46 @@ function toDate(val: RawDateField, fallback = new Date()): Date {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function EmptyDashboard() {
+  const points = [
+    { icon: Mic, title: 'A voice interview panel', body: 'Questions for your role and level, asked out loud. You answer the way you would in the real one.' },
+    { icon: BarChart3, title: 'Scored feedback', body: 'An overall score, a score per area, and an annotated transcript of what you said.' },
+    { icon: RotateCcw, title: 'Retake and compare', body: 'Run the same interview again to see if your weakest area moved.' },
+  ];
   return (
-    <div className="glass-card p-12 text-center">
-      <div className="w-16 h-16 bg-white/[0.03] border border-white/[0.07] rounded-2xl
-                      flex items-center justify-center mx-auto mb-6">
-        <Target className="w-7 h-7 text-slate-500" />
+    <div className="glass-card p-6 sm:p-8">
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-8 items-center">
+        <div>
+          <span className="w-11 h-11 rounded-xl bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] flex items-center justify-center"><Target className="w-5 h-5 text-[var(--text-2)]" /></span>
+          <h3 className="font-display text-[20px] font-semibold tracking-[-0.02em] text-white mt-5">Practise before the real one</h3>
+          <p className="text-[13.5px] text-[var(--text-3)] mt-2 leading-relaxed max-w-md">Pick a role, a level and an interview type. You get a mock interview with feedback you can act on.</p>
+          <div className="flex flex-wrap items-center gap-2.5 mt-6">
+            <Link href="/interview/create" className="btn-primary"><Plus className="w-4 h-4" /> Start your first interview</Link>
+            <SeeExampleButton serviceId="interview" />
+          </div>
+        </div>
+        <ul className="grid sm:grid-cols-3 gap-3">
+          {points.map(p => (
+            <li key={p.title} className="rounded-xl ring-1 ring-inset ring-white/[0.07] bg-white/[0.02] p-4">
+              <p.icon className="w-4 h-4 text-[var(--text-3)]" />
+              <p className="text-[13.5px] font-medium text-white mt-3">{p.title}</p>
+              <p className="text-[12.5px] text-[var(--text-4)] mt-1 leading-relaxed">{p.body}</p>
+            </li>
+          ))}
+        </ul>
       </div>
-      <h3 className="text-[17px] font-bold text-white mb-2">Welcome to Interview Practice</h3>
-      <p className="text-[13px] text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
-        Get AI-powered mock interviews, personalised feedback, and track your progress to ace your next interview.
-      </p>
+    </div>
+  );
+}
 
-
-      <div className="flex flex-wrap items-center justify-center gap-3">
-        <Link
-          href="/interview/create"
-          className="btn-primary"
-        >
-          <Plus className="w-4 h-4" /> Start First Interview
-        </Link>
-        <SeeExampleButton
-          serviceId="interview"
-        />
+function LibrarySkeleton() {
+  return (
+    <div className="space-y-5" aria-busy="true" aria-label="Loading your interviews">
+      <div className="glass-card grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 overflow-hidden">
+        {[0, 1, 2, 3].map(i => <div key={i} className="px-5 py-4 space-y-2.5"><span className="block h-3 w-24 rounded prc-skeleton" /><span className="block h-7 w-16 rounded prc-skeleton" /><span className="block h-3 w-32 rounded prc-skeleton" /></div>)}
       </div>
-      <p className="text-xs text-slate-500 mt-4">
-        Choose from Technical, Behavioral, or System Design interviews
-      </p>
+      <div className="glass-card divide-y divide-white/[0.06]">
+        {[0, 1, 2, 3].map(i => <div key={i} className="flex items-center gap-3.5 px-5 py-3.5"><span className="w-[42px] h-[42px] rounded-full prc-skeleton" /><span className="flex-1 space-y-2"><span className="block h-3.5 w-48 max-w-full rounded prc-skeleton" /><span className="block h-3 w-28 rounded prc-skeleton" /></span></div>)}
+      </div>
     </div>
   );
 }
@@ -122,19 +135,9 @@ export default function InterviewsDashboard() {
 
   const [interviews,        setInterviews]        = useState<Interview[]>([]);
   const [loadingInterviews, setLoadingInterviews] = useState(true);
-  const [loadingStep,       setLoadingStep]       = useState(0);
+  const [,                  setLoadingStep]       = useState(0);
   const [criticalError,  setCriticalError]  = useState<CriticalError | null>(null);
   const [interviewsError,setInterviewsError]= useState('');
-
-  const loadingSteps: LoadingStep[] = [
-    { name: 'Authenticating…',              weight: 1 },
-    { name: 'Loading interview history…',   weight: 2 },
-    { name: 'Converting data formats…',     weight: 1 },
-    { name: 'Fetching feedback data…',      weight: 3 },
-    { name: 'Calculating metrics…',         weight: 2 },
-    { name: 'Organising interviews…',       weight: 1 },
-    { name: 'Done!',                        weight: 1 },
-  ];
 
   useEffect(() => {
     if (!loading && !user) router.push('/sign-in');
@@ -218,14 +221,7 @@ export default function InterviewsDashboard() {
     );
   }
 
-  if (loading || loadingInterviews) {
-    return (
-      <AnimatedLoader isVisible={true} mode="steps" steps={loadingSteps}
-        currentStep={loadingStep} loadingText="Loading your interviews…" showNavigation={true} />
-    );
-  }
-
-  if (!user) {
+  if (!loading && !user) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] px-4">
         <div className="glass-card p-10 text-center max-w-sm w-full">
@@ -278,7 +274,9 @@ export default function InterviewsDashboard() {
         </div>
       )}
 
-      {interviews.length > 0 ? (
+      {loading || loadingInterviews ? (
+        <LibrarySkeleton />
+      ) : interviews.length > 0 ? (
         <InterviewLibrary interviews={interviews} />
       ) : !interviewsError ? (
         <EmptyDashboard />

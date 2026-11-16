@@ -7,22 +7,9 @@ import { getCurrentUser } from "@/lib/actions/auth.action";
 import { toSupabaseUserId } from "@/lib/auth/verify-request";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import {
-  Clock,
-  CheckCircle,
-  HelpCircle,
-  Star,
-  Target,
-  Brain,
-  RefreshCw,
-  ArrowRight,
-  BarChart3,
-  Award,
-  Lightbulb,
-  Users,
-  ArrowLeft
-} from "lucide-react";
+import { CheckCircle, HelpCircle, Target, ArrowLeft, Plus, Video } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import RetakeButton from "@/components/interview/RetakeButton";
 import NextStepPrompt from "@/components/NextStepPrompt";
 import TranscriptReview from "@/components/interview/TranscriptReview";
 import JournalSyncButton from "@/components/interview/JournalSyncButton";
@@ -33,7 +20,6 @@ import CodeReviewSection from "@/components/interview/CodeReviewSection";
 import type { CodeReview } from "@/lib/interview/code-submission";
 import OnCameraSection from "@/components/interview/OnCameraSection";
 import type { CameraMetrics } from "@/lib/interview/camera-metrics";
-// import ShareScoreCard from "@/components/ShareScoreCard"; // ← temporarily disabled
 
 interface CategoryScore {
   name: string;
@@ -58,6 +44,7 @@ interface Interview {
   type: string;
   duration?: number;
   questions: unknown[];
+  createdAt?: string;
 }
 
 interface Props {
@@ -119,43 +106,24 @@ export default async function InterviewFeedbackPage({ params }: Props) {
   }
 
   if (!feedback) {
+    // Reached only when the analysis could not be produced: no stored
+    // transcript (an abandoned session, or one taken before transcripts were
+    // saved), or generation failed. Say so and offer the one thing that works.
     return (
-      <div className="space-y-6 px-4 sm:px-0">
-        <div className="glass-card">
-          {/* Reached only when the analysis could not be produced: there is no
-              stored transcript (an abandoned session, or an interview taken
-              before transcripts were saved), or generation failed. This used
-              to claim "AI Analysis in Progress" behind a spinner, on a server
-              component with no polling and nothing running - it never
-              resolved. Say what happened and offer the one thing that works. */}
-          <div className="text-center py-12 sm:py-16 px-4 sm:px-6">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-amber-500/10 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6">
-              <HelpCircle className="w-8 h-8 sm:w-10 sm:h-10 text-amber-400" />
-            </div>
-            <div className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 bg-amber-500/10 border border-amber-500/20 rounded-full text-amber-400 text-xs sm:text-sm font-medium mb-4 sm:mb-6">
-              No analysis available
-            </div>
-            <h1 className="text-xl sm:text-2xl font-semibold text-white mb-2 sm:mb-3">
-              We couldn&apos;t analyse this session
-            </h1>
-            <p className="text-slate-400 mb-6 sm:mb-8 max-w-2xl mx-auto text-sm sm:text-base">
-              This interview has no saved answers to analyse - the session may have ended
-              before you spoke, or it was taken before we started keeping transcripts.
-              Retaking it will produce a full analysis.
+      <div className="space-y-4 pt-4">
+        <PageHeader title="Interview feedback" description={interview.role} icon={<Video strokeWidth={1.75} aria-hidden="true" />}
+          crumbs={[{ label: "Home", href: "/" }, { label: "Interviews", href: "/interview" }, { label: "Feedback" }]} />
+        <div className="glass-card p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center gap-5">
+          <span className="w-11 h-11 rounded-xl bg-amber-500/10 ring-1 ring-inset ring-amber-500/20 flex items-center justify-center flex-shrink-0"><HelpCircle className="w-5 h-5 text-amber-300" /></span>
+          <div className="min-w-0 flex-1">
+            <h2 className="font-display text-[17px] font-semibold text-white">We could not analyse this session</h2>
+            <p className="text-[13px] text-[var(--text-3)] mt-1 leading-relaxed max-w-2xl">
+              It has no saved answers. The session may have ended before you spoke, or it was taken before transcripts were kept. A retake gives you a full analysis.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-              <Button asChild className="glass-button-primary hover-lift px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base">
-                <Link href={`/interview/${id}`}>
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Retake this interview
-                </Link>
-              </Button>
-              <Button asChild className="glass-button hover-lift text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base">
-                <Link href="/">
-                  Return to Dashboard
-                </Link>
-              </Button>
-            </div>
+          </div>
+          <div className="flex gap-2 flex-shrink-0">
+            <Link href="/interview" className="btn-secondary">All interviews</Link>
+            <Link href={`/interview/${id}`} className="btn-primary">Take it again</Link>
           </div>
         </div>
       </div>
@@ -178,40 +146,18 @@ export default async function InterviewFeedbackPage({ params }: Props) {
     console.warn("⚠️ Could not check Interview Journal link:", err);
   }
 
-  const getScoreColor = (score: number): string => {
-    if (score >= 85) return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
-    if (score >= 70) return "text-blue-400 bg-blue-500/10 border-blue-500/20";
-    if (score >= 55) return "text-amber-400 bg-amber-500/10 border-amber-500/20";
-    return "text-red-400 bg-red-500/10 border-red-500/20";
-  };
+  const tone = (score: number) =>
+    score >= 80 ? { text: "text-emerald-300", bar: "bg-emerald-400", ring: "#34d399" }
+      : score >= 60 ? { text: "text-sky-300", bar: "bg-sky-400", ring: "#38bdf8" }
+      : { text: "text-amber-300", bar: "bg-amber-400", ring: "#fbbf24" };
 
   const getScoreLabel = (score: number): string => {
     if (score >= 95) return "Outstanding";
     if (score >= 85) return "Excellent";
-    if (score >= 75) return "Very Good";
+    if (score >= 75) return "Very good";
     if (score >= 65) return "Good";
     if (score >= 55) return "Satisfactory";
-    return "Needs Improvement";
-  };
-
-  // Full class names, never `bg-${color}-500`: Tailwind only generates
-  // classes it can find written out, so the built string had no background
-  // and the grade letter floated over the ring unreadable.
-  const getGradeBadge = (score: number): { grade: string; color: string } => {
-    if (score >= 95) return { grade: "A+", color: "bg-emerald-500 shadow-emerald-500/30" };
-    if (score >= 85) return { grade: "A", color: "bg-blue-500 shadow-blue-500/30" };
-    if (score >= 75) return { grade: "B+", color: "bg-sky-500 shadow-sky-500/30" };
-    if (score >= 65) return { grade: "B", color: "bg-amber-500 shadow-amber-500/30" };
-    if (score >= 55) return { grade: "C", color: "bg-orange-500 shadow-orange-500/30" };
-    return { grade: "D", color: "bg-red-500 shadow-red-500/30" };
-  };
-
-  const gradeBadge = getGradeBadge(feedback.totalScore);
-
-  const interviewStats = {
-    duration: interview.duration || Math.ceil(interview.questions.length * 3),
-    questionsAnswered: interview.questions.length,
-    completionRate: "100%",
+    return "Needs work";
   };
 
   const categoryScores: CategoryScore[] = Array.isArray(feedback.categoryScores) ? feedback.categoryScores : [];
@@ -224,384 +170,109 @@ export default async function InterviewFeedbackPage({ params }: Props) {
     : undefined;
   const strengths: string[] = Array.isArray(feedback.strengths) ? feedback.strengths : [];
   const areasForImprovement: string[] = Array.isArray(feedback.areasForImprovement) ? feedback.areasForImprovement : [];
-
-  const avgCategoryScore = categoryScores.length > 0
-    ? Math.round(categoryScores.reduce((sum: number, cat: CategoryScore) => sum + cat.score, 0) / categoryScores.length)
-    : 0;
-
-  const industryBenchmark = {
-    yourScore: feedback.totalScore,
-    industryAverage: Math.max(60, avgCategoryScore - 5),
-    topPerformers: Math.min(95, avgCategoryScore + 15),
-    companyAverage: Math.max(65, avgCategoryScore),
-  };
-
-  // ── Map category scores to ShareScoreCard's named slots ───────────────────
-  // Tries to match by name (case-insensitive); falls back to undefined so the
-  // card simply omits any category it can't find rather than showing 0.
-  // Only consumed by the ShareScoreCard block below, which is currently
-  // commented out. Kept rather than deleted so re-enabling that card is a
-  // one-line change instead of a rewrite.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const findCategoryScore = (keywords: string[]): number | undefined => {
-    const match = categoryScores.find((c) =>
-      keywords.some((kw) => c.name.toLowerCase().includes(kw))
-    );
-    return match?.score;
-  };
+  const taken = interview.createdAt ? new Date(interview.createdAt) : null;
+  const t = tone(feedback.totalScore);
+  const R = 52, C = 2 * Math.PI * R;
+  const typeName = /behav/i.test(interview.type) ? "Behavioral" : /mixed/i.test(interview.type) ? "Mixed" : "Technical";
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-4 sm:px-0">
+    <div className="space-y-4 pt-4">
+      <PageHeader
+        title="Interview feedback"
+        description={`${interview.role}${interview.company ? ` at ${interview.company}` : ""}${taken ? ` · ${taken.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}`}
+        icon={<Video strokeWidth={1.75} aria-hidden="true" />}
+        crumbs={[{ label: "Home", href: "/" }, { label: "Interviews", href: "/interview" }, { label: "Feedback" }]}
+        actions={<>
+          <JournalSyncButton interviewId={id} initialEntryId={journalEntryId} />
+          <RetakeButton interviewId={id} className="btn-primary" label="Retake" />
+        </>}
+      />
 
-      {/* Header */}
-      <div className="glass-card hover-lift">
-        <div className="p-4 sm:p-6">
-          <Link href="/interview" className="inline-flex items-center text-xs sm:text-sm text-slate-400 hover:text-white mb-3 sm:mb-4 transition-colors">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Link>
-          <div className="flex flex-col xs:flex-row items-start xs:items-center gap-2 mb-3 sm:mb-4">
-            <div className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-400 text-xs sm:text-sm font-medium">
-              <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2" />
-              Analysis Complete
-            </div>
-            <span className="text-slate-400 text-xs sm:text-sm">{new Date().toLocaleDateString()}</span>
+      {/* Score and the areas behind it */}
+      <section className="glass-card grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)]">
+        <div className="p-6 sm:p-7 flex flex-col items-center text-center border-b lg:border-b-0 lg:border-r border-white/[0.06]">
+          <div className="relative w-[132px] h-[132px]">
+            <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90" aria-hidden="true">
+              <circle cx="60" cy="60" r={R} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="8" />
+              <circle cx="60" cy="60" r={R} fill="none" stroke={t.ring} strokeWidth="8" strokeLinecap="round"
+                strokeDasharray={C} strokeDashoffset={C * (1 - feedback.totalScore / 100)} className="prc-ring" style={{ ["--ring-c" as string]: C } as React.CSSProperties} />
+            </svg>
+            <span className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="font-display text-[38px] font-semibold tracking-[-0.03em] text-white tabular-nums leading-none">{feedback.totalScore}</span>
+              <span className="text-[12px] text-[var(--text-4)] mt-1">out of 100</span>
+            </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-semibold text-white mb-1 sm:mb-2">
-            Interview Performance Report
-          </h1>
-          <p className="text-slate-400 text-sm sm:text-base">
-            Analysis for <span className="font-medium text-blue-400">{interview.role}</span>
-            {interview.company && <span> at {interview.company}</span>}
-          </p>
-          <div className="mt-4">
-            <JournalSyncButton interviewId={id} initialEntryId={journalEntryId} />
-          </div>
-        </div>
-      </div>
-
-      {/* Main Score Card */}
-      <div className="glass-card">
-        <div className="p-4 sm:p-6 lg:p-8">
-          <div className="grid lg:grid-cols-3 gap-6 sm:gap-8">
-            <div className="text-center">
-              <div className="relative inline-block mb-4 sm:mb-6">
-                <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-white/[0.042] border-4 border-[var(--border)] flex items-center justify-center relative">
-                  <svg className="absolute inset-0 w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="42" stroke="currentColor" strokeWidth="4" fill="none" className="text-slate-500" />
-                    <circle cx="50" cy="50" r="42"
-                      stroke={`${feedback.totalScore >= 85 ? '#10b981' : feedback.totalScore >= 70 ? '#3b82f6' : feedback.totalScore >= 55 ? '#f59e0b' : '#ef4444'}`}
-                      strokeWidth="4" fill="none"
-                      strokeDasharray={`${(feedback.totalScore / 100) * 264} 264`}
-                      className="transition-all duration-2000"
-                      style={{ strokeLinecap: 'round' }}
-                    />
-                  </svg>
-                  <div className="text-center relative z-10">
-                    <div className="text-3xl sm:text-4xl font-semibold text-white mb-1">{feedback.totalScore}</div>
-                    <div className="text-xs sm:text-sm text-slate-400">/100</div>
-                  </div>
-                </div>
-                <div className="absolute -top-1 -right-1" aria-label={`Grade ${gradeBadge.grade}`}>
-                  <div className={`w-11 h-11 sm:w-12 sm:h-12 ${gradeBadge.color} rounded-full flex items-center justify-center text-white font-bold text-base sm:text-lg ring-4 ring-[var(--bg)] shadow-lg`}>
-                    {gradeBadge.grade}
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-2 sm:space-y-3">
-                <div className={`inline-flex items-center px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg font-medium border text-sm sm:text-base ${getScoreColor(feedback.totalScore)}`}>
-                  {getScoreLabel(feedback.totalScore)}
-                </div>
-                <div>
-                  <h3 className="text-lg sm:text-xl font-semibold text-white mb-1">{interview.role}</h3>
-                  <p className="text-slate-400 text-sm sm:text-base">{interview.type} Interview</p>
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:col-span-2">
-              {[
-                { label: "Questions", value: String(interviewStats.questionsAnswered), icon: HelpCircle },
-                { label: "Duration", value: `${interviewStats.duration}m`, icon: Clock },
-                { label: "Score", value: String(feedback.totalScore), icon: Star },
-                { label: "Categories", value: String(categoryScores.length), icon: Target },
-                { label: "Strengths", value: String(strengths.length), icon: Award },
-                { label: "Complete", value: interviewStats.completionRate, icon: CheckCircle },
-              ].map((metric, index) => (
-                <div key={index} className="glass-card p-3 sm:p-4 border border-white/5">
-                  <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-2">
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <metric.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400" />
-                    </div>
-                    <span className="text-xs sm:text-sm text-slate-400">{metric.label}</span>
-                  </div>
-                  <p className="text-xl sm:text-2xl font-semibold text-white">{metric.value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Benchmark */}
-      <div className="glass-card">
-        <div className="p-4 sm:p-6">
-          <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-[var(--accent-subtle)] rounded-lg flex items-center justify-center">
-              <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-[#a9b0f7]" />
-            </div>
-            <div>
-              <h3 className="text-base sm:text-lg font-semibold text-white">Performance Benchmark</h3>
-              <p className="text-slate-400 text-xs sm:text-sm">Industry comparison</p>
-            </div>
-          </div>
-          <div className="space-y-3 sm:space-y-4">
+          <p className={`mt-4 text-[15px] font-semibold ${t.text}`}>{getScoreLabel(feedback.totalScore)}</p>
+          <p className="text-[12.5px] text-[var(--text-4)] mt-1">{typeName} interview · {interview.questions.length} questions</p>
+          <dl className="grid grid-cols-2 gap-px w-full mt-6 rounded-xl overflow-hidden ring-1 ring-inset ring-white/[0.07] bg-white/[0.06]">
             {[
-              { label: "Your Score", value: industryBenchmark.yourScore, isUser: true, isTop: false },
-              { label: "Industry Average", value: industryBenchmark.industryAverage, isUser: false, isTop: false },
-              { label: "Company Average", value: industryBenchmark.companyAverage, isUser: false, isTop: false },
-              { label: "Top 10%", value: industryBenchmark.topPerformers, isUser: false, isTop: true },
-            ].map((item, index) => (
-              <div key={index} className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs sm:text-sm text-slate-400">{item.label}</span>
-                  <span className={`font-semibold text-sm sm:text-base ${item.isUser ? "text-blue-400" : item.isTop ? "text-emerald-400" : "text-slate-400"}`}>
-                    {item.value}
-                  </span>
-                </div>
-                <div className="w-full bg-white/[0.042] rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full transition-all duration-1000 ${item.isUser ? "bg-[var(--accent)]" : item.isTop ? "bg-emerald-500" : "bg-slate-600"}`}
-                    style={{ width: `${item.value}%` }}
-                  />
-                </div>
+              { label: "Strengths", value: strengths.length },
+              { label: "To work on", value: areasForImprovement.length },
+            ].map(s => (
+              <div key={s.label} className="bg-[var(--sheet,#0f1011)] px-3 py-2.5">
+                <dd className="font-display text-[20px] font-semibold text-white tabular-nums">{s.value}</dd>
+                <dt className="text-[11.5px] text-[var(--text-4)]">{s.label}</dt>
               </div>
             ))}
-          </div>
-          <div className="mt-4 sm:mt-6 glass-card p-3 sm:p-4 border border-white/5 text-center">
-            {feedback.totalScore > industryBenchmark.industryAverage ? (
-              <div>
-                <div className="text-xl sm:text-2xl mb-2">🎉</div>
-                <div className="text-emerald-400 font-medium text-xs sm:text-sm">Above Industry Average!</div>
-                <div className="text-xs text-slate-400 mt-1">{feedback.totalScore - industryBenchmark.industryAverage} points higher</div>
-              </div>
-            ) : (
-              <div>
-                <div className="text-xl sm:text-2xl mb-2">🎯</div>
-                <div className="text-amber-400 font-medium text-xs sm:text-sm">Growth Opportunity</div>
-                <div className="text-xs text-slate-400 mt-1">{industryBenchmark.industryAverage - feedback.totalScore} points to average</div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Category Breakdown */}
-      <div className="glass-card">
-        <div className="p-4 sm:p-6 border-b border-white/5">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
-              <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-semibold text-white">Detailed Performance Analysis</h2>
-              <p className="text-slate-400 text-xs sm:text-sm">Breakdown across {categoryScores.length} categories</p>
-            </div>
-          </div>
-        </div>
-        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-          {categoryScores.map((category: CategoryScore, index: number) => {
-            const isStrength = category.score >= 80;
-            const needsWork = category.score < 60;
-            return (
-              <div key={index} className="glass-card p-4 sm:p-6 border border-white/5">
-                <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between mb-4 sm:mb-5 gap-3 sm:gap-4">
-                  <div className="flex items-start gap-3 sm:gap-4 flex-1 w-full">
-                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-lg sm:text-xl flex-shrink-0 ${isStrength ? 'bg-emerald-500/10' : needsWork ? 'bg-amber-500/10' : 'bg-blue-500/10'}`}>
-                      {isStrength ? '🏆' : needsWork ? '🎯' : '📊'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base sm:text-lg font-semibold text-white mb-2">{category.name}</h3>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <div className={`inline-flex items-center px-2.5 sm:px-3 py-1 rounded-lg text-xs sm:text-sm font-medium border ${getScoreColor(category.score)}`}>
-                          {category.score}/100
-                        </div>
-                        {isStrength && <span className="px-2 py-0.5 sm:py-1 bg-emerald-500/10 text-emerald-400 rounded text-xs font-medium">Key Strength</span>}
-                        {needsWork && <span className="px-2 py-0.5 sm:py-1 bg-amber-500/10 text-amber-400 rounded text-xs font-medium">Priority Focus</span>}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 mx-auto sm:mx-0">
-                    <svg className="transform -rotate-90 w-16 h-16 sm:w-20 sm:h-20">
-                      <circle cx={`${16 * 2.5}`} cy={`${16 * 2.5}`} r="28" stroke="currentColor" strokeWidth="4" fill="none" className="text-slate-800" />
-                      <circle cx={`${16 * 2.5}`} cy={`${16 * 2.5}`} r="28"
-                        stroke={isStrength ? '#10b981' : needsWork ? '#f59e0b' : '#3b82f6'}
-                        strokeWidth="4" fill="none"
-                        strokeDasharray={`${(category.score / 100) * 176} 176`}
-                        className="transition-all duration-1000"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-sm sm:text-base font-semibold text-white">{category.score}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="glass-card p-4 sm:p-5 border border-white/5 mb-4 sm:mb-5">
-                  <div className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 bg-[var(--accent-subtle)] rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Brain className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#a9b0f7]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-white text-xs sm:text-sm mb-1.5 sm:mb-2">AI Assessment</h4>
-                      <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">{category.comment}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
-                  {category.score >= 60 && (
-                    <div className="glass-card p-3 sm:p-4 border border-emerald-500/20">
-                      <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
-                        <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
-                        <h5 className="font-medium text-emerald-400 text-xs sm:text-sm">What&apos;s Working</h5>
-                      </div>
-                      <p className="text-slate-300 text-xs leading-relaxed">
-                        {category.score >= 80 ? `Strong understanding and application. Continue leveraging this in interviews.` : `Solid foundation. Build on this to reach expert level.`}
-                      </p>
-                    </div>
-                  )}
-                  <div className={`glass-card p-3 sm:p-4 border ${category.score >= 60 ? 'border-blue-500/20' : 'border-amber-500/20'}`}>
-                    <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
-                      <Target className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${category.score >= 60 ? 'text-blue-400' : 'text-amber-400'}`} />
-                      <h5 className={`font-medium text-xs sm:text-sm ${category.score >= 60 ? 'text-blue-400' : 'text-amber-400'}`}>
-                        {category.score >= 60 ? 'Next Level' : 'Focus Areas'}
-                      </h5>
-                    </div>
-                    <p className="text-slate-300 text-xs leading-relaxed">
-                      {category.score >= 80 ? `Study advanced concepts and mentor others.` : category.score >= 60 ? `Practice with varied examples and seek expert feedback.` : `Strengthen fundamentals with structured learning.`}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Strengths & Growth */}
-      <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
-        <div className="glass-card">
-          <div className="p-4 sm:p-6 border-b border-white/5">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
-                <Award className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
-              </div>
-              <div>
-                <h3 className="text-base sm:text-lg font-semibold text-white">Key Strengths</h3>
-                <p className="text-slate-400 text-xs sm:text-sm">{strengths.length} areas of excellence</p>
-              </div>
-            </div>
-          </div>
-          <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-            {strengths.map((strength: string, index: number) => (
-              <div key={index} className="glass-card p-3 sm:p-4 border border-emerald-500/20">
-                <div className="flex items-start gap-2 sm:gap-3">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">{strength}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          </dl>
         </div>
 
-        <div className="glass-card">
-          <div className="p-4 sm:p-6 border-b border-white/5">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
-                <Target className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
-              </div>
-              <div>
-                <h3 className="text-base sm:text-lg font-semibold text-white">Growth Areas</h3>
-                <p className="text-slate-400 text-xs sm:text-sm">{areasForImprovement.length} development opportunities</p>
-              </div>
-            </div>
+        <div className="p-6 sm:p-7 min-w-0">
+          <div className="flex items-baseline justify-between gap-3 mb-4">
+            <h2 className="font-display text-[15px] font-semibold text-white">By area</h2>
+            {weakestCategory && <p className="text-[12px] text-[var(--text-4)] truncate">Lowest: {weakestCategory}</p>}
           </div>
-          <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-            {areasForImprovement.map((area: string, index: number) => {
-              const priority = index < 2 ? "High" : index < 4 ? "Medium" : "Low";
-              return (
-                <div key={index} className="glass-card p-3 sm:p-4 border border-amber-500/20">
-                  <div className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 bg-amber-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
+          {categoryScores.length > 0 ? (
+            <ul className="space-y-4">
+              {categoryScores.map(c => {
+                const ct = tone(c.score);
+                return (
+                  <li key={c.name}>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="text-[13.5px] font-medium text-white truncate">{c.name}</span>
+                      <span className={`text-[13px] font-semibold tabular-nums ${ct.text}`}>{c.score}</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
-                        <span className={`px-1.5 sm:px-2 py-0.5 rounded text-xs font-medium ${priority === 'High' ? 'bg-red-500/10 text-red-400' : priority === 'Medium' ? 'bg-amber-500/10 text-amber-400' : 'bg-blue-500/10 text-blue-400'}`}>
-                          {priority} Priority
-                        </span>
-                      </div>
-                      <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">{area}</p>
+                    <div className="mt-1.5 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                      <div className={`h-full rounded-full ${ct.bar}`} style={{ width: `${Math.max(2, Math.min(100, c.score))}%` }} />
                     </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                    {c.comment && <p className="text-[12.5px] text-[var(--text-3)] mt-1.5 leading-relaxed">{c.comment}</p>}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="text-[13px] text-[var(--text-4)]">This feedback has no per-area scores.</p>
+          )}
         </div>
-      </div>
+      </section>
 
-      {/* AI Assessment Summary */}
-      <div className="glass-card">
-        <div className="p-4 sm:p-6 border-b border-white/5">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-[var(--accent-subtle)] rounded-lg flex items-center justify-center">
-              <Brain className="w-4 h-4 sm:w-5 sm:h-5 text-[#a9b0f7]" />
-            </div>
-            <div>
-              <h3 className="text-base sm:text-lg font-semibold text-white">AI Assessment Summary</h3>
-              <p className="text-slate-400 text-xs sm:text-sm">Comprehensive analysis</p>
-            </div>
+      {/* Summary, strengths and what to work on */}
+      <section className="glass-card divide-y divide-white/[0.06]">
+        {feedback.finalAssessment && (
+          <div className="p-6 sm:p-7">
+            <h2 className="font-display text-[15px] font-semibold text-white mb-2">Summary</h2>
+            <p className="text-[13.5px] text-[var(--text-2)] leading-relaxed max-w-3xl">{feedback.finalAssessment}</p>
+          </div>
+        )}
+        <div className="grid md:grid-cols-2 md:divide-x divide-white/[0.06]">
+          <div className="p-6 sm:p-7">
+            <h2 className="font-display text-[15px] font-semibold text-white mb-3 flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400" />What went well</h2>
+            {strengths.length ? (
+              <ul className="space-y-2.5">
+                {strengths.map(s => <li key={s} className="flex gap-2.5 text-[13px] text-[var(--text-2)] leading-relaxed"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-[7px] flex-shrink-0" aria-hidden="true" />{s}</li>)}
+              </ul>
+            ) : <p className="text-[13px] text-[var(--text-4)]">None listed.</p>}
+          </div>
+          <div className="p-6 sm:p-7 border-t md:border-t-0 border-white/[0.06]">
+            <h2 className="font-display text-[15px] font-semibold text-white mb-3 flex items-center gap-2"><Target className="w-4 h-4 text-amber-300" />What to work on</h2>
+            {areasForImprovement.length ? (
+              <ul className="space-y-2.5">
+                {areasForImprovement.map(a => <li key={a} className="flex gap-2.5 text-[13px] text-[var(--text-2)] leading-relaxed"><span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-[7px] flex-shrink-0" aria-hidden="true" />{a}</li>)}
+              </ul>
+            ) : <p className="text-[13px] text-[var(--text-4)]">None listed.</p>}
           </div>
         </div>
-        <div className="p-4 sm:p-6">
-          <div className="glass-card p-4 sm:p-5 border border-white/5 mb-4 sm:mb-6">
-            <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">{feedback.finalAssessment}</p>
-          </div>
-          <div className="grid sm:grid-cols-3 gap-3 sm:gap-4">
-            <div className="glass-card p-3 sm:p-4 border border-white/5 text-center">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center mx-auto mb-2">
-                <span className="text-base sm:text-lg">{feedback.totalScore >= 80 ? '✓' : feedback.totalScore >= 65 ? '→' : '↗'}</span>
-              </div>
-              <p className="text-sm sm:text-base font-semibold text-white mb-1">
-                {feedback.totalScore >= 80 ? 'Interview Ready' : feedback.totalScore >= 65 ? 'Nearly Ready' : 'In Progress'}
-              </p>
-              <p className="text-xs text-slate-400">Readiness Level</p>
-            </div>
-            <div className="glass-card p-3 sm:p-4 border border-white/5 text-center">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-[var(--accent-subtle)] rounded-lg flex items-center justify-center mx-auto mb-2">
-                <span className="text-base sm:text-lg">{feedback.totalScore > industryBenchmark.industryAverage ? '⭐' : '📊'}</span>
-              </div>
-              <p className="text-sm sm:text-base font-semibold text-white mb-1">
-                {feedback.totalScore > industryBenchmark.topPerformers ? 'Top Tier' : feedback.totalScore > industryBenchmark.industryAverage ? 'Above Average' : 'Developing'}
-              </p>
-              <p className="text-xs text-slate-400">Competitive Edge</p>
-            </div>
-            <div className="glass-card p-3 sm:p-4 border border-white/5 text-center">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-indigo-500/10 rounded-lg flex items-center justify-center mx-auto mb-2">
-                <span className="text-base sm:text-lg">📈</span>
-              </div>
-              <p className="text-sm sm:text-base font-semibold text-white mb-1">
-                {areasForImprovement.length < 3 ? 'Excellent' : areasForImprovement.length < 5 ? 'Strong' : 'Moderate'}
-              </p>
-              <p className="text-xs text-slate-400">Growth Trajectory</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      </section>
 
       {/* The code from the editor, only for interviews that had some. */}
       {feedback.codeReview && <CodeReviewSection review={feedback.codeReview} />}
@@ -612,86 +283,26 @@ export default async function InterviewFeedbackPage({ params }: Props) {
       {/* Annotated transcript */}
       <TranscriptReview interviewId={id} turns={transcriptTurns} />
 
-      {/* NextStepPrompt */}
       <NextStepPrompt
         trigger="interview_feedback"
-        context={{
-          score: feedback.totalScore,
-          role: interview.role,
-          // The LOWEST-SCORING CATEGORY NAME, not a sentence.
-          //
-          // This passed areasForImprovement[0], which is a full AI-written
-          // sentence. NextStepPrompt interpolates it as `Practice ${weak}
-          // again`, so the card read "Practice Improve clarity and structure
-          // in responses; practice articulating technical challenges and
-          // solutions more effectively. again" - ungrammatical, and long
-          // enough to double the height of its half of the row.
-          //
-          // categoryScores carries exactly what the prop means: a short label
-          // like "Communication Skills" that reads correctly inside a
-          // template.
-          weakCategory: weakestCategory,
-        }}
+        // weakCategory is the lowest-scoring category NAME, a short label that
+        // reads correctly inside NextStepPrompt's "Practice X again" template.
+        context={{ score: feedback.totalScore, role: interview.role, weakCategory: weakestCategory }}
         delay={1500}
       />
 
-      {/* ── Share Score Card (temporarily disabled) ──────────────────────────
-      <ShareScoreCard
-        userName={user.name}
-        role={interview.role}
-        company={interview.company}
-        interviewType={
-          (["technical", "behavioral", "system-design", "coding"].includes(interview.type)
-            ? interview.type
-            : "technical") as "technical" | "behavioral" | "system-design" | "coding"
-        }
-        scores={{
-          overall:        feedback.totalScore,
-          technical:      findCategoryScore(["technical", "coding", "engineering"]),
-          communication:  findCategoryScore(["communication", "verbal", "clarity"]),
-          problemSolving: findCategoryScore(["problem", "solving", "analytical"]),
-          confidence:     findCategoryScore(["confidence", "delivery", "presence"]),
-        }}
-        strengths={strengths.slice(0, 3)}
-        interviewId={id}
-      />
-      ─────────────────────────────────────────────────────────────────────── */}
-
-      {/* Action Center */}
-      <div className="glass-card">
-        <div className="text-center py-8 sm:py-12 px-4 sm:px-6">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-[var(--accent)] rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-6">
-            <Lightbulb className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
-          </div>
-          <h2 className="text-xl sm:text-2xl font-semibold text-white mb-2 sm:mb-3">
-            Ready for Your Next Challenge?
-          </h2>
-          <p className="text-slate-400 mb-6 sm:mb-8 max-w-2xl mx-auto text-sm sm:text-base">
-            Continue your interview preparation journey
-          </p>
-          <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 sm:gap-4">
-            <Button asChild className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] font-medium px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base">
-              <Link href="/interview/create" className="flex items-center gap-2">
-                <Target className="w-4 h-4 sm:w-5 sm:h-5" />
-                Practice More
-              </Link>
-            </Button>
-            <Button asChild className="bg-emerald-600 hover:from-emerald-700 hover:to-green-700 text-white font-medium px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base">
-              <Link href={`/interview/${id}`} className="flex items-center gap-2">
-                <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5" />
-                Retake Interview
-              </Link>
-            </Button>
-            <Button asChild className="glass-button hover-lift text-white font-medium px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base">
-              <Link href="/" className="flex items-center gap-2">
-                <Users className="w-4 h-4 sm:w-5 sm:h-5" />
-                Dashboard
-              </Link>
-            </Button>
-          </div>
+      {/* Practise again */}
+      <section className="glass-card p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display text-[15px] font-semibold text-white">Practise again</h2>
+          <p className="text-[12.5px] text-[var(--text-3)] mt-0.5">Retake the same questions to see if {weakestCategory ? weakestCategory.toLowerCase() : "your score"} moves, or start a new interview.</p>
         </div>
-      </div>
-
+        <div className="flex flex-wrap gap-2">
+          <Link href="/interview" className="btn-secondary"><ArrowLeft className="w-4 h-4" /> All interviews</Link>
+          <Link href="/interview/create" className="btn-secondary"><Plus className="w-4 h-4" /> New interview</Link>
+          <RetakeButton interviewId={id} className="btn-primary" label="Retake this interview" />
+        </div>
+      </section>
     </div>
   );
 }

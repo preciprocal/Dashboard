@@ -5,7 +5,7 @@ import InterviewGeneratorForm from "@/components/InterviewGeneratorForm";
 import { getCurrentUser } from "@/lib/actions/auth.action";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Shield, ArrowRight, Calendar, Sparkles, History } from "lucide-react";
+import { Shield, ArrowRight, Calendar, History, Target } from "lucide-react";
 import { USAGE_LIMITS, normalisePlan, isUnlimited } from "@/lib/config/usage-limits";
 import { toSupabaseUserId } from "@/lib/auth/verify-request";
 import { loadPracticeApplication, typeForStage, stageLabel } from "@/lib/interview/practice-context";
@@ -90,124 +90,78 @@ export default async function CreateInterviewPage({
     ? Math.max(0, Math.ceil((nextResetDate.getTime() - Date.now()) / 86_400_000))
     : 0;
 
+  const pro = USAGE_LIMITS.pro;
+  const per = (n: number) => (isUnlimited(n) ? 'Unlimited' : String(n));
+
   return (
     <div className="space-y-4 pt-4">
+      <PageHeader
+        title="New Interview" description="Questions written for your role, level and the job" icon={<HeaderIcon strokeWidth={1.75} aria-hidden="true" />}
+        crumbs={[{ label: 'Home', href: '/' }, { label: 'Interviews', href: '/interview' }, { label: 'New' }]}
+        actions={<>
+          <span className="btn-pill"><Shield /> {isUnlimited(interviewsLimit) ? 'Unlimited' : `${remaining} left`}</span>
+          <Link href="/interview" className="btn-secondary"><History /> History</Link>
+        </>}
+      />
 
       {hasSessions ? (
-        <>
-          <PageHeader
-            title="New Interview" description="AI questions tailored to your role and level" icon={<HeaderIcon strokeWidth={1.75} aria-hidden="true" />}
-            actions={<>
-              <span className="btn-pill"><Shield /> {isUnlimited(interviewsLimit) ? 'Unlimited' : `${remaining} left`}</span>
-              <Link href="/interview" className="btn-secondary"><History /> History</Link>
-            </>}
+        <div className="glass-card px-5 sm:px-7 py-6">
+          {practiceApp && (
+            <div className="mb-6 flex items-start gap-3 rounded-xl ring-1 ring-inset ring-white/[0.08] bg-white/[0.03] px-4 py-3.5">
+              <Target className="w-4 h-4 text-[var(--text-2)] mt-0.5 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[13.5px] font-medium text-white">
+                  Practising for your {practiceStage ?? 'interview'}{practiceApp.company ? ` at ${practiceApp.company}` : ''}
+                </p>
+                <p className="text-[12.5px] text-[var(--text-3)] mt-1 leading-relaxed">
+                  Questions are built for this stage{practiceApp.jobDescription ? ' from the job posting you saved' : ''}, plus anything you logged in past debriefs with this company. The interviewer introduces themselves as working there.
+                </p>
+              </div>
+            </div>
+          )}
+          <InterviewGeneratorForm
+            userId={user.id}
+            initialRole={practiceApp?.jobTitle || roleParam || undefined}
+            initialType={practiceApp ? typeForStage(practiceApp.status) : typeParam}
+            initialJobDescription={practiceApp?.jobDescription ?? undefined}
+            applicationId={practiceApp?.id}
           />
-
-          {/* Form */}
-          <div className="overflow-y-auto glass-scrollbar pb-4">
-            <div className="glass-card p-5 sm:p-6">
-              {practiceApp && (
-                <div className="mb-5 rounded-xl border border-[var(--accent-border)] bg-[var(--accent-subtle)] px-4 py-3">
-                  <p className="text-sm font-semibold text-white">
-                    Practising for your {practiceStage ?? 'interview'}{practiceApp.company ? ` at ${practiceApp.company}` : ''}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Questions are built for this stage{practiceApp.jobDescription ? ' from the job posting you saved' : ''}, plus anything you logged in past debriefs with this company. The interviewer will introduce themselves as working there.
-                  </p>
+        </div>
+      ) : (
+        /* Limit reached */
+        <div className="glass-card p-6 sm:p-8">
+          <div className="grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-8 items-start">
+            <div>
+              <span className="w-11 h-11 rounded-xl bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] flex items-center justify-center"><Shield className="w-5 h-5 text-[var(--text-2)]" /></span>
+              <h2 className="font-display text-[20px] font-semibold tracking-[-0.02em] text-white mt-5">You have used this month&apos;s interviews</h2>
+              <p className="text-[13.5px] text-[var(--text-3)] mt-2 leading-relaxed max-w-lg">
+                Your plan includes {interviewsLimit} mock interview{interviewsLimit === 1 ? '' : 's'} a month. Upgrade for more, or wait for the next reset.
+              </p>
+              <div className="flex flex-wrap gap-2.5 mt-6">
+                <Link href="/pricing" className="btn-primary">See plans <ArrowRight className="w-4 h-4" /></Link>
+                <Link href="/interview" className="btn-secondary">Your interviews</Link>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {nextResetDate && (
+                <div className="rounded-xl ring-1 ring-inset ring-white/[0.07] bg-white/[0.02] p-4 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <Calendar className="w-4 h-4 text-[var(--text-3)]" />
+                    <div>
+                      <p className="text-[11.5px] text-[var(--text-4)]">Next reset</p>
+                      <p className="text-[14px] font-medium text-white">{nextResetDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                    </div>
+                  </div>
+                  <p className="text-right"><span className="font-display text-[22px] font-semibold text-white tabular-nums">{daysUntilReset}</span> <span className="text-[12px] text-[var(--text-4)]">days</span></p>
                 </div>
               )}
-              <InterviewGeneratorForm
-                userId={user.id}
-                initialRole={practiceApp?.jobTitle || roleParam || undefined}
-                initialType={practiceApp ? typeForStage(practiceApp.status) : typeParam}
-                initialJobDescription={practiceApp?.jobDescription ?? undefined}
-                applicationId={practiceApp?.id}
-              />
-            </div>
-          </div>
-        </>
-      ) : (
-        /* ── Limit reached ── */
-        <div className="flex-1 flex items-center justify-center py-8">
-          <div className="max-w-md w-full space-y-4">
-
-            {/* Icon */}
-            <div className="text-center mb-6">
-              <div className="w-14 h-14 bg-white/[0.03] border border-white/[0.07] rounded-2xl
-                             flex items-center justify-center mx-auto mb-4">
-                <Shield className="w-6 h-6 text-slate-500" />
-              </div>
-              <h2 className="text-xl font-bold text-white mb-2">Interview Limit Reached</h2>
-              <p className="text-sm text-slate-400 leading-relaxed max-w-sm mx-auto">
-                You&apos;ve used all {interviewsLimit} mock interviews in your plan this month.
-                Upgrade for a higher limit, or wait for your next reset.
-              </p>
-            </div>
-
-            {/* CTAs */}
-            <Link
-              href="/pricing"
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
-                         bg-[var(--primary)]
-                         hover:bg-[var(--primary-hover)]
-                         text-[var(--on-primary)] text-sm font-semibold
-                         
-                         transition-all duration-200"
-            >
-              Upgrade to Pro <ArrowRight className="w-4 h-4" />
-            </Link>
-
-            <Link
-              href="/interview"
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
-                         bg-white/[0.05] border border-white/[0.08]
-                         text-sm font-semibold text-slate-400
-                         hover:text-white hover:bg-white/[0.08] transition-all"
-            >
-              View My Interviews
-            </Link>
-
-            {/* Next reset */}
-            {nextResetDate && (
-              <div className="glass-card p-4 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-white/[0.04] border border-white/[0.07] rounded-xl
-                                 flex items-center justify-center flex-shrink-0">
-                    <Calendar className="w-4 h-4 text-slate-400" />
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold">
-                      Next reset
-                    </p>
-                    <p className="text-sm font-semibold text-white">
-                      {nextResetDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-white tabular-nums">{daysUntilReset}</p>
-                  <p className="text-[11px] text-slate-500">days left</p>
-                </div>
-              </div>
-            )}
-
-            {/* Pro benefits */}
-            <div className="glass-card p-4">
-              <p className="text-xs font-bold text-white mb-3 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#a9b0f7]" /> Pro Plan Benefits
-              </p>
-              <div className="space-y-2">
-                {[
-                  '5 mock interviews / month',
-                  '10 resume analyses / month',
-                  '20 cover letters & 3 study plans / month',
-                  'Priority AI responses',
-                ].map(benefit => (
-                  <div key={benefit} className="flex items-center gap-2 text-xs text-slate-400">
-                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-400/60 flex-shrink-0" />
-                    {benefit}
-                  </div>
-                ))}
+              <div className="rounded-xl ring-1 ring-inset ring-white/[0.07] bg-white/[0.02] p-4">
+                <p className="text-[12.5px] font-medium text-white mb-2.5">Pro includes, each month</p>
+                <ul className="space-y-1.5 text-[12.5px] text-[var(--text-3)]">
+                  <li>{per(pro.interviews)} mock interviews</li>
+                  <li>{per(pro.resumes)} resume analyses</li>
+                  <li>{per(pro.coverLetters)} cover letters and {per(pro.studyPlans)} study plans</li>
+                </ul>
               </div>
             </div>
           </div>
