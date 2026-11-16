@@ -1,7 +1,7 @@
 // app/(root)/templates/page.tsx
 "use client";
 import { Breadcrumbs, crumbsFor } from '@/components/PageHeader';
-import { BookOpen, Send } from 'lucide-react';
+import { BookOpen, Send, Code2, Users, Layers, MessagesSquare, ArrowRight, LayoutGrid } from 'lucide-react';
 
 import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from 'next/navigation';
@@ -98,121 +98,49 @@ const TemplateCard: React.FC<{ template: Template }> = ({ template }) => {
     }
   };
 
-  const difficultyStyle = (d: string) =>
-    d === 'Beginner'     ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
-    d === 'Intermediate' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
-                           'bg-red-500/10 border-red-500/20 text-red-400';
-
-  const typeStyle = (t: string) =>
-    t === 'Technical'  ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' :
-    t === 'Behavioral' ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' :
-                         'bg-indigo-500/10 border-indigo-500/20 text-indigo-400';
-
-  const TypeIcon = ({ type }: { type: string }) => {
-    if (type === 'Technical') return (
-      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-      </svg>
-    );
-    if (type === 'Behavioral') return (
-      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    );
-    return (
-      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-    );
-  };
+  // Difficulty as a coloured dot; everything else neutral, so a page of cards
+  // stays calm and the role reads first.
+  const dot = template.difficulty === 'Beginner' ? 'bg-emerald-400' : template.difficulty === 'Intermediate' ? 'bg-amber-400' : 'bg-rose-400';
+  const TypeIcon = template.type === 'Technical' ? Code2 : template.type === 'Behavioral' ? Users : Layers;
+  const chip = 'inline-flex items-center gap-1.5 h-6 px-2 rounded-md text-[11.5px] text-[var(--text-2)] bg-white/[0.04] ring-1 ring-inset ring-white/[0.06]';
 
   return (
-    <div className="glass-card flex flex-col transition-all duration-300 hover:border-purple-500/30 hover:-translate-y-0.5  group">
-
-      {/* Header */}
-      <div className="p-5 flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-base font-semibold text-white group-hover:text-purple-300 transition-colors leading-snug mb-1.5 truncate">
-            {template.role}
-          </h3>
-          <p className="text-slate-400 text-xs leading-relaxed line-clamp-2">{template.description}</p>
+    <div className="group flex flex-col rounded-2xl ring-1 ring-inset ring-white/[0.07] hover:ring-white/[0.14] hover:bg-white/[0.015] transition-colors">
+      {/* Role and save */}
+      <div className="p-5 pb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--text-4)] truncate">{template.category}</p>
+          <h3 className="text-[15.5px] font-semibold text-white leading-snug mt-1 truncate">{template.role}</h3>
+          <p className="text-[12.5px] text-[var(--text-3)] leading-relaxed mt-1.5 line-clamp-2">{template.description}</p>
         </div>
-        <button
-          onClick={toggleBookmark}
-          aria-label={isBookmarked ? 'Remove from saved' : 'Save template'}
-          className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all cursor-pointer ${
-            isBookmarked
-              ? 'bg-purple-500/15 border border-purple-500/25 text-purple-400'
-              : 'bg-slate-800/60 border border-white/[0.06] text-slate-400 hover:text-slate-300'
-          }`}
-        >
+        <button onClick={toggleBookmark} aria-label={isBookmarked ? 'Remove from saved' : 'Save template'} title={isBookmarked ? 'Saved' : 'Save'}
+          className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors cursor-pointer ${isBookmarked ? 'text-white bg-[var(--accent-subtle)] ring-1 ring-inset ring-[var(--accent-border)]' : 'text-[var(--text-4)] bg-white/[0.03] ring-1 ring-inset ring-white/[0.07] hover:text-white hover:bg-white/[0.07]'}`}>
           {isBookmarked ? <BookmarkCheck className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5" />}
         </button>
       </div>
 
-      {/* Stats row */}
-      <div className="px-5 pb-4 flex items-center gap-3 text-xs text-slate-400 flex-wrap">
-        {/* The rating and completion figures in the template list are not
-            measured from real use, so they are not shown. */}
-        <div className="flex items-center gap-1">
-          <MessageSquare className="w-3.5 h-3.5" />
-          <span>{template.questions} questions</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Clock className="w-3.5 h-3.5" />
-          <span>{template.duration}</span>
-        </div>
+      {/* Facts */}
+      <div className="px-5 flex flex-wrap items-center gap-1.5">
+        <span className={chip}><span className={`w-1.5 h-1.5 rounded-full ${dot}`} />{template.difficulty}</span>
+        <span className={chip}><TypeIcon className="w-3 h-3 text-[var(--text-4)]" />{template.type}</span>
+        <span className={chip}><MessageSquare className="w-3 h-3 text-[var(--text-4)]" />{template.questions} questions</span>
+        <span className={chip}><Clock className="w-3 h-3 text-[var(--text-4)]" />{template.duration}</span>
       </div>
 
-      {/* Badges */}
-      <div className="px-5 pb-4 flex flex-wrap gap-1.5">
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg border text-[11px] font-semibold ${difficultyStyle(template.difficulty)}`}>
-          {template.difficulty}
-        </span>
-        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold ${typeStyle(template.type)}`}>
-          <TypeIcon type={template.type} />
-          {template.type}
-        </span>
-      </div>
-
-      {/* Tech stack */}
-      <div className="px-5 pb-4 flex flex-wrap gap-1.5">
-        {template.techstack.slice(0, 4).map((tech, i) => (
-          <span key={i} className="px-2 py-0.5 bg-blue-500/10 border border-blue-500/15 text-blue-400 rounded-md text-[11px] font-medium">{tech}</span>
-        ))}
-        {template.techstack.length > 4 && (
-          <span className="px-2 py-0.5 bg-white/[0.042] border border-white/[0.06] text-slate-400 rounded-md text-[11px]">+{template.techstack.length - 4} more</span>
-        )}
-      </div>
-
-      {/* Tags */}
-      {template.tags && template.tags.length > 0 && (
-        <div className="px-5 pb-4 flex flex-wrap gap-1.5">
-          {template.tags.slice(0, 3).map((tag, i) => (
-            <span key={i} className="px-2 py-0.5 bg-purple-500/10 border border-purple-500/15 text-purple-400 rounded-md text-[11px] font-medium">{tag}</span>
-          ))}
-        </div>
+      {/* Skills covered */}
+      {template.techstack.length > 0 && (
+        <p className="px-5 mt-3 text-[12px] text-[var(--text-4)] leading-relaxed line-clamp-1">
+          {template.techstack.slice(0, 5).join(' · ')}{template.techstack.length > 5 ? ` · +${template.techstack.length - 5}` : ''}
+        </p>
       )}
 
-      {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Action button */}
-      <div className="px-5 pb-5">
-        <button
-          onClick={handleStartInterview}
-          disabled={isStarting}
-          className="w-full py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2
-                     bg-[var(--accent)]
-                     hover:bg-[var(--accent-hover)]
-                     disabled:opacity-50 disabled:cursor-not-allowed
-                     transition-all shadow-lg  cursor-pointer"
-        >
-          {isStarting ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Starting…</>
-          ) : (
-            <><Play className="w-4 h-4" /> Start Interview</>
-          )}
+      {/* Action */}
+      <div className="p-5 pt-4 mt-4 border-t border-white/[0.05]">
+        <button onClick={handleStartInterview} disabled={isStarting}
+          className="w-full h-9 rounded-lg text-[13px] font-semibold flex items-center justify-center gap-2 text-[var(--text-1)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.09] group-hover:bg-[var(--primary)] group-hover:text-[var(--on-primary)] group-hover:ring-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer">
+          {isStarting ? <><Loader2 className="w-4 h-4 animate-spin" /> Starting</> : <><Play className="w-3.5 h-3.5" /> Start interview</>}
         </button>
       </div>
     </div>
@@ -289,7 +217,7 @@ export default function TemplatesPage() {
   const [selectedType,       setSelectedType]       = useState('All');
   const [selectedDuration,   setSelectedDuration]   = useState('All');
   const [showFilters,        setShowFilters]        = useState(false);
-  const [view,               setView]               = useState<'all' | 'saved' | 'outreach'>('all');
+  const [view,               setView]               = useState<'all' | 'interview' | 'saved' | 'outreach'>('all');
   const [savedIds,           setSavedIds]           = useState<Set<string>>(() => new Set());
   const outreach = useOutreachFilters();
 
@@ -381,108 +309,110 @@ export default function TemplatesPage() {
   const durationOptions = durations.map(d => ({ label: d, value: d }));
 
   return (
-    <div className="space-y-6 px-4 sm:px-0 pb-12">
+    <div className="space-y-5 px-4 sm:px-0 pt-4 pb-12">
 
       {/* ── Header ── */}
-      <div className="glass-card p-5 sm:p-6">
-        {/* Same breadcrumb bar as every other page header (PageHeader). */}
-        <div className="-mx-5 sm:-mx-6 -mt-5 sm:-mt-6 mb-5 px-5 sm:px-6 rounded-t-[var(--r-2xl)] border-b border-white/[0.06] bg-white/[0.015] py-2"><Breadcrumbs crumbs={crumbsFor('/templates', 'Templates')} className="" /></div>
-        {/* Title on the left, the All / Saved switch on the right end of the
-            same row (stacked under the title on phones). */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 mb-5">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="w-10 h-10 rounded-[10px] bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
-              <BookOpen className="w-5 h-5 text-indigo-200" strokeWidth={1.75} />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-[20px] font-semibold text-white tracking-tight leading-tight">{view === 'outreach' ? 'Outreach Templates' : 'Interview Templates'}</h1>
-              <p className="text-[13px] text-slate-400 mt-0.5">
-                {view === 'outreach'
-                  ? `${OUTREACH_TEMPLATES.length} ready-to-send emails and LinkedIn messages for every stage of your search`
-                  : `${stats.total}+ ready-made interviews across every field`}
-              </p>
-            </div>
+      <header>
+        <Breadcrumbs crumbs={crumbsFor('/templates', 'Templates')} className="mb-2.5" />
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-[10px] app-glass bg-[var(--bg-surface)] border border-[var(--border)] flex items-center justify-center flex-shrink-0">
+            <BookOpen className="w-[18px] h-[18px] text-[var(--accent)]" strokeWidth={1.75} />
           </div>
+          <div className="min-w-0">
+            <h1 className="text-[24px] font-semibold text-white tracking-[-0.024em] leading-tight">Templates</h1>
+            <p className="text-[13px] text-[var(--text-3)] mt-1">
+              {view === 'outreach'
+                ? `${OUTREACH_TEMPLATES.length} ready-to-send emails and LinkedIn messages for every stage of your search`
+                : view === 'interview'
+                  ? `${stats.total}+ ready-made mock interviews across every field`
+                  : view === 'saved'
+                    ? 'Templates you saved, on this browser'
+                    : 'Mock interviews to practise with, and messages to send while you search'}
+            </p>
+          </div>
+        </div>
 
-          <div role="tablist" aria-label="Templates" className="inline-flex self-start sm:self-auto flex-shrink-0 gap-1 p-1 rounded-[var(--r-md)] bg-[var(--bg-subtle)] border border-[var(--border)]">
-            {([['all', 'All templates', templateData.length], ['outreach', 'Outreach', OUTREACH_TEMPLATES.length], ['saved', 'Saved', savedIds.size]] as const).map(([id, label, n]) => (
-              <button key={id} role="tab" aria-selected={view === id} onClick={() => setView(id)}
-                className={`inline-flex items-center gap-2 h-8 px-3.5 rounded-[calc(var(--r-md)-3px)] text-[13px] font-medium transition-colors cursor-pointer border ${
-                  view === id ? 'bg-[var(--accent-subtle)] text-white border-[var(--accent-border)]' : 'text-slate-400 hover:text-white border-transparent'}`}>
-                {id === 'saved' && <BookmarkCheck className="w-3.5 h-3.5" />}
-                {id === 'outreach' && <Send className="w-3.5 h-3.5" />}
-                {label}
-                <span className={`text-xs tabular-nums ${view === id ? 'text-indigo-200' : 'text-slate-400'}`}>{n}</span>
+        {/* Views */}
+        <div role="tablist" aria-label="Templates" className="mt-5 flex items-center border-b border-white/[0.07] overflow-x-auto scrollbar-hide">
+          {([
+            ['all', 'All', templateData.length + OUTREACH_TEMPLATES.length, LayoutGrid],
+            ['interview', 'Interview', templateData.length, MessagesSquare],
+            ['outreach', 'Outreach', OUTREACH_TEMPLATES.length, Send],
+            ['saved', 'Saved', savedIds.size, BookmarkCheck],
+          ] as const).map(([id, label, n, Icon]) => {
+            const on = view === id;
+            return (
+              <button key={id} role="tab" aria-selected={on} onClick={() => setView(id)}
+                className={`relative flex-1 min-w-fit px-4 h-11 flex items-center justify-center gap-2 text-[13.5px] font-medium whitespace-nowrap transition-colors cursor-pointer ${on ? 'text-white' : 'text-[var(--text-3)] hover:text-white'}`}>
+                <Icon className={`w-4 h-4 ${on ? 'text-[var(--accent)]' : ''}`} />{label}
+                <span className={`min-w-[22px] h-5 px-1.5 rounded-full text-[11px] font-semibold flex items-center justify-center tabular-nums ${on ? 'bg-white/[0.12] text-white' : 'bg-white/[0.05] text-[var(--text-4)]'}`}>{n}</span>
+                <span className={`absolute left-2 right-2 -bottom-px h-[2px] rounded-full bg-white transition-transform duration-300 origin-left ${on ? 'scale-x-100' : 'scale-x-0'}`} />
               </button>
+            );
+          })}
+        </div>
+      </header>
+
+      {view === 'outreach' ? <OutreachFilters f={outreach} /> : (<>
+        {/* Stats: one strip */}
+        {view !== 'saved' && (
+          <div className="glass-card grid grid-cols-2 sm:grid-cols-4 overflow-hidden">
+            {[
+              { value: `${stats.total}+`, label: 'Mock interviews' },
+              { value: `${stats.categories}`, label: 'Fields' },
+              { value: `${stats.technical}`, label: 'Technical' },
+              { value: `${stats.behavioral}`, label: 'Behavioral' },
+            ].map((s, i) => (
+              <div key={s.label} className={`px-5 py-4 border-[var(--border)] ${i % 2 === 1 ? 'border-l' : ''} ${i >= 2 ? 'border-t sm:border-t-0' : ''} ${i === 2 ? 'sm:border-l' : ''}`}>
+                <p className="font-display text-[22px] font-semibold tracking-[-0.02em] text-white tabular-nums">{s.value}</p>
+                <p className="text-[12px] text-[var(--text-3)] mt-0.5">{s.label}</p>
+              </div>
             ))}
           </div>
-        </div>
-
-        {view === 'outreach' ? <OutreachFilters f={outreach} /> : (<>
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-          {[
-            { value: `${stats.total}+`,                                          label: 'Templates'   },
-            { value: `${stats.categories}`,                                      label: 'Categories'  },
-            { value: `${stats.technical}`,                                       label: 'Technical'   },
-            { value: `${stats.behavioral}`,                                      label: 'Behavioral'  },
-          ].map(s => (
-            <div key={s.label} className="bg-white/[0.042] border border-white/[0.06] rounded-xl p-3 sm:p-4">
-              <div className="flex items-center gap-1 mb-0.5">
-                <span className="text-xl font-bold text-white">{s.value}</span>
-              </div>
-              <p className="text-xs text-slate-400">{s.label}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Search */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search by role, tech stack, or keywords…"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full bg-white/[0.042] border border-white/[0.08] rounded-xl pl-10 pr-10 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500/40 transition-colors"
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery('')}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-
-        {/* Mobile filter toggle */}
-        <button onClick={() => setShowFilters(!showFilters)}
-          className="sm:hidden w-full flex items-center justify-between px-4 py-2.5 bg-white/[0.042] border border-white/[0.06] rounded-xl text-white text-sm mb-3 cursor-pointer">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-slate-400" />
-            <span className="font-medium">Filters</span>
-            {hasActiveFilters && <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />}
-          </div>
-          <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-        </button>
-
-        {/* Filters */}
-        <div className={`${showFilters ? 'flex' : 'hidden'} sm:grid flex-col sm:flex-none grid-cols-4 gap-3`}>
-          <FilterDropdown label="Category"   value={selectedCategory}   options={categoryOptions}   onChange={setSelectedCategory}   />
-          <FilterDropdown label="Difficulty" value={selectedDifficulty} options={difficultyOptions} onChange={setSelectedDifficulty} />
-          <FilterDropdown label="Type"       value={selectedType}       options={typeOptions}       onChange={setSelectedType}       />
-          <FilterDropdown label="Duration"   value={selectedDuration}   options={durationOptions}   onChange={setSelectedDuration}   />
-        </div>
-
-        {hasActiveFilters && (
-          <div className="mt-3">
-            <button onClick={resetFilters}
-              className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-lg bg-white/[0.042] border border-white/[0.06] hover:border-white/10 transition-all cursor-pointer">
-              <X className="w-3 h-3" /> Reset filters
-            </button>
-          </div>
         )}
-        </>)}
-      </div>
+
+        {/* Outreach, from the All view */}
+        {view === 'all' && (
+          <button onClick={() => setView('outreach')}
+            className="group w-full flex items-center gap-3.5 rounded-2xl ring-1 ring-inset ring-white/[0.07] hover:ring-white/[0.14] hover:bg-white/[0.015] p-4 text-left transition-colors cursor-pointer">
+            <span className="w-10 h-10 rounded-xl bg-white/[0.04] ring-1 ring-inset ring-white/[0.07] flex items-center justify-center flex-shrink-0"><Send className="w-[18px] h-[18px] text-[var(--accent)]" /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[14px] font-semibold text-white">{OUTREACH_TEMPLATES.length} outreach templates</span>
+              <span className="block text-[12.5px] text-[var(--text-3)] mt-0.5 truncate">Emails and LinkedIn messages for recruiters, referrals, follow-ups and offers</span>
+            </span>
+            <ArrowRight className="w-4 h-4 text-[var(--text-4)] group-hover:text-white group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+          </button>
+        )}
+
+        {/* Search and filters */}
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-[var(--text-4)]" />
+            <input type="text" placeholder="Search by role, tech stack or keyword" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+              className="field !h-12 !pl-11 !pr-10" />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} aria-label="Clear search"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-md flex items-center justify-center text-[var(--text-4)] hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Mobile filter toggle */}
+          <button onClick={() => setShowFilters(!showFilters)}
+            className="sm:hidden w-full flex items-center justify-between px-4 h-10 rounded-lg ring-1 ring-inset ring-white/[0.08] text-white text-[13px] cursor-pointer">
+            <span className="flex items-center gap-2"><Filter className="w-4 h-4 text-[var(--text-4)]" /><span className="font-medium">Filters</span>{hasActiveFilters && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />}</span>
+            <ChevronDown className={`w-4 h-4 text-[var(--text-4)] transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+          </button>
+
+          <div className={`${showFilters ? 'flex' : 'hidden'} sm:grid flex-col sm:flex-none grid-cols-4 gap-3`}>
+            <FilterDropdown label="Field" value={selectedCategory} options={categoryOptions} onChange={setSelectedCategory} />
+            <FilterDropdown label="Difficulty" value={selectedDifficulty} options={difficultyOptions} onChange={setSelectedDifficulty} />
+            <FilterDropdown label="Type" value={selectedType} options={typeOptions} onChange={setSelectedType} />
+            <FilterDropdown label="Duration" value={selectedDuration} options={durationOptions} onChange={setSelectedDuration} />
+          </div>
+        </div>
+      </>)}
 
       {view === 'outreach' ? <OutreachGrid f={outreach} /> : (<>
       {/* ── Results count ── */}

@@ -44,18 +44,13 @@ export function LinkedInIcon({ className, ...props }: BrandIconProps) {
   );
 }
 
-export function OutlookIcon({ className, ...props }: BrandIconProps) {
+// The official Office Outlook logo (public/brand/outlook.svg, from Wikimedia
+// Commons). Shown as an image, a little larger than the other marks by
+// default, since its envelope detail is lost at small sizes.
+export function OutlookIcon({ className }: BrandIconProps) {
   return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...props}>
-      {/* Envelope body */}
-      <path fill="#0A2767" d="M23 12.2v8.3c0 .83-.67 1.5-1.5 1.5H9.5c-.83 0-1.5-.67-1.5-1.5v-8.3l7.5 4.6 7.5-4.6Z" />
-      <path fill="#0364B8" d="M8 6.5c0-.83.67-1.5 1.5-1.5h12c.83 0 1.5.67 1.5 1.5v5.7l-7.5 4.6L8 12.2V6.5Z" />
-      <path fill="#28A8EA" d="M15.5 5H23v7.2l-7.5 4.6V5Z" />
-      <path fill="#14447D" d="M8 12.2l7.5 4.6 7.5-4.6v.9l-7.5 4.6L8 13.1v-.9Z" opacity=".5" />
-      {/* The "O" tile */}
-      <rect x="1" y="5.5" width="12" height="13" rx="1.5" fill="#0078D4" />
-      <path fill="#fff" d="M7 8.6c-2 0-3.3 1.45-3.3 3.4 0 1.97 1.3 3.4 3.27 3.4 2 0 3.33-1.45 3.33-3.42 0-1.97-1.3-3.38-3.3-3.38Zm-.02 5.36c-1.06 0-1.73-.84-1.73-1.97 0-1.14.67-1.98 1.75-1.98 1.07 0 1.72.85 1.72 1.98 0 1.14-.67 1.97-1.74 1.97Z" />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element -- a static brand mark; next/image adds nothing here
+    <img src="/brand/outlook.svg" alt="" aria-hidden="true" draggable={false} className={`object-contain flex-shrink-0 ${className ?? "w-5 h-5"}`} />
   );
 }
 

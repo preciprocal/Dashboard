@@ -41,7 +41,8 @@ function Highlighted({ text }: { text: string }) {
 }
 
 function ChannelIcon({ channel, className = 'w-4 h-4' }: { channel: OutreachChannel; className?: string }) {
-  return channel === 'linkedin' ? <LinkedInIcon className={className} /> : <OutlookIcon className={className} />;
+  // The Outlook mark is drawn a step larger so its envelope stays legible.
+  return channel === 'linkedin' ? <LinkedInIcon className={className} /> : <OutlookIcon className={className.replace('w-3.5 h-3.5', 'w-[18px] h-[18px]').replace('w-4 h-4', 'w-5 h-5')} />;
 }
 
 function CopyButton({ text, label, primary = false }: { text: string; label: string; primary?: boolean }) {

@@ -11,7 +11,8 @@ import { openResumePdf } from '@/lib/resume/resolve-pdf-url';
 import { Resume } from '@/types/resume';
 import {
   ArrowLeft, Download, Eye, FileText, Building2, Briefcase, Star, Activity, PenTool, ScanSearch, Users, Loader2, Save, Check, FileDown,
-  ChevronDown,
+  ChevronDown, Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, List, ListOrdered,
+  IndentIncrease, IndentDecrease, Baseline, Highlighter, Link2, Unlink, Undo2, Redo2,
 } from 'lucide-react';
 import RecruiterEyeSimulation  from '@/components/resume/RecruiterEyeSimulation';
 import InterviewIntelligence   from '@/components/resume/InterviewIntelligence';
@@ -43,8 +44,14 @@ function getScoreBg(s: number) { return s >= 80 ? 'bg-emerald-500/10 border-emer
 
 // ─── ToolBtn ──────────────────────────────────────────────────────────────────
 
+// A toolbar button: keeps the editor selection (mousedown, not click).
 function ToolBtn({ onClick, title, children }: { onClick: () => void; title: string; children: React.ReactNode }) {
-  return <button title={title} onMouseDown={e => { e.preventDefault(); onClick(); }} className="flex items-center justify-center w-6 h-6 rounded text-slate-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex-shrink-0">{children}</button>;
+  return <button type="button" title={title} aria-label={title} onMouseDown={e => { e.preventDefault(); onClick(); }} className="flex items-center justify-center w-7 h-7 rounded-md text-[var(--text-2)] hover:bg-white/[0.08] hover:text-white active:bg-white/[0.12] transition-colors cursor-pointer flex-shrink-0 [&>svg]:w-4 [&>svg]:h-4">{children}</button>;
+}
+
+// A set of related toolbar buttons in one segment.
+function ToolGroup({ children }: { children: React.ReactNode }) {
+  return <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-white/[0.03] ring-1 ring-inset ring-white/[0.06] flex-shrink-0">{children}</div>;
 }
 
 // ─── InlineResumeEditor ───────────────────────────────────────────────────────
@@ -161,65 +168,85 @@ function InlineResumeEditor({ resumeId, initialHtml, onContentChange, highlightT
 
   return (
     <div className="h-full flex flex-col min-w-0 overflow-hidden">
-      {/* Toolbar Row 1 */}
-      <div className="flex-shrink-0 bg-[var(--bg-surface)] backdrop-blur-sm border-b border-white/[0.06]">
-        <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.04]">
-          <div className="flex items-center gap-2"><PenTool className="w-3.5 h-3.5 text-indigo-400" /><span className="text-xs font-medium text-slate-300">Editable Resume</span></div>
-          <div className="flex items-center gap-2">
-            <button onClick={handleSaveNow} disabled={isSaving || !hasChanges} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${saveStatus === 'saved' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : hasChanges ? 'bg-indigo-600/70 hover:bg-[var(--accent-hover)] text-white cursor-pointer' : 'bg-white/[0.06] text-slate-500 cursor-not-allowed'}`}>
-              {isSaving ? <><Loader2 className="w-3 h-3 animate-spin" /> Saving…</> : saveStatus === 'saved' ? <><Check className="w-3 h-3" /> Saved</> : <><Save className="w-3 h-3" /> Save</>}
-            </button>
+      {/* Header: title, save state, download */}
+      <div className="flex-shrink-0 border-b border-white/[0.06]">
+        <div className="flex items-center justify-between gap-3 px-4 h-12">
+          <div className="flex items-center gap-2 min-w-0">
+            <PenTool className="w-4 h-4 text-[var(--accent)] flex-shrink-0" />
+            <span className="text-[13px] font-semibold text-white truncate">Editor</span>
+            <span className="text-[12px] text-[var(--text-4)] truncate hidden xl:inline">· changes save as you type</span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {hasChanges || isSaving ? (
+              <button onClick={handleSaveNow} disabled={isSaving || !hasChanges}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[12.5px] font-medium text-[var(--text-1)] bg-white/[0.04] ring-1 ring-inset ring-white/[0.08] hover:bg-white/[0.07] transition-colors disabled:opacity-60">
+                {isSaving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving</> : <><Save className="w-3.5 h-3.5" /> Save now</>}
+              </button>
+            ) : (
+              <span className={`inline-flex items-center gap-1.5 h-8 px-2 text-[12.5px] ${saveStatus === 'saved' ? 'text-emerald-300' : 'text-[var(--text-4)]'}`}>
+                <Check className="w-3.5 h-3.5" /> {saveStatus === 'saved' ? 'Saved' : 'All changes saved'}
+              </span>
+            )}
             <div ref={downloadBtnRef} className="relative">
-              <button onClick={() => setShowDownloadMenu(v => !v)} disabled={!!isDownloading} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 hover:text-white border border-white/[0.08] transition-all cursor-pointer disabled:opacity-50">
-                {isDownloading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}Download<ChevronDown className={`w-3 h-3 transition-transform ${showDownloadMenu ? 'rotate-180' : ''}`} />
+              <button onClick={() => setShowDownloadMenu(v => !v)} disabled={!!isDownloading} aria-expanded={showDownloadMenu}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[12.5px] font-semibold text-[var(--on-primary)] bg-[var(--primary)] hover:bg-[var(--primary-hover)] shadow-[var(--shadow-btn)] transition-colors disabled:opacity-60 cursor-pointer">
+                {isDownloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}Download<ChevronDown className={`w-3.5 h-3.5 transition-transform ${showDownloadMenu ? 'rotate-180' : ''}`} />
               </button>
               {showDownloadMenu && (
-                <div className="absolute right-0 top-full mt-2 w-48 bg-[var(--bg-raised)] border border-white/[0.08] rounded-xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] z-[9999] overflow-hidden">
-                  <button onClick={() => { setShowDownloadMenu(false); handleDownload('pdf'); }} className="w-full px-4 py-2.5 text-left text-xs font-medium text-slate-300 hover:text-white hover:bg-white/[0.04] flex items-center gap-2.5 transition-colors cursor-pointer"><FileDown className="w-3.5 h-3.5 text-red-400" /> Download as PDF</button>
-                  <div className="h-px bg-white/[0.06]" />
-                  <button onClick={() => { setShowDownloadMenu(false); handleDownload('docx'); }} className="w-full px-4 py-2.5 text-left text-xs font-medium text-slate-300 hover:text-white hover:bg-white/[0.04] flex items-center gap-2.5 transition-colors cursor-pointer"><FileDown className="w-3.5 h-3.5 text-blue-400" /> Download as Word</button>
+                <div className="absolute right-0 top-full mt-2 w-48 bg-[var(--bg-raised)] rounded-xl shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_16px_40px_-12px_rgba(0,0,0,0.75)] z-[9999] overflow-hidden p-1">
+                  <button onClick={() => { setShowDownloadMenu(false); handleDownload('pdf'); }} className="w-full px-3 h-9 rounded-lg text-left text-[12.5px] font-medium text-[var(--text-2)] hover:text-white hover:bg-white/[0.05] flex items-center gap-2.5 transition-colors cursor-pointer"><FileDown className="w-4 h-4 text-rose-300" /> PDF document</button>
+                  <button onClick={() => { setShowDownloadMenu(false); handleDownload('docx'); }} className="w-full px-3 h-9 rounded-lg text-left text-[12.5px] font-medium text-[var(--text-2)] hover:text-white hover:bg-white/[0.05] flex items-center gap-2.5 transition-colors cursor-pointer"><FileDown className="w-4 h-4 text-sky-300" /> Word document</button>
                 </div>
               )}
             </div>
           </div>
         </div>
-        {/* Toolbar Row 2 */}
-        <div className="flex items-center gap-1 px-2 py-1.5 flex-wrap">
-          <select onChange={e => { editorRef.current?.focus(); document.execCommand('fontName', false, e.target.value); }} className="bg-[var(--bg-raised)] text-slate-300 text-xs rounded px-1.5 py-1 border border-white/[0.08] cursor-pointer outline-none" defaultValue="Calibri">
-            {['Calibri','Arial','Times New Roman','Georgia','Verdana','Helvetica','Garamond'].map(f => (<option key={f} value={f}>{f}</option>))}
+
+        {/* Formatting toolbar: one bar across the full width */}
+        <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-t border-white/[0.04]">
+          <select aria-label="Font" onChange={e => { editorRef.current?.focus(); document.execCommand('fontName', false, e.target.value); }} defaultValue="Calibri"
+            className="flex-1 min-w-[120px] h-8 pl-2.5 pr-7 rounded-lg text-[12.5px] text-[var(--text-1)] bg-white/[0.04] ring-1 ring-inset ring-white/[0.08] hover:bg-white/[0.06] outline-none cursor-pointer">
+            {['Calibri', 'Arial', 'Times New Roman', 'Georgia', 'Verdana', 'Helvetica', 'Garamond'].map(f => (<option key={f} value={f}>{f}</option>))}
           </select>
-          <select onChange={e => { editorRef.current?.focus(); document.execCommand('fontSize', false, e.target.value); }} className="bg-[var(--bg-raised)] text-slate-300 text-xs rounded px-1.5 py-1 border border-white/[0.08] w-14 cursor-pointer outline-none" defaultValue="3">
-            {[['1','8pt'],['2','10pt'],['3','11pt'],['4','12pt'],['5','14pt'],['6','18pt'],['7','24pt']].map(([v, label]) => (<option key={v} value={v}>{label}</option>))}
+          <select aria-label="Font size" onChange={e => { editorRef.current?.focus(); document.execCommand('fontSize', false, e.target.value); }} defaultValue="3"
+            className="w-[86px] flex-shrink-0 h-8 pl-2.5 pr-7 rounded-lg text-[12.5px] text-[var(--text-1)] bg-white/[0.04] ring-1 ring-inset ring-white/[0.08] hover:bg-white/[0.06] outline-none cursor-pointer">
+            {[['1', '8pt'], ['2', '10pt'], ['3', '11pt'], ['4', '12pt'], ['5', '14pt'], ['6', '18pt'], ['7', '24pt']].map(([v, label]) => (<option key={v} value={v}>{label}</option>))}
           </select>
-          <div className="w-px h-4 bg-white/10 mx-0.5" />
-          <ToolBtn title="Bold" onClick={() => document.execCommand('bold')}><span className="font-bold text-xs">B</span></ToolBtn>
-          <ToolBtn title="Italic" onClick={() => document.execCommand('italic')}><span className="italic text-xs">I</span></ToolBtn>
-          <ToolBtn title="Underline" onClick={() => document.execCommand('underline')}><span className="underline text-xs">U</span></ToolBtn>
-          <ToolBtn title="Strikethrough" onClick={() => document.execCommand('strikeThrough')}><span className="line-through text-xs">S</span></ToolBtn>
-          <div className="w-px h-4 bg-white/10 mx-0.5" />
-          <ToolBtn title="Align Left" onClick={() => document.execCommand('justifyLeft')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm0 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm0 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg></ToolBtn>
-          <ToolBtn title="Align Center" onClick={() => document.execCommand('justifyCenter')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M4 3.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm2 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5z"/></svg></ToolBtn>
-          <ToolBtn title="Align Right" onClick={() => document.execCommand('justifyRight')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm4 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-4 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg></ToolBtn>
-          <div className="w-px h-4 bg-white/10 mx-0.5" />
-          <ToolBtn title="Bullet List" onClick={() => document.execCommand('insertUnorderedList')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path fillRule="evenodd" d="M5 11.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm-3 1a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm0 4a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm0 4a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg></ToolBtn>
-          <ToolBtn title="Numbered List" onClick={() => document.execCommand('insertOrderedList')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path fillRule="evenodd" d="M5 11.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5z"/></svg></ToolBtn>
-          <ToolBtn title="Indent" onClick={() => document.execCommand('indent')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm3.5 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-3.5 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zM2 8l2-2v4z"/></svg></ToolBtn>
-          <ToolBtn title="Outdent" onClick={() => document.execCommand('outdent')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm3.5 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-3.5 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zM4 8l-2 2V6z"/></svg></ToolBtn>
-          <div className="w-px h-4 bg-white/10 mx-0.5" />
-          <label title="Text Color" className="relative flex items-center justify-center w-6 h-6 rounded hover:bg-white/10 cursor-pointer transition-colors">
-            <span className="text-xs font-bold text-slate-300" style={{ textDecoration: 'underline 2px solid #6366f1' }}>A</span>
-            <input type="color" defaultValue="#000000" onChange={e => { editorRef.current?.focus(); document.execCommand('foreColor', false, e.target.value); }} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
-          </label>
-          <label title="Highlight Color" className="relative flex items-center justify-center w-6 h-6 rounded hover:bg-white/10 cursor-pointer transition-colors">
-            <span className="text-xs font-bold" style={{ background: '#fde68a', padding: '0 2px', borderRadius: 2 }}>H</span>
-            <input type="color" defaultValue="#fde68a" onChange={e => { editorRef.current?.focus(); document.execCommand('hiliteColor', false, e.target.value); }} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
-          </label>
-          <div className="w-px h-4 bg-white/10 mx-0.5" />
-          <ToolBtn title="Insert Link" onClick={() => { const url = window.prompt('Enter URL:', 'https://'); if (url) document.execCommand('createLink', false, url); }}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M6.354 5.5H4a3 3 0 0 0 0 6h3a3 3 0 0 0 2.83-4H9c-.086 0-.17.01-.25.031A2 2 0 0 1 7 9.5H4a2 2 0 1 1 0-4h1.535c.218-.376.495-.714.82-1z"/><path d="M9 5.5a3 3 0 0 0-2.83 4h1.098A2 2 0 0 1 9 6.5h3a2 2 0 1 1 0 4h-1.535a4.02 4.02 0 0 1-.82 1H12a3 3 0 1 0 0-6H9z"/></svg></ToolBtn>
-          <ToolBtn title="Remove Link" onClick={() => document.execCommand('unlink')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M6.354 5.5H4a3 3 0 0 0 0 6h3a3 3 0 0 0 2.83-4H9c-.086 0-.17.01-.25.031A2 2 0 0 1 7 9.5H4a2 2 0 1 1 0-4h1.535c.218-.376.495-.714.82-1z"/><path d="M9 5.5a3 3 0 0 0-2.83 4h1.098A2 2 0 0 1 9 6.5h3a2 2 0 1 1 0 4h-1.535a4.02 4.02 0 0 1-.82 1H12a3 3 0 1 0 0-6H9z"/><line x1="3" y1="3" x2="13" y2="13" stroke="currentColor" strokeWidth="1.5"/></svg></ToolBtn>
-          <div className="w-px h-4 bg-white/10 mx-0.5" />
-          <ToolBtn title="Undo" onClick={() => document.execCommand('undo')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path fillRule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466z"/></svg></ToolBtn>
-          <ToolBtn title="Redo" onClick={() => document.execCommand('redo')}><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/></svg></ToolBtn>
+          <ToolGroup>
+            <ToolBtn title="Bold (Ctrl+B)" onClick={() => document.execCommand('bold')}><Bold /></ToolBtn>
+            <ToolBtn title="Italic (Ctrl+I)" onClick={() => document.execCommand('italic')}><Italic /></ToolBtn>
+            <ToolBtn title="Underline (Ctrl+U)" onClick={() => document.execCommand('underline')}><Underline /></ToolBtn>
+            <ToolBtn title="Strikethrough" onClick={() => document.execCommand('strikeThrough')}><Strikethrough /></ToolBtn>
+          </ToolGroup>
+          <ToolGroup>
+            <ToolBtn title="Align left" onClick={() => document.execCommand('justifyLeft')}><AlignLeft /></ToolBtn>
+            <ToolBtn title="Align center" onClick={() => document.execCommand('justifyCenter')}><AlignCenter /></ToolBtn>
+            <ToolBtn title="Align right" onClick={() => document.execCommand('justifyRight')}><AlignRight /></ToolBtn>
+          </ToolGroup>
+          <ToolGroup>
+            <ToolBtn title="Bulleted list" onClick={() => document.execCommand('insertUnorderedList')}><List /></ToolBtn>
+            <ToolBtn title="Numbered list" onClick={() => document.execCommand('insertOrderedList')}><ListOrdered /></ToolBtn>
+            <ToolBtn title="Increase indent" onClick={() => document.execCommand('indent')}><IndentIncrease /></ToolBtn>
+            <ToolBtn title="Decrease indent" onClick={() => document.execCommand('outdent')}><IndentDecrease /></ToolBtn>
+          </ToolGroup>
+          <ToolGroup>
+            <label title="Text color" className="relative flex items-center justify-center w-7 h-7 rounded-md text-[var(--text-2)] hover:bg-white/[0.08] hover:text-white cursor-pointer transition-colors">
+              <Baseline className="w-4 h-4" />
+              <input type="color" defaultValue="#000000" onChange={e => { editorRef.current?.focus(); document.execCommand('foreColor', false, e.target.value); }} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" aria-label="Text color" />
+            </label>
+            <label title="Highlight" className="relative flex items-center justify-center w-7 h-7 rounded-md text-[var(--text-2)] hover:bg-white/[0.08] hover:text-white cursor-pointer transition-colors">
+              <Highlighter className="w-4 h-4" />
+              <input type="color" defaultValue="#fde68a" onChange={e => { editorRef.current?.focus(); document.execCommand('hiliteColor', false, e.target.value); }} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" aria-label="Highlight color" />
+            </label>
+          </ToolGroup>
+          <ToolGroup>
+            <ToolBtn title="Add link" onClick={() => { const url = window.prompt('Enter URL:', 'https://'); if (url) document.execCommand('createLink', false, url); }}><Link2 /></ToolBtn>
+            <ToolBtn title="Remove link" onClick={() => document.execCommand('unlink')}><Unlink /></ToolBtn>
+          </ToolGroup>
+          <ToolGroup>
+            <ToolBtn title="Undo (Ctrl+Z)" onClick={() => document.execCommand('undo')}><Undo2 /></ToolBtn>
+            <ToolBtn title="Redo (Ctrl+Y)" onClick={() => document.execCommand('redo')}><Redo2 /></ToolBtn>
+          </ToolGroup>
         </div>
       </div>
       {/* Editor */}
@@ -235,7 +262,7 @@ function InlineResumeEditor({ resumeId, initialHtml, onContentChange, highlightT
           </div>
         </div>
       </div>
-      <div className="flex-shrink-0 flex items-center justify-center py-2 bg-white/[0.024] border-t border-white/[0.05]"><p className="text-[11px] text-slate-500">Auto-saves 3 s after typing</p></div>
+      <div className="flex-shrink-0 flex items-center justify-center h-8 border-t border-white/[0.05]"><p className="text-[11px] text-[var(--text-5)]">Saves automatically 3 seconds after you stop typing</p></div>
     </div>
   );
 }

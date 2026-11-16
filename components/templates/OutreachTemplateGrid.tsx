@@ -44,7 +44,7 @@ function OutreachCard({ t }: { t: OutreachTemplate }) {
       <div className="p-5 pb-3">
         <div className="flex items-center justify-between gap-2 mb-3">
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-300">
-            {t.channel === 'linkedin' ? <LinkedInIcon className="w-4 h-4" /> : <OutlookIcon className="w-4 h-4" />}
+            {t.channel === 'linkedin' ? <LinkedInIcon className="w-4 h-4" /> : <OutlookIcon className="w-5 h-5" />}
             {t.channel === 'linkedin' ? 'LinkedIn message' : 'Email'}
           </span>
           <span className="px-2.5 py-1 rounded-lg border text-xs font-semibold bg-[var(--accent-subtle)] border-[var(--accent-border)] text-indigo-200">
