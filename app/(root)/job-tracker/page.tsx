@@ -206,7 +206,7 @@ function FormModal({ form, setForm, onSave, onCancel, saving, isEdit, resumes }:
       <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" onClick={onCancel} />
       <div className="relative bg-[var(--bg-raised)] border border-white/[0.09] rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-[0_32px_64px_rgba(0,0,0,0.6)]">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] flex-shrink-0">
-          <div className="flex items-center gap-2.5"><div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center"><Briefcase className="w-4 h-4 text-white" /></div><h2 className="text-sm font-bold text-white">{isEdit ? 'Edit Application' : 'Add Application'}</h2></div>
+          <div className="flex items-center gap-2.5"><div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]"><Briefcase className="w-4 h-4 text-[var(--text-2)]" /></div><h2 className="text-sm font-bold text-white">{isEdit ? 'Edit Application' : 'Add Application'}</h2></div>
           <button onClick={onCancel} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition-all"><X className="w-4 h-4" /></button>
         </div>
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4 glass-scrollbar">
@@ -225,7 +225,7 @@ function FormModal({ form, setForm, onSave, onCancel, saving, isEdit, resumes }:
               <div className="flex gap-1.5">
                 {(Object.keys(WORK_TYPE_CONFIG) as WorkType[]).map(wt => { const WIcon = WORK_TYPE_CONFIG[wt].icon; return (
                   <button key={wt} type="button" onClick={() => setForm(p => ({ ...p, workType: wt }))}
-                    className={`flex-1 flex items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-semibold transition-all border ${form.workType === wt ? 'bg-[var(--accent-subtle)] border-[var(--accent-border)] text-[#a9b0f7]' : 'bg-white/[0.03] border-white/[0.07] text-slate-400 hover:text-slate-300 hover:border-white/[0.12]'}`}>
+                    className={`flex-1 flex items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-semibold transition-all border ${form.workType === wt ? 'bg-white/[0.1] border-white/[0.16] text-white' : 'bg-white/[0.03] border-white/[0.07] text-slate-400 hover:text-slate-300 hover:border-white/[0.12]'}`}>
                     <WIcon className="w-3.5 h-3.5" />{WORK_TYPE_CONFIG[wt].label}
                   </button>); })}
               </div>
@@ -251,7 +251,7 @@ function FormModal({ form, setForm, onSave, onCancel, saving, isEdit, resumes }:
           <div><label className="block text-xs font-medium text-slate-400 mb-1.5">Notes</label><textarea rows={3} value={form.notes || ''} onChange={e => f('notes', e.target.value)} placeholder="Interview details, recruiter name, key contacts, follow-up dates…" className={`${inp} resize-none`} /></div>
         </div>
         <div className="flex gap-3 px-6 py-4 border-t border-white/[0.06] flex-shrink-0">
-          <button onClick={onSave} disabled={saving || !form.company.trim() || !form.jobTitle.trim()} className="flex-1 py-2.5 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] rounded-xl font-semibold text-sm transition-all  disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+          <button onClick={onSave} disabled={saving || !form.company.trim() || !form.jobTitle.trim()} className="btn-primary flex-1 disabled:opacity-40 disabled:cursor-not-allowed">
             {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : <><Save className="w-4 h-4" /> {isEdit ? 'Update' : 'Save Application'}</>}
           </button>
           <button onClick={onCancel} className="px-5 py-2.5 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.07] text-slate-300 rounded-xl font-semibold text-sm transition-all">Cancel</button>
@@ -517,7 +517,7 @@ function ContactsModal({ app, onClose, onContactsFound }: { app: Application; on
       <div className="relative bg-[var(--bg-raised)] border border-white/[0.09] rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-[0_32px_64px_rgba(0,0,0,0.6)] overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 gradient-primary rounded-xl flex items-center justify-center"><UserSearch className="w-4 h-4 text-white" /></div>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]"><UserSearch className="w-4 h-4 text-[var(--text-2)]" /></div>
             <div><h2 className="text-sm font-bold text-white">Find Contacts</h2><p className="text-xs text-slate-400">{app.company} · {app.jobTitle}{app.jobUrl && <span className="ml-2 text-slate-500">· {(() => { try { return new URL(app.jobUrl).hostname.replace(/^www\./, ''); } catch { return ''; } })()}</span>}</p></div>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition-all"><X className="w-4 h-4" /></button>
@@ -567,7 +567,7 @@ function ContactsModal({ app, onClose, onContactsFound }: { app: Application; on
             <div className="flex flex-1 min-h-0">
               <div className="w-52 flex-shrink-0 border-r border-white/[0.05] overflow-y-auto glass-scrollbar">
                 {contacts.map((c, i) => (
-                  <button key={c.email} onClick={() => setActiveIdx(i)} className={`w-full text-left px-4 py-3 border-b border-white/[0.04] transition-colors ${activeIdx === i ? 'bg-purple-500/[0.10] border-l-2 border-l-purple-500' : 'hover:bg-white/[0.03]'}`}>
+                  <button key={c.email} onClick={() => setActiveIdx(i)} className={`w-full text-left px-4 py-3 border-b border-white/[0.04] transition-colors ${activeIdx === i ? 'bg-white/[0.05] border-l-2 border-l-white/60' : 'hover:bg-white/[0.03]'}`}>
                     <div className="flex items-start gap-2.5">
                       <div className="w-7 h-7 bg-white/[0.07] rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5">{(c.firstName?.[0] || c.fullName?.[0] || '?').toUpperCase()}</div>
                       <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-white truncate">{c.fullName}</p><p className="text-[11px] text-slate-400 truncate mb-1">{c.position}</p><RoleBadge position={c.position} tier={c.tier} /></div>
@@ -621,14 +621,14 @@ function CreatePlanModal({ app, onConfirm, onClose }: { app: Application; onConf
       <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-[var(--bg-raised)] border border-white/[0.09] rounded-2xl w-full max-w-sm shadow-[0_32px_64px_rgba(0,0,0,0.6)] overflow-hidden">
         <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
-          <div className="flex items-center gap-2.5"><div className="w-8 h-8 bg-[var(--accent)] rounded-lg flex items-center justify-center"><CalendarPlus className="w-4 h-4 text-white" /></div><div><p className="text-sm font-bold text-white">Create Prep Plan</p><p className="text-xs text-slate-400 truncate max-w-[180px]">{app.jobTitle} @ {app.company}</p></div></div>
+          <div className="flex items-center gap-2.5"><div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]"><CalendarPlus className="w-4 h-4 text-[var(--text-2)]" /></div><div><p className="text-sm font-bold text-white">Create Prep Plan</p><p className="text-xs text-slate-400 truncate max-w-[180px]">{app.jobTitle} @ {app.company}</p></div></div>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition-all"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-5 space-y-4">
           <p className="text-xs text-slate-400 leading-relaxed">When is your interview? We&apos;ll build a day-by-day plan to get you ready.</p>
           <div className="grid grid-cols-3 gap-2">
-            {PLAN_PRESETS.map(p => (<button key={p.days} type="button" onClick={() => { setSelected(p.days); setCustom(false); }} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${!custom && selected === p.days ? 'bg-[var(--accent)] border-[var(--accent-border)] text-white ' : 'bg-white/[0.03] border-white/[0.07] text-slate-400 hover:border-[var(--accent-border)] hover:text-white'}`}>{p.label}</button>))}
-            <button type="button" onClick={() => setCustom(true)} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${custom ? 'bg-[var(--accent)] border-[var(--accent-border)] text-white ' : 'bg-white/[0.03] border-white/[0.07] text-slate-400 hover:border-[var(--accent-border)] hover:text-white'}`}>Custom</button>
+            {PLAN_PRESETS.map(p => (<button key={p.days} type="button" onClick={() => { setSelected(p.days); setCustom(false); }} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${!custom && selected === p.days ? 'bg-white/[0.1] border-white/[0.16] text-white' : 'bg-white/[0.03] border-white/[0.07] text-slate-400 hover:border-white/[0.14] hover:text-white'}`}>{p.label}</button>))}
+            <button type="button" onClick={() => setCustom(true)} className={`py-2.5 rounded-xl text-xs font-semibold transition-all border ${custom ? 'bg-white/[0.1] border-white/[0.16] text-white' : 'bg-white/[0.03] border-white/[0.07] text-slate-400 hover:border-white/[0.14] hover:text-white'}`}>Custom</button>
           </div>
           {custom && <div><label className="block text-xs text-slate-400 mb-1.5">Days until interview (1-90)</label><input type="number" min={1} max={90} value={customVal} onChange={e => setCustomVal(e.target.value)} className={inp} autoFocus /></div>}
           <div className="flex gap-2 pt-1">
@@ -928,7 +928,7 @@ export default function JobTrackerPage() {
                 <p className="text-xs text-slate-500 mb-6 max-w-xs mx-auto leading-relaxed">{apps.length === 0 ? 'Start tracking your job search. Add your first application to see it here.' : 'Try adjusting your search or filters.'}</p>
                 {apps.length === 0 && canAddJob && (
                   <div className="flex flex-wrap items-center justify-center gap-3">
-                    <button onClick={() => { setForm({ ...EMPTY_FORM }); setShowForm(true); }} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white text-sm font-semibold transition-all duration-150"><Plus className="w-4 h-4" /> Add First Application</button>
+                    <button onClick={() => { setForm({ ...EMPTY_FORM }); setShowForm(true); }} className="btn-primary"><Plus className="w-4 h-4" /> Add First Application</button>
                     <SeeExampleButton serviceId="job-tracker" className="!px-5 !py-2.5 !text-sm !font-semibold" />
                   </div>
                 )}

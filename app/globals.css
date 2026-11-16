@@ -219,14 +219,16 @@ h1, h2, .page-title, .font-display {
   transform: scale(0.985);
 }
 
+/* The app's primary button (same as .btn-primary), for older markup. */
 .glass-button-primary {
-  background: var(--accent);
+  background: var(--primary);
   border: 1px solid transparent;
-  color: #fff;
-  transition: background var(--t2);
+  color: var(--on-primary);
+  box-shadow: var(--shadow-btn);
+  transition: background var(--t2), transform var(--t1);
 }
-.glass-button-primary:hover  { background: var(--accent-hover); }
-.glass-button-primary:active { background: var(--accent-press); }
+.glass-button-primary:hover  { background: var(--primary-hover); }
+.glass-button-primary:active { transform: scale(0.98); }
 
 /* ─── Input ──────────────────────────────────────────────────────────────── */
 

@@ -86,90 +86,47 @@ export default function FileUploader({ onFileSelect, accept = DEFAULT_ACCEPT }: 
 
   return (
     <div className="w-full">
-      <div
-        className={`border-2 border-dashed rounded-xl p-6 transition-all duration-200 ${
-          isDragActive && !isDragReject
-            ? 'border-indigo-400/70 bg-indigo-500/10'
-            : isDragReject || dragError
-            ? 'border-red-500/50 bg-red-500/[0.06]'
-            : 'border-white/[0.12] bg-slate-900/40 hover:border-indigo-400/40 hover:bg-slate-900/60'
-        }`}
-      >
-        <div {...getRootProps()}>
-          <input {...getInputProps()} />
-
-          <div className="space-y-4 cursor-pointer">
-            {file ? (
-              <div
-                className="flex items-center justify-between p-4 bg-white/[0.042] border border-white/[0.06] rounded-lg hover:bg-white/[0.086] transition-colors"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-white truncate">{file.name}</p>
-                    <p className="text-sm text-slate-400">{formatSize(file.size)} · {fileLabel}</p>
-                  </div>
-                </div>
-                <button
-                  className="p-2 hover:bg-white/[0.06] rounded-full transition-colors cursor-pointer"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDragError('');
-                    onFileSelect?.(null);
-                  }}
-                  title="Remove file"
-                >
-                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            ) : (
-              <div className="text-center">
-                <div className="mx-auto w-16 h-16 flex items-center justify-center mb-4">
-                  {isDragActive ? (
-                    <svg className="w-12 h-12 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                    </svg>
-                  ) : (
-                    <svg className="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                  )}
-                </div>
-
-                {isDragActive ? (
-                  <p className="text-lg text-indigo-300 font-medium">Drop your file here</p>
-                ) : (
-                  <>
-                    <p className="text-base text-slate-300 mb-1">
-                      <span className="font-semibold text-indigo-300 hover:text-indigo-200">Click to upload</span>{' '}
-                      or drag and drop
-                    </p>
-                    <p className="text-sm text-slate-400">
-                      PDF or Word (.docx, .doc) · max {formatSize(maxFileSize)}
-                    </p>
-                  </>
-                )}
-              </div>
-            )}
+      <div {...getRootProps()}
+        className={`rounded-xl transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/20 ${
+          file ? '' : `border border-dashed p-5 ${
+            isDragActive && !isDragReject ? 'border-white/40 bg-white/[0.04]'
+            : isDragReject || dragError ? 'border-rose-500/50 bg-rose-500/[0.05]'
+            : 'border-white/[0.14] hover:border-white/[0.26] hover:bg-white/[0.02]'}`}`}>
+        <input {...getInputProps()} />
+        {file ? (
+          <div className="flex items-center gap-3.5 p-3 pr-2 rounded-xl ring-1 ring-inset ring-white/[0.07] bg-white/[0.02]" onClick={e => e.stopPropagation()}>
+            <span className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] text-[var(--text-2)]">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13.5px] text-white truncate">{file.name}</p>
+              <p className="text-[11.5px] text-[var(--text-4)] mt-0.5">{formatSize(file.size)} · {fileLabel}</p>
+            </div>
+            <button type="button" title="Remove file"
+              className="h-8 px-3 rounded-lg text-[12.5px] font-medium text-[var(--text-4)] hover:text-rose-300 hover:bg-rose-500/[0.08] transition-colors"
+              onClick={e => { e.stopPropagation(); setDragError(''); onFileSelect?.(null); }}>
+              Remove
+            </button>
           </div>
-        </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <span className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-white/[0.04] text-[var(--text-3)]">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[14px] text-white">{isDragActive ? 'Drop your file here' : 'Drag your resume here, or choose a file'}</span>
+              <span className="block text-[12px] text-[var(--text-4)] mt-0.5">PDF or Word (.docx, .doc), up to {formatSize(maxFileSize)}</span>
+            </span>
+            <span className="btn-secondary !h-9 !text-[13px] self-start sm:self-auto">Choose file</span>
+          </div>
+        )}
       </div>
 
-      {dragError && (
-        <p className="mt-2 text-sm text-red-400 flex items-center">
-          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          {dragError}
-        </p>
-      )}
+      {dragError && <p className="mt-2 text-[12.5px] text-rose-300">{dragError}</p>}
     </div>
   );
 }

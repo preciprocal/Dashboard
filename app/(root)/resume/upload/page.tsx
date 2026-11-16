@@ -3,14 +3,16 @@ import { RESUME_TIPS } from '@/lib/config/resume-tips';
 import PageHeader from '@/components/PageHeader';
 import { FileText as HeaderIcon } from 'lucide-react';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { ResumeService } from '@/lib/services/resume-service';
 import FileUploader from '@/components/resume/FileUploader';
+import { FormSection, Field } from '@/components/profile/FormKit';
+import AutoTextarea from '@/components/ui/auto-textarea';
 import { Resume, ResumeFeedback } from '@/types/resume';
 import {
-  FileText, Sparkles, Shield, CheckCircle2, AlertCircle, Loader2, Upload, X,
+  Sparkles, Shield, CheckCircle2, AlertCircle, Loader2, Upload, X,
   ArrowRight, History,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -80,83 +82,18 @@ function fireNotification(...args: Parameters<typeof NotificationService.createN
 // ─── Upgrade Gate ─────────────────────────────────────────────────────────────
 
 function UpgradeGate({ used, limit }: { used: number; limit: number }) {
-  const [activeStat, setActiveStat] = useState(0);
-
-  const STATS = [
-    { num: '180+', line: 'applicants per role on average - only 5 get an interview' },
-    { num: '43%',  line: 'of resume rejections are from formatting issues, not qualifications' },
-    { num: '92%',  line: 'of recruiters value a clear, skimmable resume structure' },
-    { num: '52%',  line: 'of recruiters say applying in the first 48 hrs boosts your chances' },
-  ];
-
-  useEffect(() => {
-    const t = setInterval(() => setActiveStat(i => (i + 1) % STATS.length), 4000);
-    return () => clearInterval(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
-    <div className="space-y-3 animate-fade-in-up">
-      <div className="relative overflow-hidden rounded-2xl border border-white/[0.08]
-                      bg-[var(--bg-surface)]">
-        <div className="absolute -top-24 -right-24 w-56 h-56 rounded-full
-                        bg-indigo-500/[0.06] blur-3xl pointer-events-none" />
-        <div className="relative p-6">
-          <div className="inline-flex items-center gap-1.5 bg-amber-500/[0.08] border border-amber-500/20
-                          rounded-full px-3 py-1 mb-4">
-            <Sparkles className="w-3 h-3 text-amber-400" />
-            <span className="text-xs font-semibold text-amber-400">
-              {used}/{limit} analyses used
-            </span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-2">
-            Don&apos;t apply blind. Know your score first.
-          </h2>
-          <p className="text-sm text-slate-400 mb-6 max-w-md">
-            You&apos;ve already tested {used} resume{used !== 1 ? 's' : ''} - every fix you make before hitting &ldquo;Apply&rdquo; is one less reason to get filtered out.
-          </p>
-          <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06]
-                          rounded-xl px-5 py-4 mb-6 min-h-[64px]">
-            <span className="text-3xl font-black text-indigo-400 flex-shrink-0 min-w-16 text-center">
-              {STATS[activeStat].num}
-            </span>
-            <span className="text-sm text-slate-400 leading-snug">
-              {STATS[activeStat].line}
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/pricing"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-                         text-sm font-bold text-white
-                         bg-[var(--accent)]
-                         hover:bg-[var(--accent-hover)]
-                         
-                         
-                         transition-all group"
-            >
-              Get More
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-            <span className="text-[11px] text-slate-500">
-              Cancel anytime · Instant access
-            </span>
-          </div>
-        </div>
+    <section className="glass-card p-6 sm:p-8 animate-fade-in-up">
+      <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11.5px] font-medium text-[var(--text-2)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" aria-hidden="true" />{used} of {limit} analyses used this month
+      </span>
+      <h2 className="font-display text-[22px] sm:text-[26px] font-semibold tracking-[-0.02em] text-white mt-4">You have used this month&apos;s resume analyses</h2>
+      <p className="text-[13.5px] text-[var(--text-3)] mt-2 max-w-lg">Your limit resets on your billing date. Upgrade for more analyses now, or open a resume you have already analysed.</p>
+      <div className="flex flex-wrap gap-2 mt-6">
+        <Link href="/pricing" className="btn-primary">See plans <ArrowRight className="w-4 h-4" /></Link>
+        <Link href="/resume" className="btn-secondary">Your resumes</Link>
       </div>
-      <div className="grid grid-cols-3 gap-2.5">
-        {[
-          { num: '180+', label: 'applicants per role'       },
-          { num: '43%',  label: 'rejected for formatting'   },
-          { num: '6 sec', label: 'avg recruiter scan time'  },
-        ].map(s => (
-          <div key={s.num} className="glass-card py-4 text-center">
-            <p className="text-xl font-black text-indigo-400">{s.num}</p>
-            <p className="text-xs text-slate-400 mt-1">{s.label}</p>
-          </div>
-        ))}
-      </div>
-    </div>
+    </section>
   );
 }
 
@@ -336,13 +273,11 @@ export default function UploadResume() {
     await handleAnalyze();
   };
 
-  const fileKind      = file ? getFileKind(file) : null;
-  const fileKindLabel = fileKind === 'word' ? 'Word' : 'PDF';
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-7 h-7 text-purple-400 animate-spin" />
+        <Loader2 className="w-7 h-7 text-[var(--text-4)] animate-spin" />
       </div>
     );
   }
@@ -355,20 +290,20 @@ export default function UploadResume() {
         <div className="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[var(--bg-raised)] border border-white/[0.09] rounded-2xl max-w-md w-full p-6 shadow-[0_32px_64px_rgba(0,0,0,0.6)]">
             <div className="text-center mb-6">
-              <div className="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4 ">
-                <Sparkles className="w-5 h-5 text-white" />
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]">
+                <Sparkles className="w-5 h-5 text-[var(--text-2)]" />
               </div>
               <p className="text-[15px] font-bold text-white mb-2">{PROCESSING_STEPS[currentStep]?.message}</p>
               <p className="text-[12px] text-slate-400 leading-relaxed min-h-[36px]">{RESUME_FACTS[currentFactIndex]}</p>
             </div>
             <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden mb-5">
-              <div className="h-full bg-[var(--accent)] rounded-full transition-all duration-500"
+              <div className="h-full bg-white/80 rounded-full transition-all duration-500"
                 style={{ width: `${PROCESSING_STEPS[currentStep]?.progress ?? 0}%` }} />
             </div>
             <div className="space-y-2.5">
               {PROCESSING_STEPS.map((step, i) => (
                 <div key={i} className={`flex items-center gap-3 text-[12px] font-medium ${
-                  i < currentStep ? 'text-emerald-400' : i === currentStep ? 'text-indigo-400' : 'text-slate-500'
+                  i < currentStep ? 'text-emerald-400' : i === currentStep ? 'text-white' : 'text-slate-500'
                 }`}>
                   {i < currentStep
                     ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
@@ -416,56 +351,30 @@ export default function UploadResume() {
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Company <span className="text-slate-500 font-normal">optional</span></label>
-                    <input type="text" value={formData.companyName}
-                      onChange={e => setFormData(p => ({ ...p, companyName: e.target.value }))}
-                      placeholder="e.g. Google" className={inp} />
-                  </div>
-                  <div>
-                    <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Job Title <span className="text-slate-500 font-normal">optional</span></label>
-                    <input type="text" value={formData.jobTitle}
-                      onChange={e => setFormData(p => ({ ...p, jobTitle: e.target.value }))}
-                      placeholder="e.g. Software Engineer" className={inp} />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Job Description <span className="text-slate-500 font-normal">optional</span></label>
-                  <textarea rows={3} value={formData.jobDescription}
-                    onChange={e => setFormData(p => ({ ...p, jobDescription: e.target.value }))}
-                    placeholder="Paste the job description for better keyword matching…"
-                    className={`${inp} resize-none`} />
-                </div>
-                <div>
-                  <label className="block text-[12px] font-medium text-slate-400 mb-1.5">Upload Resume <span className="text-red-400">*</span></label>
+              <form onSubmit={handleSubmit}>
+                <FormSection id="ru-file" title="Your resume" desc="PDF or Word, up to 10 MB. Text-based files read best." done={file ? 1 : 0} total={1}>
                   <FileUploader onFileSelect={handleFileSelect} accept={ACCEPT_STRING} />
-                  {file && (
-                    <div className="mt-3 flex items-center gap-3 p-3 bg-white/[0.03] border border-white/[0.07] rounded-xl">
-                      <div className="w-8 h-8 bg-emerald-500/[0.08] rounded-lg flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-4 h-4 text-emerald-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-semibold text-white truncate">{file.name}</p>
-                        <p className="text-xs text-slate-500">{(file.size / 1024).toFixed(1)} KB · {fileKindLabel}</p>
-                      </div>
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-3 pt-1">
-                  <button type="submit" disabled={!file || isProcessing}
-                    className="w-full h-11 flex items-center justify-center gap-2 rounded-[10px]
-                               text-sm font-semibold text-white glass-button-primary
-                               disabled:opacity-40 disabled:cursor-not-allowed">
-                    {isProcessing
-                      ? <><Loader2 className="w-4 h-4 animate-spin" /> Analysing…</>
-                      : <><Upload className="w-4 h-4" /> Analyse Resume</>}
+                </FormSection>
+                <FormSection id="ru-role" title="The role" desc="Optional. With a job description, the analysis checks your resume against its keywords."
+                  done={[formData.companyName, formData.jobTitle, formData.jobDescription].filter(v => v.trim()).length} total={3}>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <Field label="Company" hint="optional">
+                      <input type="text" value={formData.companyName} onChange={e => setFormData(p => ({ ...p, companyName: e.target.value }))} placeholder="e.g. Google" className={inp} />
+                    </Field>
+                    <Field label="Job title" hint="optional">
+                      <input type="text" value={formData.jobTitle} onChange={e => setFormData(p => ({ ...p, jobTitle: e.target.value }))} placeholder="e.g. Software Engineer" className={inp} />
+                    </Field>
+                  </div>
+                  <Field label="Job description" hint="optional">
+                    <AutoTextarea rows={3} value={formData.jobDescription} onChange={e => setFormData(p => ({ ...p, jobDescription: e.target.value }))}
+                      placeholder="Paste the job description for keyword matching" className={inp} />
+                  </Field>
+                </FormSection>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 pt-5 border-t border-white/[0.06]">
+                  <p className="text-[12px] text-[var(--text-4)] sm:mr-auto">Takes 10 to 20 seconds.</p>
+                  <button type="submit" disabled={!file || isProcessing} className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed">
+                    {isProcessing ? <><Loader2 className="w-4 h-4 animate-spin" /> Analysing</> : <><Upload className="w-4 h-4" /> Analyse resume</>}
                   </button>
-                  <p className="text-center text-xs text-slate-500">
-                    PDF or Word (.docx, .doc) · Max 10 MB · Takes 10-20 seconds
-                  </p>
                 </div>
               </form>
             </div>
@@ -486,12 +395,12 @@ export default function UploadResume() {
               </div>
               <div className="glass-card p-5">
                 <p className="text-[12px] font-bold text-white mb-3 flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-blue-400" /> File requirements
+                  <Shield className="w-3.5 h-3.5 text-[var(--text-3)]" /> File requirements
                 </p>
                 <div className="space-y-2">
                   {['PDF or Word (.docx, .doc)', 'Maximum size: 10 MB', 'Text-based files work best', 'Takes 10-20 seconds'].map(item => (
                     <div key={item} className="flex items-center gap-2 text-[12px] text-slate-400">
-                      <div className="w-1.5 h-1.5 rounded-full bg-blue-400/40 flex-shrink-0" /> {item}
+                      <div className="w-1.5 h-1.5 rounded-full bg-white/20 flex-shrink-0" /> {item}
                     </div>
                   ))}
                 </div>

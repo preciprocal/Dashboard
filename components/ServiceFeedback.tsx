@@ -185,26 +185,20 @@ export default function ServiceFeedback({
         <div
           className="relative rounded-2xl overflow-hidden"
           style={{
-            background: "linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(23,37,84,0.98) 100%)",
-            border: "1px solid rgba(139,92,246,0.25)",
+            background: "#151618",
             boxShadow:
-              "0 32px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(139,92,246,0.1), inset 0 1px 0 rgba(255,255,255,0.06)",
+              "0 0 0 1px rgba(255,255,255,0.08), 0 16px 40px -12px rgba(0,0,0,0.75), 0 4px 12px -4px rgba(0,0,0,0.4)",
           }}
         >
-          {/* Top accent line */}
-          <div
-            className="absolute top-0 left-0 right-0 h-px"
-            style={{ background: "linear-gradient(90deg, transparent, rgba(139,92,246,0.8), rgba(59,130,246,0.8), transparent)" }}
-          />
 
           {/* Header */}
           <div className="flex items-start justify-between px-6 pt-5 pb-4">
             <div className="flex items-center gap-3">
               <div
                 className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: "linear-gradient(135deg, rgba(139,92,246,0.2), rgba(59,130,246,0.2))", border: "1px solid rgba(139,92,246,0.3)" }}
+                style={{ background: "rgba(255,255,255,0.05)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08)" }}
               >
-                <MessageSquare className="w-4 h-4 text-violet-400" />
+                <MessageSquare className="w-4 h-4 text-[var(--text-2)]" />
               </div>
               <div>
                 <p className="text-xs font-medium text-slate-400 uppercase tracking-widest">Quick Feedback</p>
@@ -299,17 +293,17 @@ export default function ServiceFeedback({
                         style={{
                           background: selectedTags.includes(tag)
                             ? isPositive
-                              ? "rgba(139,92,246,0.25)"
+                              ? "rgba(255,255,255,0.1)"
                               : "rgba(239,68,68,0.2)"
                             : "rgba(255,255,255,0.04)",
                           border: selectedTags.includes(tag)
                             ? isPositive
-                              ? "1px solid rgba(139,92,246,0.5)"
+                              ? "1px solid rgba(255,255,255,0.18)"
                               : "1px solid rgba(239,68,68,0.4)"
                             : "1px solid rgba(255,255,255,0.08)",
                           color: selectedTags.includes(tag)
                             ? isPositive
-                              ? "#a78bfa"
+                              ? "#ffffff"
                               : "#f87171"
                             : "#94a3b8",
                         }}
@@ -383,8 +377,8 @@ export default function ServiceFeedback({
                     border: "1px solid rgba(255,255,255,0.08)",
                   }}
                   onFocus={(e) => {
-                    e.target.style.border = "1px solid rgba(139,92,246,0.4)";
-                    e.target.style.background = "rgba(139,92,246,0.05)";
+                    e.target.style.border = "1px solid rgba(255,255,255,0.18)";
+                    e.target.style.background = "rgba(255,255,255,0.06)";
                   }}
                   onBlur={(e) => {
                     e.target.style.border = "1px solid rgba(255,255,255,0.08)";
@@ -400,15 +394,7 @@ export default function ServiceFeedback({
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all duration-200 active:scale-95"
-                style={{
-                  background: isSubmitting
-                    ? "rgba(139,92,246,0.3)"
-                    : "linear-gradient(135deg, rgba(139,92,246,0.9), rgba(59,130,246,0.9))",
-                  border: "1px solid rgba(139,92,246,0.4)",
-                  color: "#fff",
-                  boxShadow: isSubmitting ? "none" : "0 4px 20px rgba(139,92,246,0.3)",
-                }}
+                className="btn-primary w-full disabled:opacity-60"
               >
                 {isSubmitting ? (
                   <>
@@ -434,9 +420,9 @@ export default function ServiceFeedback({
             <div className="px-6 pb-8 flex flex-col items-center text-center gap-3">
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                style={{ background: "linear-gradient(135deg, rgba(139,92,246,0.2), rgba(59,130,246,0.2))", border: "1px solid rgba(139,92,246,0.3)" }}
+                style={{ background: "rgba(52,211,153,0.12)" }}
               >
-                <CheckCircle2 className="w-7 h-7 text-violet-400" />
+                <CheckCircle2 className="w-7 h-7 text-emerald-400" />
               </div>
               <div>
                 <h4 className="text-white font-semibold text-base">Thank you!</h4>
@@ -445,17 +431,12 @@ export default function ServiceFeedback({
                 </p>
               </div>
               <div className="flex items-center gap-1.5 mt-1">
-                <Sparkles className="w-3 h-3 text-violet-400" />
-                <span className="text-xs text-violet-400 font-medium">Feedback received</span>
+                <Sparkles className="w-3 h-3 text-emerald-400" />
+                <span className="text-xs text-emerald-300 font-medium">Feedback received</span>
               </div>
             </div>
           )}
 
-          {/* Bottom accent */}
-          <div
-            className="absolute bottom-0 left-0 right-0 h-px"
-            style={{ background: "linear-gradient(90deg, transparent, rgba(59,130,246,0.4), transparent)" }}
-          />
         </div>
       </div>
     </>

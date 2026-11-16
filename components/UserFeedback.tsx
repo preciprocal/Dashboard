@@ -367,7 +367,7 @@ const AgreeScale = ({ value, onChange }: { value: string; onChange: (v: string) 
         <button key={opt} type="button" onClick={() => onChange(opt)}
           className={`px-2 py-1 rounded-lg text-xs border transition-all ${
             value === opt
-              ? "bg-indigo-500/20 border-indigo-500/50 text-indigo-300"
+              ? "bg-white/[0.1] border-white/[0.18] text-white"
               : "border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-300"
           }`}>
           {opt}
@@ -491,8 +491,8 @@ export default function UsersFeedback({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--border)]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[var(--accent)] flex items-center justify-center shadow-lg">
-              <MessageSquarePlus className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 rounded-xl bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] flex items-center justify-center">
+              <MessageSquarePlus className="w-4 h-4 text-[var(--text-2)]" />
             </div>
             <div>
               <p className="text-white text-sm font-semibold leading-tight">{config.title}</p>
@@ -510,7 +510,7 @@ export default function UsersFeedback({
           <div className="flex items-center gap-1.5 px-6 pt-5">
             {[1, 2, 3].map((s) => (
               <div key={s} className={`h-1 flex-1 rounded-full transition-all duration-500 ${
-                s <= step ? "bg-[var(--accent)]" : "bg-slate-800"
+                s <= step ? "bg-white/80" : "bg-white/[0.08]"
               }`} />
             ))}
             <span className="text-slate-500 text-xs ml-1">{step}/3</span>
@@ -580,7 +580,7 @@ export default function UsersFeedback({
                     <button key={opt} type="button" onClick={() => toggleUsage(opt)}
                       className={`px-2.5 py-1 rounded-lg text-xs border transition-all ${
                         usageSelected.includes(opt)
-                          ? "bg-purple-500/15 border-purple-500/50 text-purple-300"
+                          ? "bg-white/[0.1] border-white/[0.18] text-white"
                           : "border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-300"
                       }`}>
                       {opt}
@@ -628,10 +628,10 @@ export default function UsersFeedback({
                       onClick={() => setTopImprovement(topImprovement === opt ? "" : opt)}
                       className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-xs transition-all ${
                         topImprovement === opt
-                          ? "bg-indigo-500/15 border-indigo-500/50 text-indigo-300"
+                          ? "bg-white/[0.1] border-white/[0.18] text-white"
                           : "border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-300"
                       }`}>
-                      {topImprovement === opt && <CheckCircle2 className="w-3 h-3 text-indigo-400 shrink-0" />}
+                      {topImprovement === opt && <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />}
                       <span>{opt}</span>
                     </button>
                   ))}
@@ -650,7 +650,7 @@ export default function UsersFeedback({
                   placeholder={config.freePlaceholder} rows={6} maxLength={800}
                   className="w-full bg-white/[0.042] border border-[var(--border)] rounded-xl px-3 py-2.5
                     text-slate-200 placeholder:text-slate-500 text-sm resize-none focus:outline-none
-                    focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 transition-all" />
+                    focus:border-white/[0.18] transition-all" />
                 <p className="text-slate-500 text-xs text-right">{freeText.length}/800</p>
               </div>
 
@@ -663,7 +663,7 @@ export default function UsersFeedback({
                   </span>
                   {nps !== null && (
                     <span className="flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3 text-indigo-400" />
+                      <AlertCircle className="w-3 h-3 text-[var(--text-3)]" />
                       NPS {nps}/10
                     </span>
                   )}
@@ -671,7 +671,7 @@ export default function UsersFeedback({
                     <span>{usageSelected.length} usage tag{usageSelected.length > 1 ? "s" : ""}</span>
                   )}
                   {topImprovement && (
-                    <span className="text-indigo-400 truncate max-w-40">Priority: {topImprovement}</span>
+                    <span className="text-[var(--text-2)] truncate max-w-40">Priority: {topImprovement}</span>
                   )}
                 </div>
               </div>
@@ -705,17 +705,12 @@ export default function UsersFeedback({
               <button type="button"
                 disabled={step === 1 ? !canStep1 : !canStep2}
                 onClick={() => setStep((s) => (s + 1) as 1 | 2 | 3)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl
-                  bg-linear-to-r from-indigo-500 to-violet-500 text-white text-xs font-medium
-                  shadow-lg disabled:opacity-40 disabled:cursor-not-allowed
-                  hover:bg-[var(--accent-hover)] transition-all">
+                className="btn-primary !h-9 !text-[13px] disabled:opacity-40 disabled:cursor-not-allowed">
                 Continue <ChevronRight className="w-3.5 h-3.5" />
               </button>
             ) : (
               <button type="button" onClick={handleSubmit} disabled={isSubmitting}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl
-                  bg-linear-to-r from-indigo-500 to-violet-500 text-white text-xs font-medium
-                  shadow-lg disabled:opacity-60 hover:bg-[var(--accent-hover)] transition-all">
+                className="btn-primary !h-9 !text-[13px] disabled:opacity-60">
                 {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                 {isSubmitting ? "Submitting..." : "Submit feedback"}
               </button>

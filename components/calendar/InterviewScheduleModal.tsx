@@ -180,8 +180,8 @@ export default function InterviewScheduleModal({ app, existing, calendar, schema
       <div className="relative w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-[var(--r-2xl)] border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0_32px_64px_rgba(0,0,0,0.6)]">
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--border)] flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-[var(--r-md)] bg-[var(--accent-subtle)] border border-[var(--accent-border)] flex items-center justify-center flex-shrink-0">
-              <CalendarPlus className="w-4 h-4 text-indigo-300" />
+            <div className="w-9 h-9 rounded-[var(--r-md)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] flex items-center justify-center flex-shrink-0">
+              <CalendarPlus className="w-4 h-4 text-[var(--text-2)]" />
             </div>
             <div className="min-w-0">
               <h2 id="schedule-title" className="text-sm font-semibold text-white">{existing ? 'Edit interview time' : 'Add interview to calendar'}</h2>

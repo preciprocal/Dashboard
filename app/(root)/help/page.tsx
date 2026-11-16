@@ -139,7 +139,7 @@ function Message({
   return (
     <div className="px-5 py-4">
       <div className="flex items-baseline gap-2 mb-1.5">
-        <span className={`text-sm font-semibold ${isStaff ? 'text-purple-300' : 'text-slate-300'}`}>{author}</span>
+        <span className={`text-sm font-semibold ${isStaff ? 'text-sky-300' : 'text-slate-300'}`}>{author}</span>
         <span className="text-xs text-slate-500">{at ? new Date(at).toLocaleString() : ''}</span>
       </div>
       <p className="text-base text-slate-300 leading-relaxed whitespace-pre-wrap">{body}</p>
@@ -708,8 +708,8 @@ function HelpSupportContent() {
                     <tab.icon className="w-4 h-4" />
                     <span>{tab.label}</span>
                     {tab.badge !== undefined && tab.badge > 0 && (
-                      <span className="ml-0.5 min-w-[18px] h-[18px] px-1.5 rounded-full bg-purple-500/20
-                                       border border-purple-500/30 text-purple-300 text-xs font-semibold
+                      <span className="ml-0.5 min-w-[18px] h-[18px] px-1.5 rounded-full bg-white/[0.08]
+                                       text-white text-xs font-semibold
                                        leading-none flex items-center justify-center">
                         {tab.badge > 9 ? '9+' : tab.badge}
                       </span>
@@ -751,7 +751,7 @@ function HelpSupportContent() {
                     placeholder="Search for an answer"
                     className={`w-full pl-14 pr-5 rounded-2xl text-white placeholder-slate-600
                                 bg-white/[0.04] border border-white/[0.08]
-                                focus:outline-none focus:border-purple-500/50 focus:bg-white/[0.06]
+                                focus:outline-none focus:border-white/[0.18] focus:bg-white/[0.06]
                                 transition-all ${browsing ? 'py-4 text-lg' : 'py-3 text-base'}`}
                   />
                 </div>
@@ -783,7 +783,7 @@ function HelpSupportContent() {
                         <button key={cat.value} onClick={() => setSelectedCategory(cat.value)}
                           className="group text-left p-6 rounded-2xl border border-white/[0.06] bg-white/[0.02]
                                      hover:bg-white/[0.04] hover:border-white/[0.12] transition-all">
-                          <cat.icon className="w-5 h-5 text-slate-400 group-hover:text-purple-400 transition-colors" />
+                          <cat.icon className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
                           <h3 className="text-base font-semibold text-white mt-4">{cat.label}</h3>
                           <p className="text-sm text-slate-500 mt-1">
                             {n} {n === 1 ? 'article' : 'articles'}
@@ -800,8 +800,7 @@ function HelpSupportContent() {
                       Send us a ticket and we will reply by email.
                     </p>
                     <button onClick={() => setActiveSection('contact')}
-                      className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-                                 bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition-colors">
+                      className="mt-6 btn-primary">
                       Contact support <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>
@@ -832,7 +831,7 @@ function HelpSupportContent() {
                                 {faq.question}
                               </h3>
                               <ChevronRight className={`w-4 h-4 mt-1 flex-shrink-0 transition-transform duration-200
-                                ${open ? 'rotate-90 text-purple-400' : 'text-slate-500 group-hover:text-slate-400'}`} />
+                                ${open ? 'rotate-90 text-white' : 'text-slate-500 group-hover:text-slate-400'}`} />
                             </button>
                             {open && (
                               <p className="text-base text-slate-400 leading-relaxed pb-6 pr-10">{faq.answer}</p>
@@ -847,7 +846,7 @@ function HelpSupportContent() {
                         No answers for &ldquo;{searchQuery}&rdquo;.
                       </p>
                       <button onClick={() => setActiveSection('contact')}
-                        className="mt-4 text-sm text-purple-400 hover:text-purple-300 transition-colors">
+                        className="mt-4 text-sm text-[var(--text-2)] hover:text-white underline-offset-4 hover:underline transition-colors">
                         Ask support instead
                       </button>
                     </div>
@@ -995,7 +994,7 @@ function HelpSupportContent() {
 
                     {/* Submit */}
                     <button type="submit" disabled={isSubmitting}
-                      className="w-full glass-button-primary hover-lift px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 disabled:opacity-50 text-xs sm:text-sm">
+                      className="btn-primary w-full disabled:opacity-50">
                       {isSubmitting
                         ? <><Loader2 className="w-4 h-4 animate-spin" />{attachments.length > 0 ? 'Uploading & Submitting...' : 'Submitting...'}</>
                         : <><Send className="w-4 h-4" />Submit</>}
@@ -1011,7 +1010,7 @@ function HelpSupportContent() {
                   <h3 className="text-sm sm:text-base font-semibold text-white mb-3 sm:mb-4">Contact Information</h3>
                   <div className="space-y-2.5 sm:space-y-3">
                     <div className="glass-morphism p-2.5 sm:p-3 rounded-lg border border-white/5 flex items-center gap-2 sm:gap-3">
-                      <Mail className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                      <Mail className="w-4 h-4 text-[var(--text-3)] flex-shrink-0" />
                       <div className="min-w-0">
                         <p className="text-xs text-slate-400">Email</p>
                         <p className="text-white font-medium text-xs sm:text-sm truncate">support@preciprocal.com</p>
@@ -1029,8 +1028,8 @@ function HelpSupportContent() {
               </div>
               <div className="glass-card">
                 <div className="p-4 sm:p-6">
-                  <div className="flex items-start gap-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                    <Mail className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex items-start gap-3 p-3 bg-white/[0.02] ring-1 ring-inset ring-white/[0.07] rounded-lg">
+                    <Mail className="w-5 h-5 text-[var(--text-3)] flex-shrink-0 mt-0.5" />
                     <div>
                       <p className="text-sm font-medium text-white mb-1">Email Updates</p>
                       <p className="text-xs text-slate-400 leading-relaxed">We&apos;ll send updates about your ticket to your registered email. You can reply directly to our emails to continue the conversation.</p>
@@ -1124,17 +1123,14 @@ function HelpSupportContent() {
                               rows={3}
                               className="w-full px-3 py-2.5 rounded-lg text-base text-white placeholder-slate-600
                                          bg-white/[0.03] border border-white/[0.08] resize-none
-                                         focus:outline-none focus:border-purple-500/40 transition-colors glass-scrollbar"
+                                         focus:outline-none focus:border-white/[0.18] transition-colors glass-scrollbar"
                             />
                             <div className="flex items-center justify-between mt-2.5">
                               <p className="text-sm text-slate-500">We reply by email. Premium plans get a reply within 24 hours.</p>
                               <button
                                 onClick={handleUserReply}
                                 disabled={isReplying || !replyText.trim()}
-                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg
-                                           bg-purple-600 hover:bg-purple-500 disabled:bg-white/[0.06]
-                                           disabled:text-slate-500 text-white text-sm font-semibold
-                                           transition-colors disabled:cursor-not-allowed">
+                                className="btn-primary !h-9 !text-[13px] disabled:opacity-50 disabled:cursor-not-allowed">
                                 {isReplying
                                   ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Sending</>
                                   : <><Send className="w-3.5 h-3.5" />Send reply</>}
@@ -1199,7 +1195,7 @@ function HelpSupportContent() {
                         {/* Subject */}
                         <div className="min-w-0 flex items-start md:items-center gap-2.5">
                           <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-2 md:mt-0
-                                            ${unread ? 'bg-purple-400' : 'bg-transparent'}`} />
+                                            ${unread ? 'bg-sky-400' : 'bg-transparent'}`} />
                           <div className="min-w-0">
                             <div className={`text-base truncate ${unread ? 'text-white font-semibold' : 'text-slate-200 font-medium'}`}>
                               {ticket.subject}
