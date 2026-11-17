@@ -52,14 +52,6 @@ function VerifyEmailContent() {
 
   return (
     <div className="min-h-screen flex bg-[var(--bg)] items-center justify-center p-6">
-      {/* Background orbs */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-32 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse" />
-        <div
-          className="absolute bottom-1/4 -right-32 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-pulse"
-          style={{ animationDelay: "2s" }}
-        />
-      </div>
 
       <div className="relative z-10 w-full max-w-md">
         {/* Logo */}
@@ -72,8 +64,8 @@ function VerifyEmailContent() {
         <div className="bg-white/[0.024] border border-[var(--border)] rounded-2xl p-8 backdrop-blur-sm shadow-2xl">
           {/* Email icon */}
           <div className="flex justify-center mb-6">
-            <div className="w-20 h-20 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
-              <svg className="w-10 h-10 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-20 h-20 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center">
+              <svg className="w-10 h-10 text-[var(--text-1)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </div>
@@ -84,7 +76,7 @@ function VerifyEmailContent() {
             We sent a verification link to
           </p>
           {email && (
-            <p className="text-purple-400 font-semibold text-center text-sm mb-6 break-all">
+            <p className="text-[var(--text-1)] font-semibold text-center text-sm mb-6 break-all">
               {email}
             </p>
           )}
@@ -138,7 +130,7 @@ function VerifyEmailContent() {
         {/* Back link */}
         <p className="text-center mt-6 text-sm text-slate-400">
           Wrong email?{" "}
-          <Link href="/sign-up" className="text-purple-400 hover:text-purple-300 font-medium transition-colors">
+          <Link href="/sign-up" className="text-white hover:underline underline-offset-2 font-medium transition-colors">
             Sign up again
           </Link>
         </p>

@@ -9,10 +9,9 @@ import { useForm } from "react-hook-form";
 import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useEffect } from "react";
-import { MessagesSquare, FileText, CalendarCheck } from "lucide-react";
+import { MessagesSquare, FileText, Briefcase, Eye, EyeOff } from "lucide-react";
 
 import { Form } from "@/components/ui/form";
-import { Button } from "@/components/ui/button";
 
 import { signIn, signUp } from "@/lib/actions/auth.action";
 import { reloadIfStaleBuild } from "@/lib/auth/client-user";
@@ -206,333 +205,206 @@ const AuthForm = ({ type }: { type: FormType }) => {
   };
 
   const isSignIn = type === "sign-in";
+  const otherHref = !isSignIn
+    ? redirectUrl !== "/" ? `/sign-in?redirect=${encodeURIComponent(redirectUrl)}` : "/sign-in"
+    : redirectUrl !== "/" ? `/sign-up?redirect=${encodeURIComponent(redirectUrl)}` : "/sign-up";
+  const link = "text-[var(--text-1)] underline underline-offset-2 decoration-white/25 hover:decoration-white/70 transition-colors";
+  const checkbox = "mt-0.5 w-4 h-4 flex-shrink-0 rounded cursor-pointer accent-white";
 
   return (
-    <div className="min-h-screen flex bg-[var(--bg)]">
-      {/* Left Side - Branding, styled after the preciprocal.com hero */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-[var(--bg)]">
-        {/* Spotlight glows */}
-        <div className="pointer-events-none absolute -top-40 -left-32 w-[560px] h-[560px] rounded-full bg-indigo-500/[0.12] blur-[120px]" />
-        <div className="pointer-events-none absolute -bottom-48 -right-24 w-[520px] h-[520px] rounded-full bg-purple-500/[0.10] blur-[120px]" />
-
-        {/* Hairline grid, faded out toward the edges */}
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] bg-[var(--bg)]">
+      {/* Left: what the product does, in plain words */}
+      <aside className="hidden lg:flex relative overflow-hidden flex-col justify-between px-14 xl:px-20 py-12 border-r border-white/[0.06] bg-[#0d0e10]">
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.35]"
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-60"
           style={{
-            backgroundImage: `linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
-                              linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)`,
-            backgroundSize: "56px 56px",
-            maskImage: "radial-gradient(ellipse at 30% 40%, black 20%, transparent 75%)",
-            WebkitMaskImage: "radial-gradient(ellipse at 30% 40%, black 20%, transparent 75%)",
+            backgroundImage: "linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px)",
+            backgroundSize: "48px 48px",
+            maskImage: "radial-gradient(ellipse at 20% 30%, black 15%, transparent 70%)",
+            WebkitMaskImage: "radial-gradient(ellipse at 20% 30%, black 15%, transparent 70%)",
           }}
         />
 
-        {/* Fade the glows out before the panel edge so the split isn't visible */}
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-48 bg-gradient-to-r from-transparent to-[var(--bg)]" />
+        <div className="relative flex items-center gap-2.5">
+          <Image src={logo} alt="Preciprocal" width={32} height={32} className="w-8 h-8 rounded-[9px]" priority />
+          <span className="font-display text-[17px] font-semibold tracking-[-0.01em] text-white">Preciprocal</span>
+        </div>
 
-        <div className="relative z-10 flex flex-col justify-between w-full px-14 xl:px-20 py-12">
-          {/* Brand */}
-          <div className="flex items-center gap-2.5">
-            <Image
-              src={logo}
-              alt="Preciprocal"
-              width={36}
-              height={36}
-              className="w-9 h-9 rounded-[10px]"
-              priority
-            />
-            <span className="text-xl font-bold text-white tracking-tight">Preciprocal</span>
-          </div>
+        <div className="relative max-w-[460px]">
+          <p className="text-[12px] font-medium uppercase tracking-[0.12em] text-[var(--text-4)]">For F-1 and OPT job seekers</p>
+          <h2 className="font-display mt-4 text-[38px] xl:text-[44px] leading-[1.06] font-semibold tracking-[-0.03em] text-white">
+            Find the jobs that can hire you. Apply ready.
+          </h2>
+          <p className="mt-5 text-[14.5px] leading-relaxed text-[var(--text-3)]">
+            Live postings from employers&apos; own job boards, with their E-Verify and H-1B records beside each one, and the tools to apply and prepare.
+          </p>
 
-          {/* Hero */}
-          <div className="max-w-xl py-12">
-            <p className="mb-6 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-400/80">
-              AI interview preparation
-            </p>
+          <ul className="mt-10 space-y-5">
+            {[
+              { icon: Briefcase, title: "Jobs you can actually take", body: "Filter by E-Verify enrollment and H-1B approvals from official USCIS directories." },
+              { icon: FileText, title: "Tailored applications", body: "A resume and cover letter fitted to each posting, using only what your resume says." },
+              { icon: MessagesSquare, title: "Mock interviews", body: "Practice with an AI interviewer for the role, then get feedback on every answer." },
+            ].map(({ icon: Icon, title, body }) => (
+              <li key={title} className="flex items-start gap-3.5">
+                <span className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center bg-white/[0.04] ring-1 ring-inset ring-white/[0.08]">
+                  <Icon className="w-[17px] h-[17px] text-[var(--text-2)]" strokeWidth={1.75} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[14px] font-medium text-white">{title}</span>
+                  <span className="block mt-0.5 text-[13px] leading-relaxed text-[var(--text-4)]">{body}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
 
-            <h2 className="text-[44px] xl:text-[52px] font-black tracking-[-0.03em] leading-[1.02] text-white">
-              Tired of AI taking your job?
-              <br />
-              <span className="inline-block pb-1 bg-[var(--accent)] bg-clip-text text-transparent">
-                Use AI to take it back.
-              </span>
-            </h2>
-
-            <p className="mt-6 text-[15px] text-slate-400 leading-relaxed font-light max-w-md">
-              Most candidates are qualified. Few are prepared. Preciprocal closes
-              that gap with the tools, feedback, and confidence to walk into any
-              interview and own the room.
-            </p>
-
-            <div className="mt-10 rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm divide-y divide-white/[0.05]">
-              {[
-                {
-                  icon: MessagesSquare,
-                  title: "AI mock interviews",
-                  body: "Realistic interviewers that adapt to your role, seniority, and target company, scored on communication, depth, and confidence.",
-                },
-                {
-                  icon: FileText,
-                  title: "Resume analysis",
-                  body: "ATS scoring, keyword gap analysis, and a recruiter eye simulation so your resume clears every gate.",
-                },
-                {
-                  icon: CalendarCheck,
-                  title: "Personalized study plans",
-                  body: "A day-by-day prep schedule built around your timeline, skill gaps, and target role.",
-                },
-              ].map(({ icon: Icon, title, body }) => (
-                <div key={title} className="group flex items-start gap-4 p-5 transition-colors hover:bg-white/[0.02]">
-                  <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-[var(--accent-subtle)] border border-indigo-400/20 flex items-center justify-center transition-colors group-hover:border-indigo-400/40">
-                    <Icon className="w-[18px] h-[18px] text-indigo-300" strokeWidth={1.75} />
-                  </div>
-                  <div>
-                    <h3 className="text-[14px] font-semibold text-white tracking-tight">{title}</h3>
-                    <p className="mt-1 text-[13px] text-slate-400 leading-relaxed">{body}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-between text-xs text-slate-500 tracking-wide">
-            <span>&copy; {new Date().getFullYear()} Preciprocal</span>
-            <div className="flex items-center gap-5">
-              <a href={`${SITE.marketing}/terms`} target="_blank" rel="noopener noreferrer" className="hover:text-slate-400 transition-colors">
-                Terms
-              </a>
-              <a href={`${SITE.marketing}/privacy`} target="_blank" rel="noopener noreferrer" className="hover:text-slate-400 transition-colors">
-                Privacy
-              </a>
-            </div>
+        <div className="relative flex items-center justify-between text-[12px] text-[var(--text-5)]">
+          <span>&copy; {new Date().getFullYear()} Preciprocal</span>
+          <div className="flex items-center gap-5">
+            <a href={`${SITE.marketing}/terms`} target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-2)] transition-colors">Terms</a>
+            <a href={`${SITE.marketing}/privacy`} target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-2)] transition-colors">Privacy</a>
           </div>
         </div>
-      </div>
+      </aside>
 
-      {/* Right Side - Auth Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[var(--bg)]">
-        <div className="w-full max-w-md">
-          <div className="lg:hidden text-center mb-8">
-            <div className="flex items-center justify-center space-x-3 mb-4">
-              <Image
-                src={logo}
-                alt="Preciprocal"
-                width={48}
-                height={48}
-                className="rounded-xl"
-                priority
-              />
-              <h1 className="text-3xl font-black text-white">Preciprocal</h1>
-            </div>
+      {/* Right: the form */}
+      <main className="flex items-center justify-center px-4 sm:px-8 py-10 min-w-0">
+        <div className="w-full max-w-[400px]">
+          <div className="lg:hidden flex items-center gap-2.5 mb-10">
+            <Image src={logo} alt="Preciprocal" width={32} height={32} className="w-8 h-8 rounded-[9px]" priority />
+            <span className="font-display text-[17px] font-semibold tracking-[-0.01em] text-white">Preciprocal</span>
           </div>
 
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-white mb-2">
-              {isSignIn ? "Welcome back" : "Create your account"}
-            </h2>
-            <p className="text-slate-400">
-              {isSignIn
-                ? "Enter your credentials to access your account"
-                : "Start your journey to interview success"}
-            </p>
-          </div>
+          <h1 className="font-display text-[26px] font-semibold tracking-[-0.02em] text-white">
+            {isSignIn ? "Welcome back" : "Create your account"}
+          </h1>
+          <p className="mt-1.5 text-[14px] text-[var(--text-3)]">
+            {isSignIn ? "Sign in to pick up where you left off." : "Free to start. No card needed."}
+          </p>
 
-          <div className="space-y-3 mb-6">
-            <button
-              onClick={handleGoogleAuth}
-              type="button"
-              disabled={isGoogleLoading}
-              className="w-full flex items-center justify-center space-x-3 py-3 px-4 bg-[var(--bg-surface)] hover:bg-white/[0.086] border border-[var(--border)] rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group"
-            >
-              {isGoogleLoading ? (
-                <div className="w-5 h-5 border-2 border-[var(--border)] border-t-purple-500 rounded-full animate-spin"></div>
-              ) : (
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                </svg>
-              )}
-              <span className="text-white font-medium">
-                {isGoogleLoading ? "Connecting..." : "Continue with Google"}
-              </span>
-            </button>
-            <p className="text-xs leading-relaxed text-slate-400 text-center">
-              By continuing with Google, you agree to our{" "}
-              <a href={`${SITE.marketing}/terms`} target="_blank" rel="noopener noreferrer" className="text-slate-400 underline underline-offset-2 hover:text-slate-300">Terms of Service</a>
-              {" "}and{" "}
-              <a href={`${SITE.marketing}/privacy`} target="_blank" rel="noopener noreferrer" className="text-slate-400 underline underline-offset-2 hover:text-slate-300">Privacy Policy</a>.
-            </p>
-          </div>
+          <button
+            onClick={handleGoogleAuth}
+            type="button"
+            disabled={isGoogleLoading}
+            className="btn-secondary w-full !h-11 mt-8 justify-center disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isGoogleLoading ? (
+              <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+            ) : (
+              <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" aria-hidden>
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+              </svg>
+            )}
+            <span className="font-medium">{isGoogleLoading ? "Connecting..." : "Continue with Google"}</span>
+          </button>
+          <p className="mt-2.5 text-[12px] leading-relaxed text-[var(--text-4)] text-center">
+            By continuing with Google, you agree to our{" "}
+            <a href={`${SITE.marketing}/terms`} target="_blank" rel="noopener noreferrer" className={link}>Terms of Service</a>
+            {" "}and{" "}
+            <a href={`${SITE.marketing}/privacy`} target="_blank" rel="noopener noreferrer" className={link}>Privacy Policy</a>.
+          </p>
 
-          <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-[var(--border)]"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-[var(--bg)] text-slate-400 font-medium">
-                Or continue with email
-              </span>
-            </div>
+          <div className="flex items-center gap-3 my-7" aria-hidden>
+            <span className="h-px flex-1 bg-white/[0.07]" />
+            <span className="text-[12px] text-[var(--text-5)]">or with email</span>
+            <span className="h-px flex-1 bg-white/[0.07]" />
           </div>
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               {!isSignIn && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Full Name
-                  </label>
-                  <input
-                    {...form.register("name")}
-                    type="text"
-                    placeholder="Bruce Wayne"
-                    className="w-full px-4 py-3 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
-                  />
+                  <label htmlFor="auth-name" className="block text-[12.5px] font-medium text-[var(--text-2)] mb-1.5">Full name</label>
+                  <input id="auth-name" {...form.register("name")} type="text" autoComplete="name" placeholder="Your name" className="field" />
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Email
-                </label>
-                <input
-                  {...form.register("email")}
-                  type="email"
-                  placeholder="bruce@wayneenterprises.com"
-                  className="w-full px-4 py-3 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
-                />
+                <label htmlFor="auth-email" className="block text-[12.5px] font-medium text-[var(--text-2)] mb-1.5">Email</label>
+                <input id="auth-email" {...form.register("email")} type="email" autoComplete="email" placeholder="you@university.edu" className="field" />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Password
-                </label>
+                <div className="flex items-baseline justify-between mb-1.5">
+                  <label htmlFor="auth-password" className="text-[12.5px] font-medium text-[var(--text-2)]">Password</label>
+                  {isSignIn && (
+                    <Link href="/forgot-password" className="text-[12.5px] text-[var(--text-3)] hover:text-white transition-colors">Forgot password?</Link>
+                  )}
+                </div>
                 <div className="relative">
                   <input
+                    id="auth-password"
                     {...form.register("password")}
                     type={showPassword ? "text" : "password"}
+                    autoComplete={isSignIn ? "current-password" : "new-password"}
                     placeholder="••••••••"
-                    className="w-full px-4 py-3 pr-12 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                    className="field !pr-11"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-300"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute inset-y-0 right-0 w-11 flex items-center justify-center text-[var(--text-4)] hover:text-white transition-colors"
                   >
-                    {showPassword ? (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    )}
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                {!isSignIn && (
-                  <p className="text-xs text-slate-400 mt-2">
-                    Must be at least 6 characters
-                  </p>
-                )}
+                {!isSignIn && <p className="text-[12px] text-[var(--text-5)] mt-1.5">At least 6 characters.</p>}
               </div>
 
               {isSignIn && (
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={rememberMe}
-                      onChange={(e) => setRememberMe(e.target.checked)}
-                      className="w-4 h-4 text-purple-600 bg-[var(--bg-surface)] border-[var(--border)] rounded cursor-pointer accent-purple-600"
-                      style={{ colorScheme: "dark" }}
-                    />
-                    <span className="ml-2 text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
-                      Remember me
-                    </span>
-                  </label>
-                  <Link
-                    href="/forgot-password"
-                    className="text-sm text-purple-400 hover:text-purple-300 font-medium"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
+                <label className="flex items-center gap-2 cursor-pointer w-fit">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className={checkbox.replace("mt-0.5 ", "")}
+                    style={{ colorScheme: "dark" }}
+                  />
+                  <span className="text-[13px] text-[var(--text-3)]">Remember me</span>
+                </label>
               )}
 
               {/* Unticked by default on purpose: consent has to be an action
                   the person takes, not a default they failed to undo. */}
               <div>
-                <label className="flex items-start cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    {...form.register("acceptedTerms")}
-                    className="mt-0.5 w-4 h-4 flex-shrink-0 bg-[var(--bg-surface)] border-[var(--border)] rounded cursor-pointer accent-purple-600"
-                    style={{ colorScheme: "dark" }}
-                  />
-                  <span className="ml-2 text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input type="checkbox" {...form.register("acceptedTerms")} className={checkbox} style={{ colorScheme: "dark" }} />
+                  <span className="text-[13px] leading-snug text-[var(--text-3)]">
                     I agree to the{" "}
-                    <a
-                      href={`${SITE.marketing}/terms`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-purple-400 hover:text-purple-300 underline"
-                    >
-                      Terms of Service
-                    </a>{" "}
-                    and{" "}
-                    <a
-                      href={`${SITE.marketing}/privacy`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-purple-400 hover:text-purple-300 underline"
-                    >
-                      Privacy Policy
-                    </a>
+                    <a href={`${SITE.marketing}/terms`} target="_blank" rel="noopener noreferrer" className={link}>Terms of Service</a>
+                    {" "}and{" "}
+                    <a href={`${SITE.marketing}/privacy`} target="_blank" rel="noopener noreferrer" className={link}>Privacy Policy</a>
                   </span>
                 </label>
-                {termsError && (
-                  <p role="alert" className="text-xs text-red-400 mt-2">{termsError}</p>
-                )}
+                {termsError && <p role="alert" className="text-[12px] text-rose-300 mt-2">{termsError}</p>}
               </div>
 
-              <Button
-                type="submit"
-                disabled={isLoading || !acceptedTerms}
-                className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] font-semibold py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border-0 shadow-[var(--shadow-btn)] hover:shadow-[var(--shadow-btn)]"
-              >
+              <button type="submit" disabled={isLoading || !acceptedTerms} className="btn-primary w-full !h-11 justify-center mt-2">
                 {isLoading ? (
-                  <div className="flex items-center justify-center space-x-2">
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <>
+                    <span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
                     <span>{isSignIn ? "Signing in..." : "Creating account..."}</span>
-                  </div>
+                  </>
                 ) : (
                   <span>{isSignIn ? "Sign in" : "Create account"}</span>
                 )}
-              </Button>
+              </button>
             </form>
           </Form>
 
-          <p className="mt-6 text-center text-sm text-slate-400">
-            {isSignIn ? "Don't have an account?" : "Already have an account?"}
-            <Link
-              href={
-                !isSignIn
-                  ? redirectUrl !== "/" ? `/sign-in?redirect=${encodeURIComponent(redirectUrl)}` : "/sign-in"
-                  : redirectUrl !== "/" ? `/sign-up?redirect=${encodeURIComponent(redirectUrl)}` : "/sign-up"
-              }
-              className="ml-1 text-purple-400 hover:text-purple-300 font-semibold"
-            >
-              {!isSignIn ? "Sign in" : "Sign up"}
+          <p className="mt-8 text-center text-[13.5px] text-[var(--text-3)]">
+            {isSignIn ? "New to Preciprocal?" : "Already have an account?"}{" "}
+            <Link href={otherHref} className="font-medium text-white hover:underline underline-offset-2">
+              {isSignIn ? "Create an account" : "Sign in"}
             </Link>
           </p>
-
         </div>
-      </div>
+      </main>
     </div>
   );
 };

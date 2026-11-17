@@ -63,8 +63,7 @@ const ForgotPasswordPage = () => {
 
         {/* Animated Background Elements */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-1/4 -left-20 w-72 h-72 bg-purple-500/5 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "2s" }}></div>
+          
           <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-white/[0.035] rounded-full blur-2xl animate-pulse" style={{ animationDelay: "4s" }}></div>
         </div>
 
@@ -98,8 +97,8 @@ const ForgotPasswordPage = () => {
           <div className="space-y-3 mt-8">
             <div className="group p-5 bg-white/[0.035] hover:bg-white/[0.072] border border-[var(--border)] rounded-xl transition-all duration-300 backdrop-blur-sm">
               <div className="flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-purple-500/20 transition-all">
-                  <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-10 h-10 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center flex-shrink-0 group-hover:bg-white/[0.07] transition-all">
+                  <svg className="w-5 h-5 text-[var(--text-1)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </div>
@@ -142,8 +141,8 @@ const ForgotPasswordPage = () => {
           {/* Security Illustration */}
           <div className="mt-12 p-6 bg-white/[0.025] backdrop-blur-sm rounded-xl border border-[var(--border)]">
             <div className="flex items-center justify-center space-x-6">
-              <div className="w-14 h-14 bg-purple-500/10 border border-purple-500/20 rounded-lg flex items-center justify-center">
-                <svg className="w-7 h-7 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-14 h-14 bg-white/[0.04] border border-white/[0.08] rounded-lg flex items-center justify-center">
+                <svg className="w-7 h-7 text-[var(--text-1)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
@@ -203,7 +202,7 @@ const ForgotPasswordPage = () => {
                       {...form.register("email")}
                       type="email"
                       placeholder="you@example.com"
-                      className="w-full px-4 py-3 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                      className="field"
                       disabled={isLoading}
                     />
                     {form.formState.errors.email && (
@@ -261,7 +260,7 @@ const ForgotPasswordPage = () => {
                 <p className="text-slate-400">
                   We&apos;ve sent a password reset link to
                 </p>
-                <p className="text-purple-400 font-semibold">
+                <p className="text-[var(--text-1)] font-semibold">
                   {form.getValues("email")}
                 </p>
               </div>
@@ -273,19 +272,19 @@ const ForgotPasswordPage = () => {
                 </h3>
                 <ol className="text-slate-400 text-sm space-y-2">
                   <li className="flex items-start space-x-2">
-                    <span className="text-purple-400 font-semibold">1.</span>
+                    <span className="text-[var(--text-1)] font-semibold">1.</span>
                     <span>Check your email inbox (and spam folder)</span>
                   </li>
                   <li className="flex items-start space-x-2">
-                    <span className="text-purple-400 font-semibold">2.</span>
+                    <span className="text-[var(--text-1)] font-semibold">2.</span>
                     <span>Click the reset link in the email</span>
                   </li>
                   <li className="flex items-start space-x-2">
-                    <span className="text-purple-400 font-semibold">3.</span>
+                    <span className="text-[var(--text-1)] font-semibold">3.</span>
                     <span>Create your new password</span>
                   </li>
                   <li className="flex items-start space-x-2">
-                    <span className="text-purple-400 font-semibold">4.</span>
+                    <span className="text-[var(--text-1)] font-semibold">4.</span>
                     <span>Sign in with your new credentials</span>
                   </li>
                 </ol>

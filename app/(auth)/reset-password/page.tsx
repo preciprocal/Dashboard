@@ -71,7 +71,7 @@ const ResetPasswordPage = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--bg)]">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-16 h-16 border-4 border-white/40 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-slate-400">Verifying reset link...</p>
         </div>
       </div>
@@ -138,8 +138,7 @@ const ResetPasswordPage = () => {
 
         {/* Animated Background Elements */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-1/4 -left-20 w-72 h-72 bg-purple-500/5 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "2s" }}></div>
+          
           <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-white/[0.035] rounded-full blur-2xl animate-pulse" style={{ animationDelay: "4s" }}></div>
         </div>
 
@@ -173,8 +172,8 @@ const ResetPasswordPage = () => {
           <div className="space-y-3 mt-8">
             <div className="group p-5 bg-white/[0.035] hover:bg-white/[0.072] border border-[var(--border)] rounded-xl transition-all duration-300 backdrop-blur-sm">
               <div className="flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-purple-500/20 transition-all">
-                  <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-10 h-10 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center flex-shrink-0 group-hover:bg-white/[0.07] transition-all">
+                  <svg className="w-5 h-5 text-[var(--text-1)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                 </div>
@@ -243,7 +242,7 @@ const ResetPasswordPage = () => {
               Enter a new password for your account
             </p>
             {email && (
-              <p className="text-sm text-purple-400 font-semibold">
+              <p className="text-sm text-[var(--text-1)] font-semibold">
                 {email}
               </p>
             )}
@@ -261,7 +260,7 @@ const ResetPasswordPage = () => {
                     {...form.register("password")}
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
-                    className="w-full px-4 py-3 pr-12 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                    className="field !pr-12"
                     disabled={isLoading}
                   />
                   <button
@@ -297,7 +296,7 @@ const ResetPasswordPage = () => {
                     {...form.register("confirmPassword")}
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="••••••••"
-                    className="w-full px-4 py-3 pr-12 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-500"
+                    className="field !pr-12"
                     disabled={isLoading}
                   />
                   <button
