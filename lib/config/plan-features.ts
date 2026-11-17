@@ -22,6 +22,7 @@ import { INTERVIEW_DURATION_SECONDS } from "@/lib/config/interview-limits";
 
 /** Display order. Leads with what people actually compare tiers on. */
 const DISPLAY_ORDER: FeatureType[] = [
+  "applications",
   "resumes",
   "coverLetters",
   "interviews",
@@ -51,6 +52,7 @@ const DISPLAY_ORDER: FeatureType[] = [
  * "mock interviews" on a pricing page tells a prospective customer nothing.
  */
 const LABELS: Record<FeatureType, { one: string; many: string }> = {
+  applications:          { one: "tailored application", many: "tailored applications" },
   resumes:               { one: "resume analysis",      many: "resume analyses" },
   coverLetters:          { one: "cover letter",         many: "cover letters" },
   interviews:            { one: "mock interview",       many: "mock interviews" },

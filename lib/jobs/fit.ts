@@ -137,3 +137,37 @@ export function jobFit(description: string, resumeText: string | null): JobFit {
     years: yMatch && ySentence ? { min: Number(yMatch[1]), quote: short(ySentence) } : null,
   };
 }
+
+export interface FitExplanation {
+  strengths: { point: string; evidence: string }[];
+  gaps: { requirement: string; advice: string }[];
+  pitch: string;
+}
+
+/**
+ * Where the resume meets the posting, by the same skill list as the score:
+ * each skill both name, with the resume line that names it, and each skill
+ * only the posting names, with the posting sentence that asks for it. Every
+ * quote is copied from one of the two texts, so nothing is made up.
+ */
+export function explainFit(description: string, resumeText: string): FitExplanation {
+  const lines = resumeText.split(/\r?\n/).map(l => l.replace(/^[\s•\-*·]+/, '').trim()).filter(l => l.length >= 3);
+  const all = sentences(description);
+  const strengths: FitExplanation['strengths'] = [];
+  const gaps: FitExplanation['gaps'] = [];
+  const usedLines = new Set<string>();
+  for (const entry of SKILLS) {
+    if (!entry.some(t => names(description, t))) continue;
+    const skill = label(entry);
+    // A sentence of experience shows a skill better than the skills list does.
+    const naming = lines.filter(l => entry.some(t => names(l, t)));
+    const line = naming.find(l => !usedLines.has(l) && l.split(/s+/).length >= 6) ?? naming.find(l => !usedLines.has(l)) ?? naming[0];
+    if (line) {
+      if (strengths.length < 4) { usedLines.add(line); strengths.push({ point: `The posting asks for ${skill}, and your resume shows it.`, evidence: short(line) }); }
+    } else if (gaps.length < 3) {
+      const asked = all.find(s => entry.some(t => names(s, t)));
+      if (asked) gaps.push({ requirement: short(asked), advice: `Your resume does not mention ${skill}. If you have used it, add where.` });
+    }
+  }
+  return { strengths, gaps, pitch: '' };
+}

@@ -1,6 +1,8 @@
 // lib/config/usage-limits.ts
 
 export interface UsageLimits {
+  /** One job taken through the Apply flow: tailored resume, cover letter and prep. */
+  applications: number;
   coverLetters: number;
   resumes: number;
   studyPlans: number;
@@ -21,6 +23,7 @@ export interface PlanLimits {
 }
 
 const UNLIMITED: UsageLimits = {
+  applications: -1,
   coverLetters: -1,
   resumes: -1,
   studyPlans: -1,
@@ -38,10 +41,15 @@ export const USAGE_LIMITS: PlanLimits = {
   // lib/ai/usage-guard.ts, which forces this plan for admin accounts
   // regardless of what's in the subscriptions table.
   admin: UNLIMITED,
+  // Sized so a month at the full allowance still leaves at least half of the
+  // price after model costs and card fees, except for mock interviews, which
+  // were kept as they were (voice is most of the cost: see feature-costs.ts).
+  // Free is a taste of each feature, not a working allowance.
   free: {
-    coverLetters: 5,
-    resumes: 3,
-    studyPlans: 2,
+    applications: 1,
+    coverLetters: 2,
+    resumes: 2,
+    studyPlans: 1,
     interviews: 1,        // 8 min per session, capped server-side - interview-limits.ts
     // Sized to a real month of interviewing rather than to cost. A debrief is
     // a DB insert with no model call (feature-costs.ts prices it at 0), so the
@@ -49,40 +57,43 @@ export const USAGE_LIMITS: PlanLimits = {
     // it was advertised, so Premium's card claimed 150 real interviews a month.
     interviewDebriefs: 2,
     debriefAnalyses: 1,
-    linkedinOptimisations: 2,
-    coldOutreach: 3,
-    findContacts: 3,
+    linkedinOptimisations: 1,
+    coldOutreach: 2,
+    findContacts: 2,
     jobTracker: 10,      // DB rows, $0 to serve - see feature-costs.ts. A
                          // round number that fits a real early job search;
                          // the cap is an abuse control, not cost rationing.
   },
   pro: {
-    coverLetters: 30,
-    resumes: 20,
-    studyPlans: 10,
+    applications: 6,
+    coverLetters: 10,
+    resumes: 10,
+    studyPlans: 3,
     interviews: 3,        // 10 min per session, capped server-side - interview-limits.ts
     interviewDebriefs: 5,
-    debriefAnalyses: 4,
-    linkedinOptimisations: 5,
-    coldOutreach: 20,
-    findContacts: 15,
+    debriefAnalyses: 2,
+    linkedinOptimisations: 3,
+    coldOutreach: 10,
+    findContacts: 10,
     jobTracker: -1,       // unlimited
   },
   premium: {
-    coverLetters: 80,
-    resumes: 50,
-    studyPlans: 25,
+    applications: 12,
+    coverLetters: 20,
+    resumes: 20,
+    studyPlans: 5,
     interviews: 5,        // 12 min per session, capped server-side - interview-limits.ts
     interviewDebriefs: 10,
-    debriefAnalyses: 12,
-    linkedinOptimisations: 15,
-    coldOutreach: 60,
-    findContacts: 50,
+    debriefAnalyses: 4,
+    linkedinOptimisations: 5,
+    coldOutreach: 20,
+    findContacts: 20,
     jobTracker: -1,       // unlimited
   },
 };
 
 export type FeatureType =
+  | 'applications'
   | 'coverLetters'
   | 'resumes'
   | 'studyPlans'
@@ -111,6 +122,7 @@ export type FeatureType =
  * that meant practice or their own journal.
  */
 export const FEATURE_NAMES: Record<FeatureType, string> = {
+  applications: 'Job Applications',
   coverLetters: 'Cover Letters',
   resumes: 'Resume Analyses',
   studyPlans: 'Study Plans',

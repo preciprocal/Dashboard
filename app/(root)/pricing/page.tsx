@@ -27,7 +27,7 @@ import PageHeader from "@/components/PageHeader";
 import { CreditCard, CheckCircle2, XCircle, X, Sparkles, ArrowRight, GraduationCap, ChevronDown } from "lucide-react";
 
 /** The quota rows of the comparison table, in the plan cards' order. */
-const COMPARE_FEATURES: FeatureType[] = ["resumes", "coverLetters", "interviews", "studyPlans", "linkedinOptimisations", "coldOutreach", "findContacts", "jobTracker"];
+const COMPARE_FEATURES: FeatureType[] = ["applications", "resumes", "coverLetters", "interviews", "studyPlans", "linkedinOptimisations", "coldOutreach", "findContacts", "jobTracker"];
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 

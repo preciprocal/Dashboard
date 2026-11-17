@@ -27,6 +27,11 @@ import type { FeatureType } from "@/lib/config/usage-limits";
 /** Per-unit marginal cost in USD. */
 export const FEATURE_COSTS: Record<FeatureType, number> = {
   // ── Text features, Claude ────────────────────────────────────────────────
+  // Provisional, estimated from the code, not measured: tailor (~$0.04, one
+  // call plus a refit when a line does not fit), prep (~$0.075, two calls),
+  // cover letter (~$0.01), and up to 5 after-round reviews (~$0.016 each).
+  // Check against the apply-* logUsage lines before resizing quotas on it.
+  applications: 0.21,
   resumes: 0.014,
   coverLetters: 0.010,
   linkedinOptimisations: 0.014,
@@ -107,6 +112,7 @@ export function costForPlan(
 
 /** Features whose cost is dominated by a model call rather than a DB write. */
 export const AI_BACKED_FEATURES: readonly FeatureType[] = [
+  "applications",
   "resumes",
   "coverLetters",
   "linkedinOptimisations",
@@ -122,6 +128,7 @@ export const AI_BACKED_FEATURES: readonly FeatureType[] = [
  * them as measured.
  */
 export const PROVISIONAL_COSTS: readonly FeatureType[] = [
+  "applications",
   "coldOutreach",
   "studyPlans",
   "interviews",

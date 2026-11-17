@@ -14,6 +14,7 @@ import {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface UsageData {
+  applicationsUsed: number;
   coverLettersUsed: number;
   resumesUsed: number;
   studyPlansUsed: number;
@@ -42,6 +43,7 @@ interface UsageTrackingResult {
 // ─── Field map ────────────────────────────────────────────────────────────────
 
 const FEATURE_TO_FIELD_MAP: Record<FeatureType, keyof UsageData> = {
+  applications:          'applicationsUsed',
   coverLetters:          'coverLettersUsed',
   resumes:               'resumesUsed',
   studyPlans:            'studyPlansUsed',
@@ -55,6 +57,7 @@ const FEATURE_TO_FIELD_MAP: Record<FeatureType, keyof UsageData> = {
 };
 
 const DEFAULT_USAGE: UsageData = {
+  applicationsUsed: 0,
   coverLettersUsed: 0,
   resumesUsed: 0,
   studyPlansUsed: 0,

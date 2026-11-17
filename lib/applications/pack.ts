@@ -109,6 +109,10 @@ export interface ApplyPack {
   portalOpenedAt?: string | null;
   /** When auto mode ran on this application (it runs once). */
   autoRunAt?: string | null;
+  /** When this application used its one 'applications' unit (lib/applications/charge.ts). */
+  chargedAt?: string | null;
+  /** Generations run per step, capped so one unit cannot be rerun without end. */
+  runs?: Partial<Record<'tailor' | 'prep' | 'letter', number>>;
   updatedAt: string;
 }
 

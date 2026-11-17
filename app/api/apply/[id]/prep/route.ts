@@ -15,7 +15,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { anthropic, cachedSystem, logUsage, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
 import { askJson } from '@/lib/applications/model-json';
-import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
+import { gateStep, chargeStep } from '@/lib/applications/charge';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 import { getApplication, loadPack, savePack, type PrepPack, type StarStory } from '@/lib/applications/pack';
 import { containsLoose, dropUnbackedClaims, groundingIssue } from '@/lib/applications/truthful-tailor';
@@ -61,12 +61,12 @@ export async function POST(request: NextRequest, { params }: Ctx) {
 
     const rateLimited = await applyRateLimit(request, userId, 'heavy');
     if (rateLimited) return rateLimited;
-    const usage = await checkUsage(userId, 'resumes');
-    if (!usage.allowed) return NextResponse.json({ error: usage.message, code: 'USAGE_LIMIT', used: usage.used, limit: usage.limit }, { status: 403 });
 
     const app = await getApplication(uid, (await params).id);
     if (!app) return NextResponse.json({ error: 'Application not found' }, { status: 404 });
     const pack = await loadPack(uid, app);
+    const gated = await gateStep(userId, pack, 'prep');
+    if (gated) return gated;
 
     const jd = pack.jobDescription || app.jobDescription || '';
     if (jd.length < 50) return NextResponse.json({ error: 'Add the job description first.' }, { status: 400 });
@@ -179,7 +179,7 @@ Give 5 to 7 technical topics and 4 to 5 STAR stories, each story built on a diff
       nextRoundFocus: pack.prep?.nextRoundFocus ?? null,
     };
 
-    await checkAndIncrementUsage(userId, 'resumes');
+    await chargeStep(userId, pack, 'prep');
     pack.prep = prep;
     return NextResponse.json({ success: true, pack: await savePack(uid, pack), removed: dropped.length });
   } catch (error) {

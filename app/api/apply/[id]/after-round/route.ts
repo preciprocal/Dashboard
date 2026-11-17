@@ -6,6 +6,7 @@
 // drafts the thank-you email. The draft uses only what the notes say happened;
 // names it does not know are left as [brackets] for the student to fill in.
 import { NextRequest, NextResponse } from 'next/server';
+import { ROUNDS_PER_APPLICATION } from '@/lib/applications/charge';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { anthropic, cachedSystem, logUsage, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
@@ -66,6 +67,9 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     if (notes.length < 20) return NextResponse.json({ error: 'Add a few notes about the round, or pick its journal entry.' }, { status: 400 });
 
     const pack = await loadPack(uid, app);
+    if (pack.rounds.length >= ROUNDS_PER_APPLICATION) {
+      return NextResponse.json({ error: `Round reviews are limited to ${ROUNDS_PER_APPLICATION} per application.`, code: 'STEP_LIMIT' }, { status: 429 });
+    }
     const nextRound = str(body.nextRound, 80);
     const prompt = `ROLE: ${app.jobTitle}${app.company ? ` at ${app.company}` : ''}
 ROUND JUST DONE: ${round}

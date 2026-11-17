@@ -7,6 +7,8 @@ import { redis, RedisKeys } from '@/lib/redis/redis-client';
 import { getUserAIContext } from '@/lib/ai/user-context';
 import { anthropic, CLAUDE_MODEL, extractText, cachedSystem, logUsage, stripDashes, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
+import { gateStep, chargeStep } from '@/lib/applications/charge';
+import { getApplication, loadPack, savePack, type ApplyPack } from '@/lib/applications/pack';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 import { checkWriting } from '@/lib/ai/writing-check';
 
@@ -46,6 +48,8 @@ interface CoverLetterRequest {
   /** Write from the cover letter template in the user's Auto-apply details
    *  (Profile > Auto-apply > Cover letter), when they have one. */
   useTemplate?: boolean;
+  /** A job in the Apply flow: its application unit covers the letter. */
+  applicationId?: string;
 }
 interface CoverLetterCache { content: string; wordCount: number; tokensUsed: number; createdAt: string; }
 
@@ -133,16 +137,28 @@ export async function POST(request: NextRequest) {
     const rateLimited = await applyRateLimit(request, userId, 'medium');
     if (rateLimited) return rateLimited;
 
-    // Usage gate
-    const usageCheck = await checkUsage(userId, 'coverLetters');
-    if (!usageCheck.allowed) {
-      return NextResponse.json(
-        { success: false, error: usageCheck.message, code: 'USAGE_LIMIT', used: usageCheck.used, limit: usageCheck.limit },
-        { status: 403 },
-      );
+    const body = await request.json() as CoverLetterRequest;
+
+    // Usage gate. A letter for a job in the Apply flow is covered by that
+    // application's unit (lib/applications/charge.ts); any other letter uses
+    // the cover letter quota.
+    let applyPack: ApplyPack | null = null;
+    if (typeof body.applicationId === 'string' && body.applicationId) {
+      const app = await getApplication(supabaseUserId, body.applicationId);
+      if (!app) return NextResponse.json({ success: false, error: 'Application not found' }, { status: 404 });
+      applyPack = await loadPack(supabaseUserId, app);
+      const gated = await gateStep(userId, applyPack, 'letter');
+      if (gated) return NextResponse.json({ success: false, ...(await gated.json()) }, { status: gated.status });
+    } else {
+      const usageCheck = await checkUsage(userId, 'coverLetters');
+      if (!usageCheck.allowed) {
+        return NextResponse.json(
+          { success: false, error: usageCheck.message, code: 'USAGE_LIMIT', used: usageCheck.used, limit: usageCheck.limit },
+          { status: 403 },
+        );
+      }
     }
 
-    const body = await request.json() as CoverLetterRequest;
     const { jobRole, jobDescription, companyName, tone = 'professional' } = body;
     if (!jobRole) return NextResponse.json({ success: false, error: 'jobRole is required' }, { status: 400 });
 
@@ -284,7 +300,12 @@ ${ctx.profile.name}`;
     if (!coverLetterText || wordCount < 50) return NextResponse.json({ success: false, error: 'Failed to generate cover letter' }, { status: 500 });
 
     // Increment usage
-    await checkAndIncrementUsage(userId, 'coverLetters');
+    if (applyPack) {
+      await chargeStep(userId, applyPack, 'letter');
+      await savePack(supabaseUserId, applyPack);
+    } else {
+      await checkAndIncrementUsage(userId, 'coverLetters');
+    }
 
     const cacheData: CoverLetterCache = { content: coverLetterText, wordCount, tokensUsed, createdAt: new Date().toISOString() };
     await cacheCoverLetter(cacheKey, cacheData);

@@ -109,6 +109,7 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
         const j = await json(await fetch('/api/cover-letter', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            applicationId: application.id,
             jobRole: application.jobTitle, companyName: application.company || undefined,
             jobDescription: p.jobDescription || application.jobDescription || undefined,
             tone: 'professional', resumeText: p.tailor?.tailoredText || undefined,

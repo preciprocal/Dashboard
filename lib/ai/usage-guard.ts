@@ -9,6 +9,7 @@ import { PHONE_VERIFICATION_ENABLED } from '@/lib/config/phone-verification';
 import { consumeHourlyQuota, HOURLY_LIMITED_FEATURES } from '@/lib/ai/hourly-quota-limit';
 
 export type GatedFeature =
+  | 'applications'
   | 'resumes'
   | 'coverLetters'
   | 'studyPlans'
@@ -25,6 +26,7 @@ export type GatedFeature =
 // same mapping rather than keeping a second copy that could drift when a new
 // gated feature is added.
 export const FEATURE_FIELD: Record<GatedFeature, string> = {
+  applications:          'applications_used',
   resumes:               'resumes_used',
   coverLetters:          'cover_letters_used',
   studyPlans:            'study_plans_used',
@@ -38,6 +40,7 @@ export const FEATURE_FIELD: Record<GatedFeature, string> = {
 };
 
 const FEATURE_NAMES: Record<GatedFeature, string> = {
+  applications:          'Job Applications',
   resumes:               'Resume Analyses',
   coverLetters:          'Cover Letters',
   studyPlans:            'Study Plans',

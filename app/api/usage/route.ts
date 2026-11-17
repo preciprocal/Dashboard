@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
       plan,
       limits: USAGE_LIMITS[plan],
       usage: {
+        applicationsUsed:          usageRow?.applications_used           || 0,
         coverLettersUsed:          usageRow?.cover_letters_used          || 0,
         resumesUsed:               usageRow?.resumes_used                || 0,
         studyPlansUsed:            usageRow?.study_plans_used            || 0,

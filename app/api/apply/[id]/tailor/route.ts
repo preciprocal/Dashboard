@@ -10,7 +10,7 @@ import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { anthropic, cachedSystem, logUsage, cleanResumeText, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
 import { askJson } from '@/lib/applications/model-json';
-import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
+import { gateStep, chargeStep } from '@/lib/applications/charge';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 import { getApplication, loadPack, savePack, storeSourcePdf } from '@/lib/applications/pack';
 import { check, cleanKeywords, coverage, hasTerm, type CheckedChange, type ProposedChange } from '@/lib/applications/truthful-tailor';
@@ -83,14 +83,14 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     const started = Date.now();
     const rateLimited = await applyRateLimit(request, userId, 'heavy');
     if (rateLimited) return rateLimited;
-    const usage = await checkUsage(userId, 'resumes');
-    if (!usage.allowed) return NextResponse.json({ error: usage.message, code: 'USAGE_LIMIT', used: usage.used, limit: usage.limit }, { status: 403 });
 
     const app = await getApplication(uid, (await params).id);
     if (!app) return NextResponse.json({ error: 'Application not found' }, { status: 404 });
     const body = await request.json() as { resumeId?: string; jobDescription?: string };
 
     const pack = await loadPack(uid, app);
+    const gated = await gateStep(userId, pack, 'tailor');
+    if (gated) return gated;
     const jd = (body.jobDescription?.trim() || pack.jobDescription || app.jobDescription || '').slice(0, 12000);
     if (jd.length < 50) return NextResponse.json({ error: 'Add the job description first (at least a few sentences).' }, { status: 400 });
 
@@ -183,7 +183,7 @@ Propose 6 to 12 changes, the ones that matter most for this job. Skip any line y
       }
     }
 
-    await checkAndIncrementUsage(userId, 'resumes');
+    await chargeStep(userId, pack, 'tailor');
 
     const before = coverage(resumeText, keywords);
     pack.jobDescription = jd;

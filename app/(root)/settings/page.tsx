@@ -60,6 +60,7 @@ interface PlanInfo {
 
 /** Order the usage rows are shown in. Leads with what people compare plans on. */
 const USAGE_ROWS: { key: FeatureType; usageKey: string }[] = [
+  { key: 'applications',          usageKey: 'applicationsUsed' },
   { key: 'interviews',            usageKey: 'interviewsUsed' },
   { key: 'resumes',               usageKey: 'resumesUsed' },
   { key: 'coverLetters',          usageKey: 'coverLettersUsed' },

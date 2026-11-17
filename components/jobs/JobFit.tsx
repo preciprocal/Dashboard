@@ -225,12 +225,12 @@ export function FitPanel({ url, fit, hasResume, bare }: { url: string; fit: Fit 
             </div>
           )}
           {!explain.strengths.length && !explain.gaps.length && !explain.pitch && <p className="text-[12.5px] text-slate-400">Nothing in your resume could be matched to this posting with confidence.</p>}
-          <p className="text-[11px] text-slate-500">Each point quotes your resume or the posting; anything that could not be found in them was left out.</p>
+          <p className="text-[11px] text-slate-500">Matched by the skills both name. Each quote is copied from your resume or the posting.</p>
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-3">
           <button onClick={run} disabled={loading || hasResume === false} className="prc-cta prc-cta-quiet">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-indigo-300" />} {loading ? 'Reading the posting and your resume' : 'Explain my fit'}
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-indigo-300" />} {loading ? 'Matching the posting to your resume' : 'Explain my fit'}
           </button>
           {error && <span className="text-[12px] text-rose-300">{error}</span>}
         </div>
