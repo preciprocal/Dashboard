@@ -681,7 +681,7 @@ function LayoutContent({ children, user }: LayoutClientProps) {
     { id: 'help',     label: 'Support',  icon: HelpCircle, href: '/help'     },
     // Admin pages 404 for everyone else anyway; this only saves an admin
     // from typing the URL.
-    ...(user?.isAdmin ? [{ id: 'admin', label: 'Admin', icon: Shield, href: '/admin/analytics' }] : []),
+    ...(user?.isAdmin ? [{ id: 'admin', label: 'Admin', icon: Shield, href: 'https://erp.preciprocal.com' }] : []),
   ];
   // Only the Support row carries a count today, so it is matched by id rather
   // than widening NavItem with a badge field nothing else sets.

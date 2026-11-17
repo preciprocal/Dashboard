@@ -798,6 +798,9 @@ export default function PricingPage() {
   const [currentPlan, setCurrentPlan]     = useState<PlanId>("free");
   const [showStudent, setShowStudent]           = useState(false);
   const [isStudent, setIsStudent]               = useState(false);
+  // The claim itself, from the permanent ledger (app/api/student/status):
+  // subscriptions.student_verified alone can be reset once the free month ends.
+  const [studentClaim, setStudentClaim] = useState<{ eduEmail: string | null; claimedAt: string | null; freeUntil: string | null } | null>(null);
   const [showSuccess, setShowSuccess]           = useState(false);
   const [successPlan, setSuccessPlan]           = useState<Plan | null>(null);
   const [successIsStudent, setSuccessIsStudent] = useState(false);
@@ -831,6 +834,10 @@ export default function PricingPage() {
       }
       if (row?.student_verified) setIsStudent(true);
     };
+
+    fetch("/api/student/status").then(r => (r.ok ? r.json() : null)).then(j => {
+      if (j?.claimed) { setIsStudent(true); setStudentClaim({ eduEmail: j.eduEmail, claimedAt: j.claimedAt, freeUntil: j.freeUntil }); }
+    }).catch(() => {});
 
     supabase
       .from("subscriptions")
@@ -980,8 +987,22 @@ export default function PricingPage() {
             </div>
           ) : (
             <div className="rounded-2xl ring-1 ring-inset ring-emerald-500/20 bg-emerald-500/[0.05] px-5 py-4 flex items-center gap-3">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-              <p className="text-sm text-emerald-300 font-medium">Student status verified. Your first month of Pro is on us.</p>
+              <span className="w-10 h-10 rounded-xl bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/25 flex items-center justify-center flex-shrink-0">
+                <GraduationCap className="w-5 h-5 text-emerald-300" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[14.5px] font-semibold text-white flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" /> Student offer claimed
+                </p>
+                <p className="text-[12.5px] text-[var(--text-3)] mt-0.5">
+                  {studentClaim?.freeUntil
+                    ? `Pro is free until ${new Date(studentClaim.freeUntil).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.`
+                    : studentClaim?.claimedAt
+                      ? `You used your free month of Pro, claimed on ${new Date(studentClaim.claimedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}. It is once per account.`
+                      : "Your free month of Pro is on us."}
+                  {studentClaim?.eduEmail && <> Verified with <span className="text-[var(--text-2)] break-all">{studentClaim.eduEmail}</span>.</>}
+                </p>
+              </div>
             </div>
           )}
         </div>
