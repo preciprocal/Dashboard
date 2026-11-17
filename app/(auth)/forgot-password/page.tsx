@@ -1,4 +1,6 @@
 "use client";
+// app/(auth)/forgot-password/page.tsx
+// Ask for a password reset link. Same shell as sign-in (components/AuthForm).
 
 import { z } from "zod";
 import Link from "next/link";
@@ -8,14 +10,21 @@ import { supabase } from "@/supabase/client";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
+import { ArrowLeft, Check, KeyRound, Mail, MousePointerClick } from "lucide-react";
 
 import { Form } from "@/components/ui/form";
-import { Button } from "@/components/ui/button";
 import logo from "@/public/logo.png";
+import { SITE } from "@/lib/seo";
 
 const forgotPasswordSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
 });
+
+const STEPS = [
+  { icon: Mail, title: "We email you a link", body: "To the address on your account. Check your spam folder if it is not there in a few minutes." },
+  { icon: MousePointerClick, title: "Open the link", body: "It brings you back here to choose a new password." },
+  { icon: KeyRound, title: "Sign in again", body: "Use your new password. If you signed up with Google, sign in with Google instead." },
+];
 
 const ForgotPasswordPage = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -23,9 +32,7 @@ const ForgotPasswordPage = () => {
 
   const form = useForm<z.infer<typeof forgotPasswordSchema>>({
     resolver: zodResolver(forgotPasswordSchema),
-    defaultValues: {
-      email: "",
-    },
+    defaultValues: { email: "" },
   });
 
   const onSubmit = async (data: z.infer<typeof forgotPasswordSchema>) => {
@@ -34,14 +41,12 @@ const ForgotPasswordPage = () => {
       const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
-
       if (error) {
         toast.error(error.message || "Failed to send password reset email.");
         return;
       }
-
       setEmailSent(true);
-      toast.success("Password reset email sent! Check your inbox.");
+      toast.success("Password reset email sent. Check your inbox.");
     } catch (error) {
       console.error("Password reset error:", error);
       toast.error("Failed to send password reset email.");
@@ -50,287 +55,113 @@ const ForgotPasswordPage = () => {
     }
   };
 
+  const back = (
+    <Link href="/sign-in" className="inline-flex items-center gap-1.5 text-[13px] text-[var(--text-3)] hover:text-white transition-colors">
+      <ArrowLeft className="w-3.5 h-3.5" /> Back to sign in
+    </Link>
+  );
+
   return (
-    <div className="min-h-screen flex bg-[var(--bg)]">
-      {/* Left Side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[var(--bg)] relative overflow-hidden">
-        {/* Subtle Grid Pattern */}
-        <div className="absolute inset-0 opacity-[0.02]" style={{
-          backgroundImage: `linear-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px),
-                           linear-gradient(90deg, rgba(148, 163, 184, 0.1) 1px, transparent 1px)`,
-          backgroundSize: '50px 50px'
-        }}></div>
-
-        {/* Animated Background Elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          
-          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-white/[0.035] rounded-full blur-2xl animate-pulse" style={{ animationDelay: "4s" }}></div>
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] bg-[var(--bg)]">
+      {/* Left: how a reset works */}
+      <aside className="hidden lg:flex relative overflow-hidden flex-col justify-between px-14 xl:px-20 py-12 border-r border-white/[0.06] bg-[#0d0e10]">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-60"
+          style={{
+            backgroundImage: "linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px)",
+            backgroundSize: "48px 48px",
+            maskImage: "radial-gradient(ellipse at 20% 30%, black 15%, transparent 70%)",
+            WebkitMaskImage: "radial-gradient(ellipse at 20% 30%, black 15%, transparent 70%)",
+          }}
+        />
+        <div className="relative flex items-center gap-2.5">
+          <Image src={logo} alt="Preciprocal" width={32} height={32} className="w-8 h-8 rounded-[9px]" priority />
+          <span className="font-display text-[17px] font-semibold tracking-[-0.01em] text-white">Preciprocal</span>
         </div>
 
-        {/* Geometric Accents */}
-        <div className="absolute top-20 right-20 w-32 h-32 border border-[var(--border)] rounded-2xl rotate-12 opacity-20"></div>
-        <div className="absolute bottom-40 left-20 w-24 h-24 border border-[var(--border)] rounded-full opacity-20"></div>
+        <div className="relative max-w-[460px]">
+          <p className="text-[12px] font-medium uppercase tracking-[0.12em] text-[var(--text-4)]">Password reset</p>
+          <h2 className="font-display mt-4 text-[38px] xl:text-[44px] leading-[1.06] font-semibold tracking-[-0.03em] text-white">
+            Back into your account in three steps.
+          </h2>
+          <ol className="mt-10 space-y-5">
+            {STEPS.map(({ icon: Icon, title, body }, i) => (
+              <li key={title} className="flex items-start gap-3.5">
+                <span className="relative flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center bg-white/[0.04] ring-1 ring-inset ring-white/[0.08]">
+                  <Icon className="w-[17px] h-[17px] text-[var(--text-2)]" strokeWidth={1.75} />
+                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-[#0d0e10] ring-1 ring-white/[0.12] text-[9.5px] font-semibold text-[var(--text-2)] flex items-center justify-center tabular-nums">{i + 1}</span>
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[14px] font-medium text-white">{title}</span>
+                  <span className="block mt-0.5 text-[13px] leading-relaxed text-[var(--text-4)]">{body}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
 
-        {/* Content */}
-        <div className="relative z-10 flex flex-col justify-center px-16 text-white">
-          <div className="mb-12">
-            <div className="flex items-center space-x-4 mb-8">
-              <Image 
-                src={logo} 
-                alt="Preciprocal" 
-                width={56} 
-                height={56} 
-                className="rounded-2xl shadow-2xl"
-                priority
-              />
-              <h1 className="text-5xl font-black tracking-tight text-white">Preciprocal</h1>
-            </div>
-            <h2 className="text-4xl font-bold mb-5 leading-tight tracking-tight text-white">
-              Secure Password Recovery
-            </h2>
-            <p className="text-lg text-slate-400 leading-relaxed max-w-lg">
-              We&apos;ll help you get back to your interview prep journey in no time.
-            </p>
-          </div>
-
-          {/* Security Features with Modern Cards */}
-          <div className="space-y-3 mt-8">
-            <div className="group p-5 bg-white/[0.035] hover:bg-white/[0.072] border border-[var(--border)] rounded-xl transition-all duration-300 backdrop-blur-sm">
-              <div className="flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center flex-shrink-0 group-hover:bg-white/[0.07] transition-all">
-                  <svg className="w-5 h-5 text-[var(--text-1)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-base text-white mb-1">Encrypted Email Delivery</h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">Your reset link is sent securely</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="group p-5 bg-white/[0.035] hover:bg-white/[0.072] border border-[var(--border)] rounded-xl transition-all duration-300 backdrop-blur-sm">
-              <div className="flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-500/20 transition-all">
-                  <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-base text-white mb-1">Time-Limited Link</h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">Reset link expires in 1 hour for security</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="group p-5 bg-white/[0.035] hover:bg-white/[0.072] border border-[var(--border)] rounded-xl transition-all duration-300 backdrop-blur-sm">
-              <div className="flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-cyan-500/20 transition-all">
-                  <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-base text-white mb-1">Account Protection</h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">Your data remains safe throughout</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Security Illustration */}
-          <div className="mt-12 p-6 bg-white/[0.025] backdrop-blur-sm rounded-xl border border-[var(--border)]">
-            <div className="flex items-center justify-center space-x-6">
-              <div className="w-14 h-14 bg-white/[0.04] border border-white/[0.08] rounded-lg flex items-center justify-center">
-                <svg className="w-7 h-7 text-[var(--text-1)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <div className="flex space-x-1.5">
-                <div className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-pulse"></div>
-                <div className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-pulse" style={{ animationDelay: "0.2s" }}></div>
-                <div className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-pulse" style={{ animationDelay: "0.4s" }}></div>
-              </div>
-              <div className="w-14 h-14 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-center justify-center">
-                <svg className="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-              </div>
-            </div>
+        <div className="relative flex items-center justify-between text-[12px] text-[var(--text-5)]">
+          <span>&copy; {new Date().getFullYear()} Preciprocal</span>
+          <div className="flex items-center gap-5">
+            <a href={`${SITE.marketing}/terms`} target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-2)] transition-colors">Terms</a>
+            <a href={`${SITE.marketing}/privacy`} target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-2)] transition-colors">Privacy</a>
           </div>
         </div>
-      </div>
+      </aside>
 
-      {/* Right Side - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[var(--bg)]">
-        <div className="w-full max-w-md">
-          {/* Mobile Logo */}
-          <div className="lg:hidden text-center mb-8">
-            <div className="flex items-center justify-center space-x-3 mb-4">
-              <Image 
-                src={logo} 
-                alt="Preciprocal" 
-                width={48} 
-                height={48} 
-                className="rounded-xl"
-                priority
-              />
-              <h1 className="text-3xl font-black text-white">Preciprocal</h1>
-            </div>
+      {/* Right: the form */}
+      <main className="flex items-center justify-center px-4 sm:px-8 py-10 min-w-0">
+        <div className="w-full max-w-[400px]">
+          <div className="lg:hidden flex items-center gap-2.5 mb-10">
+            <Image src={logo} alt="Preciprocal" width={32} height={32} className="w-8 h-8 rounded-[9px]" priority />
+            <span className="font-display text-[17px] font-semibold tracking-[-0.01em] text-white">Preciprocal</span>
           </div>
 
           {!emailSent ? (
             <>
-              {/* Form Header */}
-              <div className="mb-8">
-                <h2 className="text-3xl font-bold text-white mb-2">
-                  Reset your password
-                </h2>
-                <p className="text-slate-400">
-                  Enter your email address and we&apos;ll send you a link to reset your password
-                </p>
-              </div>
+              <h1 className="font-display text-[26px] font-semibold tracking-[-0.02em] text-white">Reset your password</h1>
+              <p className="mt-1.5 text-[14px] text-[var(--text-3)]">Enter the email on your account and we will send you a link to choose a new password.</p>
 
-              {/* Form */}
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="mt-8 space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Email Address
-                    </label>
-                    <input
-                      {...form.register("email")}
-                      type="email"
-                      placeholder="you@example.com"
-                      className="field"
-                      disabled={isLoading}
-                    />
-                    {form.formState.errors.email && (
-                      <p className="text-red-400 text-sm mt-2">
-                        {form.formState.errors.email.message}
-                      </p>
-                    )}
+                    <label htmlFor="fp-email" className="block text-[12.5px] font-medium text-[var(--text-2)] mb-1.5">Email</label>
+                    <input id="fp-email" {...form.register("email")} type="email" autoComplete="email" placeholder="you@university.edu" className="field" disabled={isLoading} />
+                    {form.formState.errors.email && <p className="text-[12.5px] text-rose-300 mt-1.5">{form.formState.errors.email.message}</p>}
                   </div>
-
-                  <Button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] font-semibold py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border-0 shadow-[var(--shadow-btn)] hover:shadow-[var(--shadow-btn)]"
-                  >
-                    {isLoading ? (
-                      <div className="flex items-center justify-center space-x-2">
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        <span>Sending reset link...</span>
-                      </div>
-                    ) : (
-                      <span>Send reset link</span>
-                    )}
-                  </Button>
+                  <button type="submit" disabled={isLoading} className="btn-primary w-full !h-11 justify-center">
+                    {isLoading && <span className="w-4 h-4 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" />}
+                    {isLoading ? "Sending the link" : "Send reset link"}
+                  </button>
                 </form>
               </Form>
 
-              {/* Back to Sign In */}
-              <div className="mt-6">
-                <Link
-                  href="/sign-in"
-                  className="flex items-center justify-center space-x-2 text-sm text-slate-400 hover:text-slate-300 transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  <span>Back to sign in</span>
-                </Link>
-              </div>
+              <div className="mt-6 text-center">{back}</div>
             </>
           ) : (
-            /* Success State */
-            <div className="space-y-6">
-              {/* Success Icon */}
-              <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto">
-                <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
+            <>
+              <span className="w-11 h-11 rounded-xl flex items-center justify-center bg-emerald-400/10 ring-1 ring-inset ring-emerald-400/25">
+                <Check className="w-5 h-5 text-emerald-300" />
+              </span>
+              <h1 className="font-display mt-5 text-[26px] font-semibold tracking-[-0.02em] text-white">Check your email</h1>
+              <p className="mt-1.5 text-[14px] text-[var(--text-3)]">
+                If an account uses <span className="text-white font-medium break-all">{form.getValues("email")}</span>, a reset link is on its way. Open it on this device to choose a new password.
+              </p>
+              <p className="mt-4 text-[13px] text-[var(--text-4)]">Nothing after a few minutes? Check your spam folder, or send it again.</p>
+              <div className="mt-8 flex flex-col sm:flex-row gap-2">
+                <button type="button" onClick={() => { setEmailSent(false); form.reset(); }} className="btn-secondary !h-11 justify-center flex-1">Send another email</button>
+                <Link href="/sign-in" className="btn-primary !h-11 justify-center flex-1">Back to sign in</Link>
               </div>
-
-              {/* Success Message */}
-              <div className="text-center space-y-2">
-                <h2 className="text-2xl font-bold text-white">
-                  Check your email
-                </h2>
-                <p className="text-slate-400">
-                  We&apos;ve sent a password reset link to
-                </p>
-                <p className="text-[var(--text-1)] font-semibold">
-                  {form.getValues("email")}
-                </p>
-              </div>
-
-              {/* Instructions */}
-              <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-4">
-                <h3 className="font-semibold text-white mb-3 text-sm">
-                  What&apos;s next?
-                </h3>
-                <ol className="text-slate-400 text-sm space-y-2">
-                  <li className="flex items-start space-x-2">
-                    <span className="text-[var(--text-1)] font-semibold">1.</span>
-                    <span>Check your email inbox (and spam folder)</span>
-                  </li>
-                  <li className="flex items-start space-x-2">
-                    <span className="text-[var(--text-1)] font-semibold">2.</span>
-                    <span>Click the reset link in the email</span>
-                  </li>
-                  <li className="flex items-start space-x-2">
-                    <span className="text-[var(--text-1)] font-semibold">3.</span>
-                    <span>Create your new password</span>
-                  </li>
-                  <li className="flex items-start space-x-2">
-                    <span className="text-[var(--text-1)] font-semibold">4.</span>
-                    <span>Sign in with your new credentials</span>
-                  </li>
-                </ol>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-3">
-                <Button
-                  onClick={() => {
-                    setEmailSent(false);
-                    form.reset();
-                  }}
-                  className="w-full bg-[var(--bg-surface)] hover:bg-white/[0.086] border border-[var(--border)] text-white font-semibold py-3 rounded-lg transition-all"
-                >
-                  Send another email
-                </Button>
-
-                <Link
-                  href="/sign-in"
-                  className="block w-full text-center py-3 text-slate-400 hover:text-slate-300 font-medium transition-colors"
-                >
-                  Back to sign in
-                </Link>
-              </div>
-
-              {/* Didn't receive email? */}
-              <div className="bg-white/[0.024] border border-[var(--border)] rounded-lg p-4 text-center">
-                <p className="text-slate-400 text-sm mb-2">
-                  Didn&apos;t receive the email?
-                </p>
-                <p className="text-slate-400 text-xs">
-                  Check your spam folder or try again in a few minutes
-                </p>
-              </div>
-            </div>
+            </>
           )}
 
-          {/* Help Text */}
-          <p className="mt-8 text-center text-xs text-slate-400">
-            Having trouble? Contact our{" "}
-            <Link href="/help" className="text-slate-400 hover:text-slate-300 underline">
-              support team
-            </Link>
+          <p className="mt-10 text-center text-[12.5px] text-[var(--text-4)]">
+            Having trouble?{" "}
+            <Link href="/help" className="text-[var(--text-1)] underline underline-offset-2 decoration-white/25 hover:decoration-white/70 transition-colors">Contact support</Link>
           </p>
         </div>
-      </div>
+      </main>
     </div>
   );
 };
