@@ -1,14 +1,19 @@
 'use client';
-import PageHeader, { Breadcrumbs, crumbsFor } from '@/components/PageHeader';
+// app/(root)/career-tools/page.tsx
+//
+// Career Tools: two writing tools on one page. Pick a tool from the two cards
+// at the top; the form sits on the left and its results on the right. Before
+// anything is run, the right side says what the tool gives back.
+import PageHeader from '@/components/PageHeader';
 
 import React, { useState, useEffect } from 'react';
 import AutoTextarea from '@/components/ui/auto-textarea';
 import { useRouter } from 'next/navigation';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import {
-  Loader2, Copy, Check, RefreshCw, XCircle, Zap,
-  Star, AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Sparkles, TrendingUp,
-  Search, MessageSquare, Target, Info, ArrowRight, Users, Edit3, Send, Shield,
+  Loader2, Copy, Check, RefreshCw, XCircle, Zap, Star, AlertTriangle, CheckCircle2,
+  ChevronDown, Sparkles, TrendingUp, Search, MessageSquare, Target, Info, ArrowRight,
+  Users, Edit3, Send, Gauge, ListChecks, Mail,
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -19,11 +24,12 @@ import { useUsageTracking } from '@/lib/hooks/useUsageTracking';
 import { isUnlimited } from '@/lib/config/usage-limits';
 import { SeeExampleButton } from '@/components/ServiceModal';
 import { AppSelect } from '@/components/ui/select';
+import { Field } from '@/components/profile/FormKit';
 import { LinkedInIcon, OutlookIcon } from '@/components/icons/BrandIcons';
 import { OUTREACH_TEMPLATES } from '@/lib/outreach/templates';
-import NextStepPrompt from '@/components/NextStepPrompt'; // ← NEW
+import NextStepPrompt from '@/components/NextStepPrompt';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 interface LinkedInResult {
   overallScore: number; overallVerdict: string;
@@ -42,199 +48,218 @@ interface OutreachResult {
   personalizationTips: string[]; doNotDo: string[]; responseRateAdvice: string;
 }
 
-// ─── Micro-components ─────────────────────────────────────────────────────────
+type Tool = 'linkedin' | 'outreach';
+
+// Small parts
 
 function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); toast.success('Copied to clipboard'); setTimeout(() => setCopied(false), 2000); }}
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[var(--bg-raised)] hover:bg-white/[0.1] text-slate-400 hover:text-white rounded-lg text-xs font-medium border border-white/[0.06] hover:border-white/[0.10] transition-all duration-150 flex-shrink-0">
-      {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-      {copied ? 'Copied!' : label}
+    <button type="button" onClick={() => { navigator.clipboard.writeText(text); setCopied(true); toast.success('Copied to clipboard'); setTimeout(() => setCopied(false), 2000); }}
+      className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] font-medium text-[var(--text-3)] hover:text-white bg-white/[0.03] hover:bg-white/[0.07] ring-1 ring-inset ring-white/[0.07] transition-colors flex-shrink-0">
+      {copied ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+      {copied ? 'Copied' : label}
     </button>
   );
 }
 
+const scoreTone = (s: number) => (s >= 75 ? { c: '#34d399', t: 'Strong' } : s >= 50 ? { c: '#fbbf24', t: 'Needs work' } : { c: '#f87171', t: 'Weak' });
+
 function ScoreRing({ score }: { score: number }) {
-  const r = 26; const circ = 2 * Math.PI * r;
-  const color = score >= 75 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444';
-  const bg = score >= 75 ? 'rgba(16,185,129,0.10)' : score >= 50 ? 'rgba(245,158,11,0.10)' : 'rgba(239,68,68,0.10)';
+  const r = 30; const circ = 2 * Math.PI * r; const { c } = scoreTone(score);
   return (
-    <div className="relative w-16 h-16 flex-shrink-0">
-      <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
-        <circle cx="32" cy="32" r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="5" />
-        <circle cx="32" cy="32" r={r} fill="none" stroke={color} strokeWidth="5" strokeLinecap="round"
+    <div className="relative w-[76px] h-[76px] flex-shrink-0">
+      <svg className="w-full h-full -rotate-90" viewBox="0 0 76 76">
+        <circle cx="38" cy="38" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6" />
+        <circle cx="38" cy="38" r={r} fill="none" stroke={c} strokeWidth="6" strokeLinecap="round"
           strokeDasharray={`${(score / 100) * circ} ${circ}`} style={{ transition: 'stroke-dasharray 0.9s cubic-bezier(.4,0,.2,1)' }} />
       </svg>
-      <div className="absolute inset-0 flex items-center justify-center rounded-full text-sm font-bold" style={{ color, background: bg }}>{score}</div>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-[19px] font-semibold text-white tabular-nums leading-none">{score}</span>
+        <span className="text-[10px] text-[var(--text-5)] mt-0.5">of 100</span>
+      </div>
     </div>
+  );
+}
+
+function ScoreChip({ score }: { score: number }) {
+  const { c } = scoreTone(score);
+  return (
+    <span className="inline-flex items-center gap-1.5 h-6 px-2 rounded-md text-[11.5px] font-medium text-[var(--text-2)] bg-white/[0.04] ring-1 ring-inset ring-white/[0.08] tabular-nums">
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: c }} />{score}/100
+    </span>
   );
 }
 
 function Collapsible({ title, children, badge }: { title: string; children: React.ReactNode; badge?: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-xl border border-white/[0.06] overflow-hidden">
-      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-4 py-3 bg-white/[0.03] hover:bg-white/[0.05] transition-colors duration-150">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-slate-300">{title}</span>
-          {badge && <span className="text-[11px] px-2 py-0.5 bg-[var(--accent-subtle)] text-[#a9b0f7] border border-[var(--accent-border)] rounded-full font-medium">{badge}</span>}
-        </div>
-        {open ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
+    <div className="glass-card overflow-hidden">
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
+        className="w-full flex items-center justify-between gap-3 px-5 h-12 hover:bg-white/[0.02] transition-colors">
+        <span className="flex items-center gap-2">
+          <span className="text-[13.5px] font-medium text-white">{title}</span>
+          {badge && <span className="text-[11px] tabular-nums text-[var(--text-4)]">{badge}</span>}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-[var(--text-4)] transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
-      {open && <div className="px-4 pb-4 pt-3 bg-white/[0.02] border-t border-white/[0.05]">{children}</div>}
+      {open && <div className="px-5 pb-5 pt-1 border-t border-white/[0.05]">{children}</div>}
     </div>
   );
 }
 
-function ResultCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <div className={`glass-card p-4 ${className}`}>{children}</div>;
+/** A result block: a titled card with an optional right-side detail. */
+function Card({ icon: Icon, title, aside, children }: { icon?: React.ElementType; title?: string; aside?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="glass-card p-5">
+      {title && (
+        <header className="flex items-center justify-between gap-3 mb-4">
+          <h3 className="flex items-center gap-2.5 text-[14px] font-semibold text-white">
+            {Icon && <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.04] ring-1 ring-inset ring-white/[0.08]"><Icon className="w-3.5 h-3.5 text-[var(--text-2)]" /></span>}
+            {title}
+          </h3>
+          {aside}
+        </header>
+      )}
+      {children}
+    </section>
+  );
 }
 
-function ScoreChip({ score }: { score: number }) {
-  const color = score >= 75 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : score >= 50 ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' : 'text-red-400 bg-red-500/10 border-red-500/20';
-  return <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${color}`}>{score}/100</span>;
+const eyebrow = 'text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-4)]';
+
+/** A block of text to use, with its label and a copy button. */
+function TextBlock({ label, text, copyLabel, strong }: { label: string; text: string; copyLabel?: string; strong?: boolean }) {
+  return (
+    <div className="rounded-xl bg-white/[0.025] ring-1 ring-inset ring-white/[0.07]">
+      <div className="flex items-center justify-between gap-3 px-4 pt-3">
+        <span className={eyebrow}>{label}</span>
+        <CopyButton text={text} label={copyLabel} />
+      </div>
+      <p className={`px-4 pb-4 pt-2 leading-relaxed whitespace-pre-wrap ${strong ? 'text-[14.5px] text-white font-medium' : 'text-[13.5px] text-[var(--text-1)]'}`}>{text}</p>
+    </div>
+  );
 }
 
-// ─── LinkedIn Results ─────────────────────────────────────────────────────────
+// LinkedIn results
 
 function LinkedInResults({ data }: { data: LinkedInResult }) {
+  const tone = scoreTone(data.overallScore);
   return (
-    <div className="space-y-3">
-      <ResultCard>
-        <div className="flex items-center gap-4">
+    <div className="space-y-4">
+      <section className="glass-card p-5 sm:p-6">
+        <div className="flex items-center gap-5">
           <ScoreRing score={data.overallScore} />
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] text-slate-400 uppercase tracking-widest font-semibold mb-1">Profile Strength</p>
-            <p className="text-base font-bold text-white leading-tight">{data.overallScore >= 75 ? 'Strong' : data.overallScore >= 50 ? 'Needs Work' : 'Weak'}</p>
-            <p className="text-xs text-slate-400 mt-1 leading-relaxed italic line-clamp-2">&ldquo;{data.overallVerdict}&rdquo;</p>
+            <p className={eyebrow}>Profile strength</p>
+            <p className="font-display text-[20px] font-semibold tracking-[-0.01em] text-white mt-1">{tone.t}</p>
+            <p className="text-[13px] text-[var(--text-3)] mt-1 leading-relaxed line-clamp-2">{data.overallVerdict}</p>
           </div>
         </div>
-        <div className="mt-4 pt-4 border-t border-white/[0.05]">
+        <div className="mt-5 pt-5 border-t border-white/[0.06]">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-slate-400 flex items-center gap-1.5"><Search className="w-3 h-3" /> Search visibility</span>
-            <span className="text-xs text-white font-medium">{data.seoScore.current}<span className="text-slate-500 mx-1">→</span><span className="text-emerald-400">{data.seoScore.potential}</span></span>
+            <span className="text-[12.5px] text-[var(--text-3)] flex items-center gap-1.5"><Search className="w-3.5 h-3.5" /> Search visibility</span>
+            <span className="text-[12.5px] text-white tabular-nums">{data.seoScore.current}<span className="text-[var(--text-5)] mx-1.5">to</span><span className="text-emerald-300">{data.seoScore.potential}</span></span>
           </div>
-          <div className="relative h-1 bg-white/[0.06] rounded-full overflow-hidden">
-            <div className="absolute inset-y-0 left-0 bg-white/10 rounded-full" style={{ width: `${data.seoScore.current}%` }} />
-            <div className="absolute inset-y-0 left-0 bg-emerald-500 rounded-full opacity-60" style={{ width: `${data.seoScore.potential}%` }} />
+          <div className="relative h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+            <div className="absolute inset-y-0 left-0 bg-emerald-400/30 rounded-full" style={{ width: `${data.seoScore.potential}%` }} />
+            <div className="absolute inset-y-0 left-0 bg-white/60 rounded-full" style={{ width: `${data.seoScore.current}%` }} />
           </div>
-          <p className="text-xs text-slate-500 mt-2 leading-relaxed">{data.seoScore.explanation}</p>
+          <p className="text-[12.5px] text-[var(--text-4)] mt-2.5 leading-relaxed">{data.seoScore.explanation}</p>
         </div>
-      </ResultCard>
+      </section>
 
-      <ResultCard>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2"><Edit3 className="w-3.5 h-3.5 text-blue-400" /> Headline</h3>
-          <ScoreChip score={data.headline.currentScore} />
-        </div>
-        <div className="space-y-2.5">
-          <div className="p-3 bg-red-500/[0.06] border border-red-500/15 rounded-xl">
-            <p className="text-[11px] text-red-400 font-semibold uppercase tracking-wide mb-1">Problem</p>
-            <p className="text-xs text-slate-300 leading-relaxed">{data.headline.problem}</p>
+      <Card icon={Edit3} title="Headline" aside={<ScoreChip score={data.headline.currentScore} />}>
+        <div className="space-y-3">
+          <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-rose-500/[0.05] ring-1 ring-inset ring-rose-500/15">
+            <AlertTriangle className="w-3.5 h-3.5 text-rose-300 flex-shrink-0 mt-0.5" />
+            <p className="text-[13px] text-[var(--text-2)] leading-relaxed">{data.headline.problem}</p>
           </div>
-          <div className="p-3 bg-emerald-500/[0.06] border border-emerald-500/15 rounded-xl">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[11px] text-emerald-400 font-semibold uppercase tracking-wide">Optimised</p>
-              <CopyButton text={data.headline.rewritten} />
-            </div>
-            <p className="text-sm text-white font-medium leading-relaxed">{data.headline.rewritten}</p>
-            <p className="text-xs text-slate-400 mt-2 leading-relaxed">{data.headline.whyItWorks}</p>
-          </div>
+          <TextBlock label="Rewritten" text={data.headline.rewritten} strong />
+          {data.headline.whyItWorks && <p className="text-[12.5px] text-[var(--text-4)] leading-relaxed px-1">{data.headline.whyItWorks}</p>}
         </div>
         {data.headline.alternatives?.length > 0 && (
-          <div className="mt-3">
-            <Collapsible title="Alternative Headlines" badge={`${data.headline.alternatives.length}`}>
-              <div className="space-y-2">
-                {data.headline.alternatives.map((alt, i) => (
-                  <div key={i} className="flex items-center justify-between gap-3 p-2.5 bg-white/[0.03] rounded-lg border border-white/[0.06]">
-                    <p className="text-xs text-slate-300 flex-1 leading-relaxed">{alt}</p>
-                    <CopyButton text={alt} />
-                  </div>
-                ))}
-              </div>
-            </Collapsible>
+          <div className="mt-4 pt-4 border-t border-white/[0.06]">
+            <p className={`${eyebrow} mb-2.5`}>Other options</p>
+            <ul className="space-y-2">
+              {data.headline.alternatives.map((alt, i) => (
+                <li key={i} className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg bg-white/[0.02] ring-1 ring-inset ring-white/[0.06]">
+                  <p className="text-[13px] text-[var(--text-1)] flex-1 leading-relaxed">{alt}</p>
+                  <CopyButton text={alt} />
+                </li>
+              ))}
+            </ul>
           </div>
         )}
-      </ResultCard>
+      </Card>
 
-      <ResultCard>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2"><Users className="w-3.5 h-3.5 text-[#a9b0f7]" /> About Section</h3>
-          <ScoreChip score={data.about.currentScore} />
-        </div>
+      <Card icon={Users} title="About section" aside={<ScoreChip score={data.about.currentScore} />}>
         {data.about.problems?.length > 0 && (
-          <div className="space-y-1.5 mb-3">
+          <ul className="space-y-2 mb-3">
             {data.about.problems.map((p, i) => (
-              <div key={i} className="flex items-start gap-2 p-2.5 bg-red-500/[0.06] border border-red-500/10 rounded-lg">
-                <AlertTriangle className="w-3 h-3 text-red-400 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-slate-300 leading-relaxed">{p}</p>
-              </div>
+              <li key={i} className="flex items-start gap-2.5 px-4 py-2.5 rounded-xl bg-rose-500/[0.05] ring-1 ring-inset ring-rose-500/15">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-300 flex-shrink-0 mt-0.5" />
+                <p className="text-[13px] text-[var(--text-2)] leading-relaxed">{p}</p>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-        <div className="p-3 bg-emerald-500/[0.06] border border-emerald-500/15 rounded-xl">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[11px] text-emerald-400 font-semibold uppercase tracking-wide">Optimised About</p>
-            <CopyButton text={data.about.rewritten} label="Copy all" />
-          </div>
-          <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{data.about.rewritten}</p>
-        </div>
+        <TextBlock label="Rewritten" text={data.about.rewritten} copyLabel="Copy all" />
         {data.about.keywordsAdded?.length > 0 && (
-          <div className="mt-3">
-            <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold mb-2">Keywords added</p>
+          <div className="mt-4">
+            <p className={`${eyebrow} mb-2`}>Keywords added</p>
             <div className="flex flex-wrap gap-1.5">
               {data.about.keywordsAdded.map((kw, i) => (
-                <span key={i} className="text-xs px-2 py-0.5 bg-white/[0.05] text-[var(--text-2)] ring-1 ring-inset ring-white/[0.08] rounded-full">{kw}</span>
+                <span key={i} className="text-[12px] h-6 inline-flex items-center px-2.5 bg-white/[0.04] text-[var(--text-2)] ring-1 ring-inset ring-white/[0.08] rounded-md">{kw}</span>
               ))}
             </div>
           </div>
         )}
-      </ResultCard>
+      </Card>
 
       {data.quickWins?.length > 0 && (
-        <ResultCard>
-          <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3"><Zap className="w-3.5 h-3.5 text-amber-400" /> Quick Wins</h3>
-          <div className="space-y-2.5">
+        <Card icon={Zap} title="Quick wins">
+          <ol className="divide-y divide-white/[0.05]">
             {data.quickWins.map((win, i) => (
-              <div key={i} className="flex items-start gap-3 p-3 bg-amber-500/[0.05] border border-amber-500/10 rounded-xl">
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5 text-white ${win.impact === 'high' ? 'bg-red-500/80' : 'bg-amber-500/80'}`}>{i + 1}</div>
+              <li key={i} className="flex items-start gap-3.5 py-3 first:pt-0 last:pb-0">
+                <span className="w-6 h-6 rounded-md flex items-center justify-center text-[11.5px] font-semibold tabular-nums flex-shrink-0 bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] text-[var(--text-2)]">{i + 1}</span>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                    <p className="text-sm font-medium text-white">{win.action}</p>
-                    <span className="text-[11px] text-slate-500">{win.timeRequired}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-[13.5px] font-medium text-white">{win.action}</p>
+                    {win.impact === 'high' && <span className="text-[10.5px] font-medium px-1.5 h-5 inline-flex items-center rounded bg-amber-400/10 text-amber-300">High impact</span>}
+                    {win.timeRequired && <span className="text-[11.5px] text-[var(--text-5)]">{win.timeRequired}</span>}
                   </div>
-                  <p className="text-xs text-slate-400 leading-relaxed">{win.reason}</p>
+                  <p className="text-[12.5px] text-[var(--text-3)] leading-relaxed mt-0.5">{win.reason}</p>
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
-        </ResultCard>
+          </ol>
+        </Card>
       )}
 
-      <Collapsible title="Missing Keywords" badge={`${data.seoScore.missingKeywords?.length || 0}`}>
-        <div className="flex flex-wrap gap-1.5">
+      <Collapsible title="Missing keywords" badge={`${data.seoScore.missingKeywords?.length || 0}`}>
+        <div className="flex flex-wrap gap-1.5 pt-3">
           {data.seoScore.missingKeywords?.map((kw, i) => (
-            <span key={i} className="text-xs px-2.5 py-1 bg-white/[0.04] text-slate-400 border border-white/[0.08] rounded-full">{kw}</span>
+            <span key={i} className="text-[12px] h-6 inline-flex items-center px-2.5 bg-white/[0.03] text-[var(--text-3)] ring-1 ring-inset ring-white/[0.08] rounded-md">{kw}</span>
           ))}
         </div>
       </Collapsible>
 
-      <Collapsible title="Skills to Add" badge={`${data.sectionRecommendations?.skills?.length || 0}`}>
-        <div className="space-y-3">
+      <Collapsible title="Skills and sections" badge={`${data.sectionRecommendations?.skills?.length || 0}`}>
+        <div className="space-y-3 pt-3">
           <div className="flex flex-wrap gap-1.5">
             {data.sectionRecommendations?.skills?.map((s, i) => (
-              <span key={i} className="text-xs px-2 py-0.5 bg-[var(--accent-subtle)] text-[#a9b0f7] border border-[var(--accent-border)] rounded-full">{s}</span>
+              <span key={i} className="text-[12px] h-6 inline-flex items-center px-2.5 bg-white/[0.04] text-[var(--text-2)] ring-1 ring-inset ring-white/[0.08] rounded-md">{s}</span>
             ))}
           </div>
           {[
-            { label: 'Open to Work', val: data.sectionRecommendations?.openToWork },
-            { label: 'Profile Photo', val: data.sectionRecommendations?.profilePhoto },
-            { label: 'Featured Section', val: data.sectionRecommendations?.featuredSection },
+            { label: 'Open to work', val: data.sectionRecommendations?.openToWork },
+            { label: 'Profile photo', val: data.sectionRecommendations?.profilePhoto },
+            { label: 'Featured section', val: data.sectionRecommendations?.featuredSection },
           ].filter(x => x.val).map((x, i) => (
-            <div key={i} className="p-2.5 bg-white/[0.03] border border-white/[0.06] rounded-lg">
-              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-0.5">{x.label}</p>
-              <p className="text-xs text-slate-300 leading-relaxed">{x.val}</p>
+            <div key={i} className="px-4 py-3 rounded-xl bg-white/[0.02] ring-1 ring-inset ring-white/[0.06]">
+              <p className={`${eyebrow} mb-1`}>{x.label}</p>
+              <p className="text-[13px] text-[var(--text-2)] leading-relaxed">{x.val}</p>
             </div>
           ))}
         </div>
@@ -243,160 +268,160 @@ function LinkedInResults({ data }: { data: LinkedInResult }) {
   );
 }
 
-// ─── Outreach Results ─────────────────────────────────────────────────────────
+// Outreach results
 
 function OutreachResults({ data, platform }: { data: OutreachResult; platform: string }) {
   const [activeVersion, setActiveVersion] = useState<'primary' | 0 | 1>('primary');
   const activeMsg = activeVersion === 'primary' ? data.primaryMessage : data.alternativeVersions[activeVersion as 0 | 1];
   const versions = [
-    { key: 'primary' as const, label: 'Best', approach: data.primaryMessage?.approach },
-    ...(data.alternativeVersions || []).map((v, i) => ({ key: i as 0 | 1, label: `Option ${i + 2}`, approach: v.approach })),
+    { key: 'primary' as const, label: 'Recommended' },
+    ...(data.alternativeVersions || []).map((_, i) => ({ key: i as 0 | 1, label: `Option ${i + 2}` })),
   ];
 
   return (
-    <div className="space-y-3">
-      <ResultCard>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2"><MessageSquare className="w-3.5 h-3.5 text-emerald-400" />{platform === 'linkedin' ? 'LinkedIn Messages' : 'Cold Emails'}</h3>
-          <span className="text-xs text-slate-500">{versions.length} versions</span>
-        </div>
-        <div className="flex gap-1.5 flex-wrap mb-4">
-          {versions.map(tab => (
-            <button key={String(tab.key)} onClick={() => setActiveVersion(tab.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${activeVersion === tab.key ? 'bg-emerald-600 text-white ' : 'bg-white/[0.04] text-slate-400 hover:text-slate-200 hover:bg-white/[0.07] border border-white/[0.06]'}`}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
+    <div className="space-y-4">
+      <Card icon={MessageSquare} title={platform === 'linkedin' ? 'LinkedIn messages' : 'Cold emails'}
+        aside={
+          <div role="tablist" aria-label="Versions" className="inline-flex p-0.5 rounded-lg bg-white/[0.04] ring-1 ring-inset ring-white/[0.06]">
+            {versions.map(tab => (
+              <button key={String(tab.key)} type="button" role="tab" aria-selected={activeVersion === tab.key} onClick={() => setActiveVersion(tab.key)}
+                className={`h-7 px-2.5 sm:px-3 rounded-md text-[12px] font-medium transition-colors whitespace-nowrap ${activeVersion === tab.key ? 'bg-white/[0.09] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : 'text-[var(--text-4)] hover:text-[var(--text-1)]'}`}>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        }>
         {activeMsg && (
           <div className="space-y-3">
-            {activeMsg.approach && (
-              <div className="flex items-start gap-2 p-2.5 bg-[var(--accent-subtle)] border border-[var(--accent-border)] rounded-lg">
-                <Info className="w-3.5 h-3.5 text-[#a9b0f7] flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-[#a9b0f7] leading-relaxed">{activeMsg.approach}</p>
+            {(activeMsg.approach || ('bestFor' in activeMsg && activeMsg.bestFor)) && (
+              <div className={`grid grid-cols-1 gap-2 ${activeMsg.approach && 'bestFor' in activeMsg && activeMsg.bestFor ? 'sm:grid-cols-2' : ''}`}>
+                {activeMsg.approach && (
+                  <div className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-lg bg-white/[0.02] ring-1 ring-inset ring-white/[0.06]">
+                    <Info className="w-3.5 h-3.5 text-[var(--text-4)] flex-shrink-0 mt-0.5" />
+                    <p className="text-[12.5px] text-[var(--text-2)] leading-relaxed"><span className="text-[var(--text-4)]">Approach: </span>{activeMsg.approach}</p>
+                  </div>
+                )}
+                {'bestFor' in activeMsg && activeMsg.bestFor && (
+                  <div className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-lg bg-white/[0.02] ring-1 ring-inset ring-white/[0.06]">
+                    <Target className="w-3.5 h-3.5 text-[var(--text-4)] flex-shrink-0 mt-0.5" />
+                    <p className="text-[12.5px] text-[var(--text-2)] leading-relaxed"><span className="text-[var(--text-4)]">Best when: </span>{activeMsg.bestFor}</p>
+                  </div>
+                )}
               </div>
             )}
-            {'bestFor' in activeMsg && (activeMsg as OutreachVersion & { bestFor: string }).bestFor && (
-              <div className="flex items-start gap-2 p-2.5 bg-white/[0.02] ring-1 ring-inset ring-white/[0.07] rounded-lg">
-                <Target className="w-3.5 h-3.5 text-[var(--text-3)] flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-[var(--text-2)] leading-relaxed"><span className="font-semibold">Best when: </span>{(activeMsg as OutreachVersion & { bestFor: string }).bestFor}</p>
-              </div>
-            )}
-            {platform === 'email' && activeMsg.subject && (
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold">Subject line</p>
-                  <CopyButton text={activeMsg.subject} />
-                </div>
-                <div className="px-3 py-2.5 bg-white/[0.03] rounded-lg border border-white/[0.07]">
-                  <p className="text-sm text-white font-medium">{activeMsg.subject}</p>
-                </div>
-              </div>
-            )}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold">Message</p>
-                <CopyButton text={activeMsg.body} label="Copy message" />
-              </div>
-              <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.07]">
-                <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap">{activeMsg.body}</p>
-              </div>
-            </div>
-            {'openingHook' in activeMsg && (activeMsg as OutreachVersion & { openingHook: string }).openingHook && (
-              <div className="flex items-start gap-2 p-2.5 bg-amber-500/[0.06] border border-amber-500/15 rounded-lg">
-                <Star className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-amber-300 leading-relaxed"><span className="font-semibold">Opening hook: </span>&ldquo;{(activeMsg as OutreachVersion & { openingHook: string }).openingHook}&rdquo;</p>
+            {platform === 'email' && activeMsg.subject && <TextBlock label="Subject line" text={activeMsg.subject} strong />}
+            <TextBlock label="Message" text={activeMsg.body} copyLabel="Copy message" />
+            {'openingHook' in activeMsg && activeMsg.openingHook && (
+              <div className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-lg bg-amber-400/[0.05] ring-1 ring-inset ring-amber-400/15">
+                <Star className="w-3.5 h-3.5 text-amber-300 flex-shrink-0 mt-0.5" />
+                <p className="text-[12.5px] text-[var(--text-2)] leading-relaxed"><span className="text-amber-200">Opening hook: </span>&ldquo;{activeMsg.openingHook}&rdquo;</p>
               </div>
             )}
           </div>
         )}
-      </ResultCard>
+      </Card>
 
       {data.followUpTemplate && (
-        <ResultCard>
-          <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3"><RefreshCw className="w-3.5 h-3.5 text-blue-400" /> Follow-up Template</h3>
-          <div className="flex items-center gap-2 p-2.5 bg-white/[0.02] ring-1 ring-inset ring-white/[0.07] rounded-lg mb-3">
-            <Info className="w-3.5 h-3.5 text-[var(--text-3)] flex-shrink-0" />
-            <p className="text-xs text-[var(--text-2)]">{data.followUpTemplate.timing}</p>
+        <Card icon={RefreshCw} title="Follow-up" aside={data.followUpTemplate.timing ? <span className="text-[12px] text-[var(--text-4)] text-right max-w-[50%] truncate" title={data.followUpTemplate.timing}>{data.followUpTemplate.timing}</span> : undefined}>
+          <div className="space-y-3">
+            {platform === 'email' && data.followUpTemplate.subject && <TextBlock label="Subject" text={data.followUpTemplate.subject} />}
+            <TextBlock label="Message" text={data.followUpTemplate.body} />
           </div>
-          {platform === 'email' && data.followUpTemplate.subject && (
-            <div className="px-3 py-2.5 bg-white/[0.03] rounded-lg border border-white/[0.07] mb-3">
-              <p className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold mb-0.5">Subject</p>
-              <p className="text-sm text-white">{data.followUpTemplate.subject}</p>
-            </div>
-          )}
-          <div className="relative">
-            <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.07]">
-              <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap pr-16">{data.followUpTemplate.body}</p>
-            </div>
-            <div className="absolute top-2 right-2"><CopyButton text={data.followUpTemplate.body} /></div>
-          </div>
-        </ResultCard>
+        </Card>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {data.personalizationTips?.length > 0 && (
-          <ResultCard>
-            <h4 className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 mb-3 uppercase tracking-wide"><CheckCircle2 className="w-3.5 h-3.5" /> Personalisation Tips</h4>
-            <ul className="space-y-2">
-              {data.personalizationTips.map((tip, i) => (
-                <li key={i} className="flex items-start gap-2 text-xs text-slate-300 leading-relaxed"><ArrowRight className="w-3 h-3 text-emerald-400 flex-shrink-0 mt-0.5" />{tip}</li>
-              ))}
-            </ul>
-          </ResultCard>
-        )}
-        {data.doNotDo?.length > 0 && (
-          <ResultCard>
-            <h4 className="text-xs font-bold text-red-400 flex items-center gap-1.5 mb-3 uppercase tracking-wide"><XCircle className="w-3.5 h-3.5" /> Don&apos;t Do This</h4>
-            <ul className="space-y-2">
-              {data.doNotDo.map((dont, i) => (
-                <li key={i} className="flex items-start gap-2 text-xs text-slate-300 leading-relaxed"><AlertTriangle className="w-3 h-3 text-red-400 flex-shrink-0 mt-0.5" />{dont}</li>
-              ))}
-            </ul>
-          </ResultCard>
-        )}
-      </div>
+      {(data.personalizationTips?.length > 0 || data.doNotDo?.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {data.personalizationTips?.length > 0 && (
+            <Card icon={CheckCircle2} title="Make it personal">
+              <ul className="space-y-2.5">
+                {data.personalizationTips.map((tip, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-[13px] text-[var(--text-2)] leading-relaxed"><Check className="w-3.5 h-3.5 text-emerald-300 flex-shrink-0 mt-1" />{tip}</li>
+                ))}
+              </ul>
+            </Card>
+          )}
+          {data.doNotDo?.length > 0 && (
+            <Card icon={XCircle} title="Avoid">
+              <ul className="space-y-2.5">
+                {data.doNotDo.map((dont, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-[13px] text-[var(--text-2)] leading-relaxed"><XCircle className="w-3.5 h-3.5 text-rose-300 flex-shrink-0 mt-1" />{dont}</li>
+                ))}
+              </ul>
+            </Card>
+          )}
+        </div>
+      )}
 
       {data.responseRateAdvice && (
-        <ResultCard>
-          <h4 className="text-xs font-bold text-slate-400 flex items-center gap-1.5 mb-2 uppercase tracking-wide"><TrendingUp className="w-3.5 h-3.5" /> Response Rate Reality Check</h4>
-          <p className="text-sm text-slate-300 leading-relaxed">{data.responseRateAdvice}</p>
-        </ResultCard>
+        <Card icon={TrendingUp} title="What to expect">
+          <p className="text-[13.5px] text-[var(--text-2)] leading-relaxed">{data.responseRateAdvice}</p>
+        </Card>
       )}
     </div>
   );
 }
 
-// ─── State panels ─────────────────────────────────────────────────────────────
+// States
 
-function LoadingCard({ icon: Icon, message, sub, color }: { icon: React.ElementType; message: string; sub: string; color: string }) {
+function LoadingCard({ icon: Icon, message, sub }: { icon: React.ElementType; message: string; sub: string }) {
   return (
-    <ResultCard>
-      <div className="flex flex-col items-center justify-center py-16 gap-4">
-        <div className="relative"><Loader2 className={`w-9 h-9 ${color} animate-spin`} /><div className="absolute inset-0 flex items-center justify-center"><Icon className={`w-3.5 h-3.5 ${color} opacity-60`} /></div></div>
-        <div className="text-center"><p className="text-sm font-semibold text-white mb-1">{message}</p><p className="text-xs text-slate-400">{sub}</p></div>
+    <section className="glass-card flex flex-col items-center justify-center text-center py-20 px-6 h-full min-h-[420px]">
+      <div className="relative w-14 h-14 rounded-2xl bg-white/[0.04] ring-1 ring-inset ring-white/[0.08] flex items-center justify-center">
+        <Icon className="w-5 h-5 text-[var(--text-2)]" />
+        <Loader2 className="absolute -right-1.5 -bottom-1.5 w-5 h-5 text-white animate-spin bg-[var(--bg-raised)] rounded-full p-0.5" />
       </div>
-    </ResultCard>
+      <p className="text-[14.5px] font-medium text-white mt-5">{message}</p>
+      <p className="text-[12.5px] text-[var(--text-4)] mt-1 max-w-sm">{sub}</p>
+      <div className="w-48 h-1 rounded-full bg-white/[0.06] overflow-hidden mt-6"><div className="h-full w-1/3 rounded-full bg-white/60 animate-[ctSweep_1.4s_ease-in-out_infinite]" /><style>{'@keyframes ctSweep{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}'}</style></div>
+    </section>
   );
 }
 
-function EmptyState({ icon: Icon, title, sub }: { icon: React.ElementType; title: string; sub: string }) {
+/** Before a first run: what the tool gives back, as three numbered parts. */
+function WhatYouGet({ tool }: { tool: Tool }) {
+  const li = tool === 'linkedin';
+  const items = li
+    ? [
+        { icon: Gauge, title: 'A profile score', text: 'How strong your headline and About read for your target role, and how visible they are in search.' },
+        { icon: Edit3, title: 'Rewrites to copy', text: 'A new headline with other options, and a rewritten About section with the keywords it adds.' },
+        { icon: ListChecks, title: 'Quick wins', text: 'Small changes to make next, plus missing keywords and skills to add.' },
+      ]
+    : [
+        { icon: Mail, title: 'Messages to send', text: 'A recommended message and other versions, each written for the person and company you name.' },
+        { icon: RefreshCw, title: 'A follow-up', text: 'A short follow-up for when you have not heard back, with when to send it.' },
+        { icon: CheckCircle2, title: 'What to change', text: 'Ways to make it more personal, and what to avoid.' },
+      ];
   return (
-    <div className="flex flex-col items-center justify-center h-full min-h-[360px] text-center px-8">
-      <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mb-4"><Icon className="w-5 h-5 text-slate-500" /></div>
-      <p className="text-sm font-semibold text-slate-400 mb-2">{title}</p>
-      <p className="text-xs text-slate-500 max-w-[260px] leading-relaxed">{sub}</p>
-    </div>
+    <section className="glass-card h-full min-h-[420px] flex flex-col justify-center p-6 sm:p-10">
+      <span className="w-11 h-11 rounded-xl bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] flex items-center justify-center">
+        {li ? <LinkedInIcon className="w-5 h-5" /> : <Send className="w-5 h-5 text-[var(--text-2)]" />}
+      </span>
+      <h2 className="font-display text-[22px] font-semibold tracking-[-0.02em] text-white mt-5">{li ? 'Your results show up here' : 'Your messages show up here'}</h2>
+      <p className="text-[13.5px] text-[var(--text-3)] mt-1.5 max-w-md leading-relaxed">
+        {li ? 'Paste your current headline or About section and choose Optimise profile.' : 'Name the company or the person’s role, add what you know about them, and choose Write messages.'}
+      </p>
+      <ol className="mt-8 grid grid-cols-1 xl:grid-cols-3 gap-3">
+        {items.map(({ icon: I, title, text }, i) => (
+          <li key={title} className="rounded-xl p-4 bg-white/[0.02] ring-1 ring-inset ring-white/[0.06]">
+            <div className="flex items-center justify-between">
+              <span className="w-9 h-9 rounded-lg flex items-center justify-center bg-white/[0.04] ring-1 ring-inset ring-white/[0.08]"><I className="w-4 h-4 text-[var(--text-2)]" /></span>
+              <span className="text-[11px] font-medium tabular-nums text-[var(--text-5)]">0{i + 1}</span>
+            </div>
+            <p className="text-[13.5px] font-medium text-white mt-3">{title}</p>
+            <p className="text-[12.5px] text-[var(--text-4)] mt-1 leading-relaxed">{text}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
-// ─── UpgradeGate ──────────────────────────────────────────────────────────────
-
-function UpgradeGate({ feature, used, limit }: { feature: 'linkedin' | 'outreach'; used: number; limit: number }) {
+function UpgradeGate({ feature, used, limit }: { feature: Tool; used: number; limit: number }) {
   const isLI = feature === 'linkedin';
   return (
-    <section className="glass-card p-6 sm:p-8 animate-fade-in-up">
-      <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11.5px] font-medium text-[var(--text-2)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]">
+    <section className="glass-card p-6 sm:p-10 h-full min-h-[420px] flex flex-col justify-center animate-fade-in-up">
+      <span className="self-start inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11.5px] font-medium text-[var(--text-2)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]">
         <span className="w-1.5 h-1.5 rounded-full bg-amber-400" aria-hidden="true" />{used} of {limit} {isLI ? 'optimisations' : 'messages'} used this month
       </span>
       <h2 className="font-display text-[22px] sm:text-[26px] font-semibold tracking-[-0.02em] text-white mt-4">
@@ -411,19 +436,33 @@ function UpgradeGate({ feature, used, limit }: { feature: 'linkedin' | 'outreach
   );
 }
 
-// ─── Tool tabs ────────────────────────────────────────────────────────────────
+// Tool picker: two cards, each with what it does and what is left this month.
 
-function ToolTabs({ active, setActive }: { active: 'linkedin' | 'outreach'; setActive: (v: 'linkedin' | 'outreach') => void }) {
-  const tabs = [{ id: 'linkedin' as const, label: 'LinkedIn', icon: LinkedInIcon }, { id: 'outreach' as const, label: 'Cold Outreach', icon: Send }];
+function ToolPicker({ active, setActive, usage }: { active: Tool; setActive: (v: Tool) => void; usage: Record<Tool, React.ReactNode> }) {
+  const tools = [
+    { id: 'linkedin' as const, title: 'LinkedIn profile', desc: 'Score your headline and About section, and get rewrites to paste in.', icon: <LinkedInIcon className="w-5 h-5" /> },
+    { id: 'outreach' as const, title: 'Cold outreach', desc: 'Write an email or LinkedIn message to a recruiter, hiring manager or alum.', icon: <Send className="w-[18px] h-[18px] text-[var(--text-2)]" /> },
+  ];
   return (
-    <div role="tablist" className="flex border-b border-white/[0.07]">
-      {tabs.map(t => {
+    <div role="tablist" aria-label="Tool" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {tools.map(t => {
         const on = active === t.id;
         return (
-          <button key={t.id} role="tab" aria-selected={on} onClick={() => setActive(t.id)}
-            className={`relative flex-1 flex items-center justify-center gap-1.5 h-10 text-[13px] font-medium transition-colors ${on ? 'text-white' : 'text-[var(--text-3)] hover:text-white'}`}>
-            <t.icon className="w-4 h-4" />{t.label}
-            <span className={`absolute left-2 right-2 -bottom-px h-[2px] rounded-full bg-white transition-transform duration-300 origin-left ${on ? 'scale-x-100' : 'scale-x-0'}`} />
+          <button key={t.id} type="button" role="tab" aria-selected={on} onClick={() => setActive(t.id)}
+            className={`group relative text-left flex items-start gap-4 p-4 sm:p-5 rounded-2xl transition-all ${on
+              ? 'bg-white/[0.05] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.16),0_8px_24px_-12px_rgba(0,0,0,0.6)]'
+              : 'bg-white/[0.015] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)] hover:bg-white/[0.03] hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]'}`}>
+            <span className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ring-1 ring-inset transition-colors ${on ? 'bg-white/[0.08] ring-white/[0.14]' : 'bg-white/[0.03] ring-white/[0.07]'}`}>{t.icon}</span>
+            <span className="flex-1 min-w-0">
+              <span className="flex items-center justify-between gap-3">
+                <span className={`text-[14.5px] font-semibold ${on ? 'text-white' : 'text-[var(--text-2)]'}`}>{t.title}</span>
+                <span className={`w-[18px] h-[18px] rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${on ? 'bg-white text-black' : 'ring-1 ring-inset ring-white/[0.15]'}`}>
+                  {on && <Check className="w-3 h-3" strokeWidth={3} />}
+                </span>
+              </span>
+              <span className="block text-[12.5px] text-[var(--text-4)] mt-1 leading-relaxed">{t.desc}</span>
+              <span className="block text-[11.5px] text-[var(--text-5)] mt-2.5 tabular-nums">{usage[t.id]}</span>
+            </span>
           </button>
         );
       })}
@@ -431,137 +470,135 @@ function ToolTabs({ active, setActive }: { active: 'linkedin' | 'outreach'; setA
   );
 }
 
-// ─── Form helpers ─────────────────────────────────────────────────────────────
+// Form parts
 
-// Shared form-control size and style (globals.css .field), so every input,
-// select and textarea on this page matches the rest of the app.
-const inp = 'field';
-const ta = inp;
+const inp = 'field w-full';
 
-function FormField({ label, children, optional, required, hint }: { label: string; children: React.ReactNode; optional?: boolean; required?: boolean; hint?: string }) {
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div>
-      <label className="flex items-baseline gap-1.5 text-xs font-medium text-slate-400 mb-1.5">
-        {label}
-        {optional && <span className="text-[11px] text-slate-500 font-normal">optional</span>}
-        {required && <span className="text-[11px] text-red-500/70 font-normal">*</span>}
-        {hint && <span className="text-[11px] text-slate-500 font-normal">{hint}</span>}
-      </label>
-      {children}
-    </div>
+    <fieldset className="space-y-4 pt-5 first:pt-0 border-t border-white/[0.06] first:border-t-0">
+      <legend className={`${eyebrow} float-left w-full mb-4`}>{title}</legend>
+      <div className="clear-both space-y-4">{children}</div>
+    </fieldset>
   );
 }
 
 function ErrorBanner({ message }: { message: string }) {
   return (
-    <div className="flex items-start gap-2 p-3 bg-red-500/[0.08] border border-red-500/20 rounded-xl">
-      <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" />
-      <p className="text-xs text-red-300 leading-relaxed">{message}</p>
+    <div role="alert" className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-rose-500/[0.06] ring-1 ring-inset ring-rose-500/20">
+      <AlertTriangle className="w-3.5 h-3.5 text-rose-300 flex-shrink-0 mt-0.5" />
+      <p className="text-[12.5px] text-rose-200 leading-relaxed">{message}</p>
     </div>
   );
 }
 
-// gradient/shadow are accepted for existing callers but no longer used: every
-// submit button is the same solid primary.
-function SubmitButton({ onClick, loading, disabled, loadingLabel, label }: { onClick: () => void; loading: boolean; disabled: boolean; loadingLabel: string; label: string; gradient?: string; shadow?: string }) {
+function SubmitButton({ onClick, loading, disabled, loadingLabel, label }: { onClick: () => void; loading: boolean; disabled: boolean; loadingLabel: string; label: string }) {
   return (
-    <button onClick={onClick} disabled={loading || disabled}
-      className="btn-primary w-full !h-11 justify-center disabled:opacity-40 disabled:cursor-not-allowed">
+    <button type="button" onClick={onClick} disabled={loading || disabled} className="btn-primary w-full !h-11 justify-center">
       {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> {loadingLabel}</> : <><Sparkles className="w-4 h-4" /> {label}</>}
     </button>
   );
 }
 
-// ─── LinkedIn Form ────────────────────────────────────────────────────────────
+// LinkedIn form
 
 interface LIFormProps { headline: string; setHeadline: (v: string) => void; about: string; setAbout: (v: string) => void; experience: string; setExperience: (v: string) => void; targetRole: string; setTargetRole: (v: string) => void; industry: string; setIndustry: (v: string) => void; onSubmit: () => void; loading: boolean; error: string; ready: boolean }
 
 function LinkedInForm({ headline, setHeadline, about, setAbout, experience, setExperience, targetRole, setTargetRole, industry, setIndustry, onSubmit, loading, error, ready }: LIFormProps) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {error && <ErrorBanner message={error} />}
-      <FormField label="Current Headline"><input type="text" value={headline} onChange={e => setHeadline(e.target.value)} placeholder="e.g. Software Engineer at Acme | React | Node.js" className={inp} /></FormField>
-      <FormField label="About / Summary"><AutoTextarea rows={5} value={about} onChange={e => setAbout(e.target.value)} placeholder="Paste your current About section, or leave blank if you don't have one…" className={ta} /></FormField>
-      <FormField label="Most Recent Experience" optional><AutoTextarea rows={2} value={experience} onChange={e => setExperience(e.target.value)} placeholder="e.g. Built microservices at Scale AI, led a team of 5…" className={ta} /></FormField>
-      <div className="grid grid-cols-2 gap-3">
-        <FormField label="Target Role"><input type="text" value={targetRole} onChange={e => setTargetRole(e.target.value)} placeholder="e.g. Senior SWE" className={inp} /></FormField>
-        <FormField label="Target Industry"><input type="text" value={industry} onChange={e => setIndustry(e.target.value)} placeholder="e.g. Fintech" className={inp} /></FormField>
-      </div>
-      <SubmitButton onClick={onSubmit} loading={loading} disabled={!ready} loadingLabel="Analysing…" label="Optimise My Profile" gradient="from-blue-600 to-violet-600 hover:bg-[var(--accent-hover)]" shadow="" />
+      <Group title="Your profile now">
+        <Field label="Headline" htmlFor="li-headline"><input id="li-headline" type="text" value={headline} onChange={e => setHeadline(e.target.value)} placeholder="e.g. Data analyst | SQL, Python, Tableau" className={inp} /></Field>
+        <Field label="About" hint="Leave blank if you have none" htmlFor="li-about"><AutoTextarea id="li-about" rows={5} value={about} onChange={e => setAbout(e.target.value)} placeholder="Paste your current About section" className={inp} /></Field>
+        <Field label="Most recent role" hint="Optional" htmlFor="li-exp"><AutoTextarea id="li-exp" rows={2} value={experience} onChange={e => setExperience(e.target.value)} placeholder="e.g. Built dashboards for the sales team as a data intern" className={inp} /></Field>
+      </Group>
+      <Group title="What you are aiming for">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label="Target role" htmlFor="li-role"><input id="li-role" type="text" value={targetRole} onChange={e => setTargetRole(e.target.value)} placeholder="e.g. Data analyst" className={inp} /></Field>
+          <Field label="Industry" htmlFor="li-ind"><input id="li-ind" type="text" value={industry} onChange={e => setIndustry(e.target.value)} placeholder="e.g. Fintech" className={inp} /></Field>
+        </div>
+      </Group>
+      <SubmitButton onClick={onSubmit} loading={loading} disabled={!ready} loadingLabel="Analysing..." label="Optimise profile" />
+      {!ready && <p className="text-[11.5px] text-[var(--text-5)] text-center -mt-2">Add your headline or About section to start.</p>}
     </div>
   );
 }
 
-// ─── Outreach Form ────────────────────────────────────────────────────────────
+// Outreach form
 
 interface ORFormProps { type: string; setType: (v: string) => void; recipName: string; setRecipName: (v: string) => void; recipRole: string; setRecipRole: (v: string) => void; company: string; setCompany: (v: string) => void; context: string; setContext: (v: string) => void; background: string; setBackground: (v: string) => void; jobTitle: string; setJobTitle: (v: string) => void; jobDesc: string; setJobDesc: (v: string) => void; platform: string; setPlatform: (v: string) => void; tone: string; setTone: (v: string) => void; onSubmit: () => void; loading: boolean; error: string; ready: boolean }
 
-function OutreachForm({ type, setType, recipName, setRecipName, recipRole, setRecipRole, company, setCompany, context, setContext, background, setBackground, jobTitle, setJobTitle, jobDesc, setJobDesc, platform, setPlatform, tone, setTone, onSubmit, loading, error, ready }: ORFormProps) {
+function Segmented({ value, onChange, options, label }: { value: string; onChange: (v: string) => void; options: { id: string; label: string; icon?: React.ElementType }[]; label: string }) {
   return (
-    <div className="space-y-4">
-      <Link href="/templates/outreach"
-        className="flex items-center justify-between gap-3 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--bg-subtle)] px-3.5 py-2.5 text-[13px] text-slate-300 hover:text-white hover:border-[var(--border-hover)] transition-colors">
-        <span>Prefer a proven starting point? Browse {OUTREACH_TEMPLATES.length} ready-to-send templates</span>
-        <ArrowRight className="w-4 h-4 flex-shrink-0" />
-      </Link>
-      {error && <ErrorBanner message={error} />}
-      {/* Platform gets its own row. Sharing a row with Tone squeezed the two
-          buttons below their text width, and "LinkedIn" ran under the
-          dropdown. */}
-      <FormField label="Platform">
-        <div className="grid grid-cols-2 gap-2">
-            {[{ id: 'email', label: 'Email', icon: OutlookIcon }, { id: 'linkedin', label: 'LinkedIn', icon: LinkedInIcon }].map(p => (
-              <button key={p.id} type="button" onClick={() => setPlatform(p.id)}
-                aria-pressed={platform === p.id}
-                className={`choice min-w-0 ${platform === p.id ? 'choice-active' : ''}`}>
-                <p.icon /> <span className="truncate">{p.label}</span>
-              </button>
-            ))}
-        </div>
-      </FormField>
-      <FormField label="Tone">
-        <AppSelect value={tone} onValueChange={setTone} aria-label="Tone" options={[
-          { value: 'professional', label: 'Professional' },
-          { value: 'casual', label: 'Casual' },
-          { value: 'bold', label: 'Bold / Direct' },
-        ]} />
-      </FormField>
-      <FormField label="Outreach Type">
-        <div className="grid grid-cols-2 gap-2">
-          {[{ id: 'job-inquiry', label: 'Job Inquiry' }, { id: 'referral-request', label: 'Referral Request' }, { id: 'networking', label: 'Networking' }, { id: 'follow-up', label: 'After Applying' }].map(t => (
-            <button key={t.id} type="button" onClick={() => setType(t.id)}
-              aria-pressed={type === t.id}
-              className={`choice ${type === t.id ? 'choice-active' : ''}`}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </FormField>
-      <div className="space-y-2.5">
-        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Recipient</p>
-        <div className="grid grid-cols-2 gap-2.5">
-          <FormField label="Name" optional><input type="text" value={recipName} onChange={e => setRecipName(e.target.value)} placeholder="Sarah Chen" className={inp} /></FormField>
-          <FormField label="Their Role"><input type="text" value={recipRole} onChange={e => setRecipRole(e.target.value)} placeholder="Engineering Manager" className={inp} /></FormField>
-        </div>
-        <FormField label="Company" required><input type="text" value={company} onChange={e => setCompany(e.target.value)} placeholder="e.g. Stripe" className={inp} /></FormField>
-        <FormField label="What do you know about them?" hint="recent post, mutual connection, shared project…">
-          <AutoTextarea rows={2} value={context} onChange={e => setContext(e.target.value)} placeholder="saw their post about Stripe's infra migration, mutual connection with John from MIT…" className={ta} />
-        </FormField>
-      </div>
-      {(type === 'job-inquiry' || type === 'follow-up') && (
-        <div className="space-y-2.5">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Job Context</p>
-          <FormField label="Job Title"><input type="text" value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="Senior Backend Engineer" className={inp} /></FormField>
-          <FormField label="Job Description" optional hint="excerpt or key requirements"><AutoTextarea rows={3} value={jobDesc} onChange={e => setJobDesc(e.target.value)} placeholder="Paste key requirements or responsibilities…" className={ta} /></FormField>
-        </div>
-      )}
-      <FormField label="Your Background" optional hint="uses your profile if blank"><AutoTextarea rows={2} value={background} onChange={e => setBackground(e.target.value)} placeholder="e.g. 4 years building fintech APIs at JPMorgan, now targeting product-led startups…" className={ta} /></FormField>
-      <SubmitButton onClick={onSubmit} loading={loading} disabled={!ready} loadingLabel="Crafting messages…" label="Generate Outreach" gradient="from-emerald-600 to-teal-600 hover:bg-emerald-500" shadow="" />
+    <div role="radiogroup" aria-label={label} className="flex p-0.5 rounded-lg bg-white/[0.04] ring-1 ring-inset ring-white/[0.06]">
+      {options.map(o => {
+        const on = value === o.id; const I = o.icon;
+        return (
+          <button key={o.id} type="button" role="radio" aria-checked={on} onClick={() => onChange(o.id)}
+            className={`flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-md text-[12.5px] font-medium transition-colors ${on ? 'bg-white/[0.09] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : 'text-[var(--text-4)] hover:text-[var(--text-1)]'}`}>
+            {I && <I className="w-4 h-4 flex-shrink-0" />}<span className="truncate">{o.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+function OutreachForm({ type, setType, recipName, setRecipName, recipRole, setRecipRole, company, setCompany, context, setContext, background, setBackground, jobTitle, setJobTitle, jobDesc, setJobDesc, platform, setPlatform, tone, setTone, onSubmit, loading, error, ready }: ORFormProps) {
+  return (
+    <div className="space-y-5">
+      {error && <ErrorBanner message={error} />}
+      <Group title="The message">
+        <Field label="Send by"><Segmented label="Platform" value={platform} onChange={setPlatform} options={[{ id: 'email', label: 'Email', icon: OutlookIcon }, { id: 'linkedin', label: 'LinkedIn', icon: LinkedInIcon }]} /></Field>
+        <Field label="Purpose">
+          <div className="grid grid-cols-2 gap-2">
+            {[{ id: 'job-inquiry', label: 'Job inquiry' }, { id: 'referral-request', label: 'Referral request' }, { id: 'networking', label: 'Networking' }, { id: 'follow-up', label: 'After applying' }].map(t => (
+              <button key={t.id} type="button" onClick={() => setType(t.id)} aria-pressed={type === t.id}
+                className={`h-9 px-3 rounded-lg text-[12.5px] font-medium text-left transition-colors ring-1 ring-inset ${type === t.id ? 'bg-white/[0.08] text-white ring-white/[0.16]' : 'text-[var(--text-3)] ring-white/[0.07] hover:text-white hover:bg-white/[0.03]'}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </Field>
+        <Field label="Tone">
+          <AppSelect value={tone} onValueChange={setTone} aria-label="Tone" options={[
+            { value: 'professional', label: 'Professional' },
+            { value: 'casual', label: 'Casual' },
+            { value: 'bold', label: 'Bold and direct' },
+          ]} />
+        </Field>
+      </Group>
+      <Group title="Who it is for">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label="Name" hint="Optional" htmlFor="or-name"><input id="or-name" type="text" value={recipName} onChange={e => setRecipName(e.target.value)} placeholder="Sarah Chen" className={inp} /></Field>
+          <Field label="Their role" htmlFor="or-role"><input id="or-role" type="text" value={recipRole} onChange={e => setRecipRole(e.target.value)} placeholder="Engineering manager" className={inp} /></Field>
+        </div>
+        <Field label="Company" htmlFor="or-company"><input id="or-company" type="text" value={company} onChange={e => setCompany(e.target.value)} placeholder="e.g. Stripe" className={inp} /></Field>
+        <Field label="What you know about them" hint="Makes it personal" htmlFor="or-ctx">
+          <AutoTextarea id="or-ctx" rows={2} value={context} onChange={e => setContext(e.target.value)} placeholder="A recent post, a mutual connection, a shared school or project" className={inp} />
+        </Field>
+      </Group>
+      {(type === 'job-inquiry' || type === 'follow-up') && (
+        <Group title="The job">
+          <Field label="Job title" htmlFor="or-job"><input id="or-job" type="text" value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="e.g. Data analyst" className={inp} /></Field>
+          <Field label="Job description" hint="Optional" htmlFor="or-jd"><AutoTextarea id="or-jd" rows={3} value={jobDesc} onChange={e => setJobDesc(e.target.value)} placeholder="Paste the key requirements" className={inp} /></Field>
+        </Group>
+      )}
+      <Group title="About you">
+        <Field label="Your background" hint="Uses your profile if blank" htmlFor="or-bg"><AutoTextarea id="or-bg" rows={2} value={background} onChange={e => setBackground(e.target.value)} placeholder="e.g. MS in Business Analytics, interned on a pricing team" className={inp} /></Field>
+      </Group>
+      <SubmitButton onClick={onSubmit} loading={loading} disabled={!ready} loadingLabel="Writing..." label="Write messages" />
+      {!ready && <p className="text-[11.5px] text-[var(--text-5)] text-center -mt-2">Add the company or their role to start.</p>}
+      <Link href="/templates/outreach" className="flex items-center justify-between gap-3 px-3.5 h-10 rounded-lg text-[12.5px] text-[var(--text-3)] hover:text-white ring-1 ring-inset ring-white/[0.06] hover:bg-white/[0.03] transition-colors">
+        <span className="truncate">Or start from one of {OUTREACH_TEMPLATES.length} templates</span>
+        <ArrowRight className="w-3.5 h-3.5 flex-shrink-0" />
+      </Link>
+    </div>
+  );
+}
+
+// Page
 
 export default function CareerToolsPage() {
   const [user, loading] = useSupabaseUser();
@@ -582,7 +619,7 @@ export default function CareerToolsPage() {
   const liUnlimited = isUnlimited(liLimit);
   const orUnlimited = isUnlimited(orLimit);
 
-  const [activeTool, setActiveTool] = useState<'linkedin' | 'outreach'>('linkedin');
+  const [activeTool, setActiveTool] = useState<Tool>('linkedin');
   // ?tool=outreach opens Cold Outreach directly (the outreach template
   // library links here). Read after mount so the server render matches.
   useEffect(() => {
@@ -597,7 +634,7 @@ export default function CareerToolsPage() {
   const [liLoading, setLiLoading] = useState(false);
   const [liError, setLiError] = useState('');
   const [liResult, setLiResult] = useState<LinkedInResult | null>(null);
-  const [liNextStep, setLiNextStep] = useState(false); // ← NEW
+  const [liNextStep, setLiNextStep] = useState(false);
 
   const [orType, setOrType] = useState('job-inquiry');
   const [orRecipName, setOrRecipName] = useState('');
@@ -612,7 +649,7 @@ export default function CareerToolsPage() {
   const [orLoading, setOrLoading] = useState(false);
   const [orError, setOrError] = useState('');
   const [orResult, setOrResult] = useState<OutreachResult | null>(null);
-  const [orNextStep, setOrNextStep] = useState(false); // ← NEW
+  const [orNextStep, setOrNextStep] = useState(false);
 
   // "Write a message" on the Contacts page links here with the recipient as
   // ?name=&role=&company=&platform=. Read-only and optional: links without
@@ -631,8 +668,8 @@ export default function CareerToolsPage() {
 
   useEffect(() => { if (!loading && !user) router.push('/sign-in'); }, [user, loading, router]);
 
-  // ← NEW: reset next step prompts when switching tools
-  const handleToolChange = (v: 'linkedin' | 'outreach') => {
+  // Switching tools hides the other tool's next-step prompt.
+  const handleToolChange = (v: Tool) => {
     setActiveTool(v);
     setLiNextStep(false);
     setOrNextStep(false);
@@ -644,7 +681,7 @@ export default function CareerToolsPage() {
       return;
     }
     if (!liHeadline.trim() && !liAbout.trim()) { setLiError('Enter at least your headline or about section'); return; }
-    setLiLoading(true); setLiError(''); setLiResult(null); setLiNextStep(false); // ← reset
+    setLiLoading(true); setLiError(''); setLiResult(null); setLiNextStep(false);
     try {
       const res = await fetch('/api/career-tools/linkedin-optimize', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -655,10 +692,10 @@ export default function CareerToolsPage() {
       setLiResult(result);
       await refetchUsage();
       setShowFeedback(true);
-      setLiNextStep(true); // ← NEW
+      setLiNextStep(true);
       if (user?.id) {
         const label = result.overallScore >= 75 ? 'Strong' : result.overallScore >= 50 ? 'Needs Work' : 'Needs Improvement';
-        await NotificationService.createNotification(user.id, 'system', 'LinkedIn Profile Optimised 🔵', `Your profile scored ${result.overallScore}/100 (${label}).`, { actionUrl: '/career-tools', actionLabel: 'View Results' });
+        await NotificationService.createNotification(user.id, 'system', 'LinkedIn profile optimised', `Your profile scored ${result.overallScore}/100 (${label}).`, { actionUrl: '/career-tools', actionLabel: 'View Results' });
       }
     } catch (e: unknown) {
       const reason = e instanceof Error ? e.message : 'Something went wrong.';
@@ -677,7 +714,7 @@ export default function CareerToolsPage() {
       return;
     }
     if (!orCompany.trim() && !orRecipRole.trim()) { setOrError('Enter at least the recipient company or role'); return; }
-    setOrLoading(true); setOrError(''); setOrResult(null); setOrNextStep(false); // ← reset
+    setOrLoading(true); setOrError(''); setOrResult(null); setOrNextStep(false);
     try {
       const res = await fetch('/api/career-tools/cold-outreach', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -688,10 +725,10 @@ export default function CareerToolsPage() {
       setOrResult(result);
       await refetchUsage();
       setShowFeedback(true);
-      setOrNextStep(true); // ← NEW
+      setOrNextStep(true);
       if (user?.id) {
         const target = orRecipName ? `${orRecipName}${orCompany ? ` at ${orCompany}` : ''}` : orCompany || orRecipRole || 'your target';
-        await NotificationService.createNotification(user.id, 'system', `${orPlatform === 'linkedin' ? 'LinkedIn' : 'Email'} Outreach Ready ✉️`, `3 personalised messages for ${target} have been generated.`, { actionUrl: '/career-tools', actionLabel: 'View Messages' });
+        await NotificationService.createNotification(user.id, 'system', `${orPlatform === 'linkedin' ? 'LinkedIn' : 'Email'} outreach ready`, `Your messages for ${target} are ready.`, { actionUrl: '/career-tools', actionLabel: 'View Messages' });
       }
     } catch (e: unknown) {
       const reason = e instanceof Error ? e.message : 'Something went wrong.';
@@ -710,115 +747,59 @@ export default function CareerToolsPage() {
   const orFormProps: ORFormProps = { type: orType, setType: setOrType, recipName: orRecipName, setRecipName: setOrRecipName, recipRole: orRecipRole, setRecipRole: setOrRecipRole, company: orCompany, setCompany: setOrCompany, context: orContext, setContext: setOrContext, background: orBackground, setBackground: setOrBackground, jobTitle: orJobTitle, setJobTitle: setOrJobTitle, jobDesc: orJobDesc, setJobDesc: setOrJobDesc, platform: orPlatform, setPlatform: setOrPlatform, tone: orTone, setTone: setOrTone, onSubmit: handleOutreach, loading: orLoading, error: orError, ready: !!(orCompany.trim() || orRecipRole.trim()) };
 
   if (loading) {
-    return <AnimatedLoader isVisible={true} mode="steps" steps={[{ name: 'Authenticating…', weight: 1 }, { name: 'Loading your profile…', weight: 2 }, { name: 'Preparing AI tools…', weight: 2 }, { name: 'Ready!', weight: 1 }]} currentStep={0} loadingText="Loading Career Tools…" showNavigation={true} />;
+    return <AnimatedLoader isVisible={true} mode="steps" steps={[{ name: 'Authenticating...', weight: 1 }, { name: 'Loading your profile...', weight: 2 }, { name: 'Preparing tools...', weight: 2 }, { name: 'Ready', weight: 1 }]} currentStep={0} loadingText="Loading Career Tools..." showNavigation={true} />;
   }
 
-  const renderLIResults = () => {
-    if (!canUseFeature('linkedinOptimisations') && !liResult)
-      return <UpgradeGate feature="linkedin" used={liUsed} limit={liLimit} />;
-    if (liLoading)
-      return <LoadingCard icon={LinkedInIcon} message="Analysing your LinkedIn profile…" sub="Checking keyword density, rewriting headline & about section" color="text-blue-400" />;
-    if (liResult) return (
-      <>
-        <LinkedInResults data={liResult} />
-        {/* ← NEW */}
-        {liNextStep && (
-          <NextStepPrompt
-            trigger="linkedin_optimised"
-            context={{}}
-            delay={800}
-            className="mt-3"
-          />
-        )}
-      </>
-    );
-    return null;
+  const left = (used: number, limit: number, rem: number, unlimited: boolean) =>
+    usageLoading ? <span aria-hidden="true" className="inline-block w-20 h-2.5 rounded bg-white/[0.08] animate-pulse align-middle" />
+      : unlimited ? 'Unlimited on your plan' : `${rem} of ${limit} left this month`;
+  const usage: Record<Tool, React.ReactNode> = {
+    linkedin: left(liUsed, liLimit, liLeft, liUnlimited),
+    outreach: left(orUsed, orLimit, orLeft, orUnlimited),
   };
 
-  const renderORResults = () => {
-    if (!canUseFeature('coldOutreach') && !orResult)
-      return <UpgradeGate feature="outreach" used={orUsed} limit={orLimit} />;
-    if (orLoading)
-      return <LoadingCard icon={Send} message="Crafting your outreach…" sub="Writing 3 versions + follow-up template" color="text-emerald-400" />;
+  const results = (() => {
+    if (isLI) {
+      if (!canUseFeature('linkedinOptimisations') && !liResult) return <UpgradeGate feature="linkedin" used={liUsed} limit={liLimit} />;
+      if (liLoading) return <LoadingCard icon={LinkedInIcon} message="Reading your LinkedIn profile" sub="Scoring it for search and rewriting your headline and About section." />;
+      if (liResult) return (
+        <>
+          <LinkedInResults data={liResult} />
+          {liNextStep && <NextStepPrompt trigger="linkedin_optimised" context={{}} delay={800} className="mt-4" />}
+        </>
+      );
+      return <WhatYouGet tool="linkedin" />;
+    }
+    if (!canUseFeature('coldOutreach') && !orResult) return <UpgradeGate feature="outreach" used={orUsed} limit={orLimit} />;
+    if (orLoading) return <LoadingCard icon={Send} message="Writing your messages" sub="A recommended version, other options and a follow-up." />;
     if (orResult) return (
       <>
         <OutreachResults data={orResult} platform={orPlatform} />
-        {/* ← NEW */}
-        {orNextStep && (
-          <NextStepPrompt
-            trigger="outreach_generated"
-            context={{ company: orCompany.trim() || undefined }}
-            delay={800}
-            className="mt-3"
-          />
-        )}
+        {orNextStep && <NextStepPrompt trigger="outreach_generated" context={{ company: orCompany.trim() || undefined }} delay={800} className="mt-4" />}
       </>
     );
-    return null;
-  };
+    return <WhatYouGet tool="outreach" />;
+  })();
 
   return (
-    <>
-      {/* MOBILE */}
-      <div className="lg:hidden py-4 space-y-5">
-        <PageHeader
-          title="Career Tools" description="LinkedIn profile and outreach" icon={Sparkles}
-          actions={<>
-            <span className="btn-pill"><Shield />
-              {usageLoading ? <span aria-hidden="true" className="inline-block w-10 h-3 rounded bg-current opacity-25 animate-pulse" /> : isLI
-                ? (liUnlimited ? 'Unlimited' : `${liLeft} left`)
-                : (orUnlimited ? 'Unlimited' : `${orLeft} left`)}
-            </span>
-            <SeeExampleButton serviceId="career-tools" />
-          </>}
-        />
-        <ToolTabs active={activeTool} setActive={handleToolChange} /> {/* ← handleToolChange */}
-        {isLI ? <LinkedInForm {...liFormProps} /> : <OutreachForm {...orFormProps} />}
-        {isLI ? renderLIResults() : renderORResults()}
-      </div>
+    <div className="py-4 sm:py-2 space-y-5">
+      <PageHeader title="Career Tools" description="Polish your LinkedIn profile and write outreach that gets read" icon={Sparkles}
+        actions={<SeeExampleButton serviceId="career-tools" />} />
 
-      {/* DESKTOP */}
-      <div className="hidden lg:flex" style={{ height: 'calc(100dvh - 113px)' /* header 65 + main padding 48 */ }}>
-        <div className="w-[30%] flex-shrink-0 flex flex-col border-r border-white/[0.05] overflow-hidden">
-          <div className="flex-shrink-0 px-5 py-4 border-b border-white/[0.05]">
-            <Breadcrumbs crumbs={crumbsFor('/career-tools', 'Career Tools')} />
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-9 h-9 rounded-[10px] app-glass bg-[var(--bg-surface)] border border-[var(--border)] flex items-center justify-center flex-shrink-0"><Sparkles className="w-[18px] h-[18px] text-[var(--accent)]" strokeWidth={1.75} /></div>
-              <div>
-                <h1 className="text-[22px] font-semibold text-white tracking-[-0.02em] leading-tight">Career Tools</h1>
-                <p className="text-[13px] text-[var(--text-3)] mt-0.5">LinkedIn profile and outreach</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="btn-pill flex-1 min-w-0">
-                <Shield />
-                <span className="truncate">
-                  {usageLoading ? <span aria-hidden="true" className="inline-block w-12 h-3 rounded bg-current opacity-20 animate-pulse align-middle" /> : isLI
-                    ? (liUnlimited ? 'Unlimited' : `${liLeft} left`)
-                    : (orUnlimited ? 'Unlimited' : `${orLeft} left`)}
-                </span>
-              </span>
-              <SeeExampleButton serviceId="career-tools" className="flex-shrink-0" />
-            </div>
-            <ToolTabs active={activeTool} setActive={handleToolChange} /> {/* ← handleToolChange */}
-          </div>
-          <div className="flex-1 overflow-y-auto glass-scrollbar px-5 py-5">
+      <ToolPicker active={activeTool} setActive={handleToolChange} usage={usage} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,440px)_minmax(0,1fr)] gap-5 items-start">
+        <aside className="glass-card p-5 sm:p-6 lg:sticky lg:top-[88px] lg:max-h-[calc(100dvh-112px)] lg:overflow-y-auto glass-scrollbar">
+          <div key={activeTool} className="prc-fade">
             {isLI ? <LinkedInForm {...liFormProps} /> : <OutreachForm {...orFormProps} />}
           </div>
-        </div>
-        <div className="w-[70%] flex-shrink-0 overflow-y-auto glass-scrollbar">
-          {/* min-h-full so the empty state centres in the panel, not its top */}
-          <div className="p-6 space-y-3 min-h-full flex flex-col [&>*:only-child]:flex-1">
-            {isLI ? (
-              renderLIResults() || <EmptyState icon={LinkedInIcon} title="Results appear here" sub="Paste your current headline or about section on the left and click Optimise." />
-            ) : (
-              renderORResults() || <EmptyState icon={Send} title="Messages appear here" sub="Fill in the recipient details on the left. The context field is the most important - it makes messages feel personal." />
-            )}
-          </div>
+        </aside>
+        <div key={`r-${activeTool}`} className="min-w-0 prc-fade">
+          {results}
         </div>
       </div>
 
       {showFeedback && <UsersFeedback page="career-tools" forceOpen onClose={() => setShowFeedback(false)} />}
-    </>
+    </div>
   );
 }
