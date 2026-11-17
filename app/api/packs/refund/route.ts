@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
     return {
       packId: row.id,
       packKey: row.pack_key,
-      name: row.stripe_payment_intent_id || isGroupPack(row.pack_key) ? (PACKS[row.pack_key as PackKey]?.name ?? row.pack_key) : "Bonus credits",
+      name: row.pack_key === "transfer" ? "Credits from a friend" : row.stripe_payment_intent_id || isGroupPack(row.pack_key) ? (PACKS[row.pack_key as PackKey]?.name ?? row.pack_key) : "Bonus credits",
       priceCents: row.price_cents,
       purchasedAt: row.purchased_at,
       used: row.first_used_at !== null,
@@ -218,6 +218,7 @@ async function joinedGroup(row: PackRow): Promise<boolean> {
 
 function ineligibilityReason(row: PackRow, joined = false): string | null {
   if (row.refunded_at) return "This pack has already been refunded.";
+  if (!row.stripe_payment_intent_id && row.pack_key === "transfer") return "A friend sent you these credits, so there is nothing to refund.";
   if (!row.stripe_payment_intent_id && isGroupPack(row.pack_key)) return "A friend shared this group pack with you, so there is nothing to refund.";
   if (joined) return "Someone has joined this group pack, so it can no longer be returned.";
   // Bonus credits from the team (granted in the ERP) were never paid for.
@@ -228,7 +229,7 @@ function ineligibilityReason(row: PackRow, joined = false): string | null {
       .filter(([, n]) => Number(n) > 0)
       .map(([k, n]) => `${n} ${k}`)
       .join(", ");
-    return `This pack has been used${used ? ` (${used})` : ""}, so it can no longer be returned.`;
+    return `This pack has been used or some of it was sent to a friend${used ? ` (${used})` : ""}, so it can no longer be returned.`;
   }
 
   const ageMs   = Date.now() - new Date(row.purchased_at).getTime();

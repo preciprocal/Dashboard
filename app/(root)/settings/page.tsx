@@ -13,6 +13,7 @@ import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import ExtensionConnection from '@/components/ExtensionConnection';
 import RefundPanel from '@/components/billing/RefundPanel';
 import GroupPacksPanel from '@/components/billing/GroupPacksPanel';
+import SendCreditsPanel from '@/components/billing/SendCreditsPanel';
 import AutoPayPanel from '@/components/billing/AutoPayPanel';
 import BillingPanel from '@/components/billing/BillingPanel';
 import DevicesPanel from '@/components/settings/DevicesPanel';
@@ -843,6 +844,7 @@ export default function SettingsPage() {
                 guarantee advertised on the pricing page was real in code and
                 unreachable in the product. */}
             <GroupPacksPanel />
+            <SendCreditsPanel />
 
             <SectionCard>
               <SectionHeader icon={RotateCcw} iconColor="text-indigo-400" iconBg="bg-indigo-500/10 border-indigo-500/20"
