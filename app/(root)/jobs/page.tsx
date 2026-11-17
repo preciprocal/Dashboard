@@ -19,7 +19,8 @@ import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { AppSelect } from '@/components/ui/select';
 import InfoTip from '@/components/ui/info-tip';
 import AutoApplyDetailsNotice from '@/components/apply/AutoApplyDetailsNotice';
-import { readPreferences, FAMILY_OPTIONS, type JobPreferences } from '@/lib/onboarding/preferences';
+import { readPreferences, FAMILY_OPTIONS, DEFAULT_PREFERENCES, type JobPreferences } from '@/lib/onboarding/preferences';
+import JobPreferencesDialog from '@/components/jobs/JobPreferencesDialog';
 import type { FeedJob, JobFamily, JobLevel } from '@/lib/jobs/feed';
 import { useCompanyLogos } from '@/components/jobs/CompanyLogo';
 import { useJobFits } from '@/components/jobs/JobFit';
@@ -68,6 +69,13 @@ export default function JobsPage() {
   const [orRemote, setOrRemote] = useState(false);
   const [prefs, setPrefs] = useState<JobPreferences | null>(null);
   const [usingPrefs, setUsingPrefs] = useState(false);
+  // Editing preferences happens here, in a panel; onboarding is first-run only.
+  const [editPrefs, setEditPrefs] = useState(false);
+  const savePrefs = (p: JobPreferences) => {
+    setPrefs(p); applyPrefs(p); writeCache('prc_jobs_prefs', p);
+    if (p.role) { writeCache('prc_jobs_role', p.role.slice(0, 60)); adoptRole(p.role.slice(0, 60)); }
+    setEditPrefs(false);
+  };
   // Roles to match in titles: the one from setup, plus any related ones picked.
   const [roles, setRoles] = useState<string[]>([]);
   // The student's role: from setup, or else the target role on their profile.
@@ -140,6 +148,11 @@ export default function JobsPage() {
   useEffect(() => {
     if (!user) return;
     const sp = new URLSearchParams(window.location.search);
+    if (sp.get('prefs') === '1') {
+      setEditPrefs(true);
+      sp.delete('prefs');
+      window.history.replaceState(null, '', window.location.pathname + (sp.toString() ? `?${sp}` : ''));
+    }
     if (sp.get('q') || sp.get('location')) {
       if (sp.get('q')) setQ(sp.get('q')!.slice(0, 100));
       if (sp.get('location')) setLocation(sp.get('location')!.slice(0, 60));
@@ -425,7 +438,7 @@ export default function JobsPage() {
                 <InfoTip title="Your job preferences" body={`${prefs.families.length ? FAMILY_OPTIONS.filter(o => prefs.families.includes(o.id)).map(o => o.label).join(', ') : 'All areas'}${prefs.location ? `, ${prefs.location}${prefs.remote ? ' or remote' : ''}` : ', anywhere in the US'}${prefs.everifyOnly ? ', E-Verified only' : ''}${prefs.h1bOnly ? ', H-1B approvals only' : ''}.`}>
                   <span className="text-indigo-300">Matching your job preferences</span>
                 </InfoTip>
-                <Link href="/onboarding?edit=1" className="hover:text-white transition-colors">Edit</Link>
+                <button onClick={() => setEditPrefs(true)} className="hover:text-white transition-colors">Edit</button>
                 <span aria-hidden="true">·</span>
                 <button onClick={clearFilters} className="hover:text-white transition-colors">Clear</button>
               </>
@@ -495,6 +508,7 @@ export default function JobsPage() {
           onClose={closeJob} onApply={apply} onSave={save} onHide={hide} onOpenJob={u => openJob(u, open.company)}
           onSeeAll={company => { closeJob(); setQ(company); setLevels([]); setFamily(''); setLocation(''); setOrRemote(false); setEverify(false); setH1b(false); setRemote(false); setUsingPrefs(false); window.scrollTo(0, 0); }} />
       )}
+      {editPrefs && <JobPreferencesDialog initial={prefs ?? DEFAULT_PREFERENCES} onClose={() => setEditPrefs(false)} onSaved={savePrefs} />}
     </div>
   );
 }

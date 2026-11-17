@@ -5,7 +5,8 @@
 // authorization, their resume, and the details read from it. Each step saves
 // as they go (app/api/onboarding), into the same profile Jobs, Auto-apply and
 // the extension use, so they never type the same thing twice. Every step can
-// be skipped; ?edit=1 reopens it later to change preferences.
+// be skipped. Once it is finished, preferences are edited from Jobs
+// (components/jobs/JobPreferencesDialog), so a return here goes there.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import AutoTextarea from '@/components/ui/auto-textarea';
 import Link from 'next/link';
@@ -61,6 +62,7 @@ export default function Onboarding() {
     let alive = true;
     fetch('/api/onboarding').then(r => (r.ok ? r.json() : Promise.reject(r.status))).then((j: Loaded) => {
       if (!alive) return;
+      if (j.completed) { router.replace('/jobs?prefs=1'); return; }
       setLoaded(j);
       setPrefs(j.preferences);
       setAnywhere(!j.preferences.location);
