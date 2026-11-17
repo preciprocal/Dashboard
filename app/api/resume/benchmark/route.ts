@@ -5,34 +5,34 @@ import { supabaseAdmin } from '@/supabase/admin';
 import { anthropic, CLAUDE_MODEL, extractText, extractJsonString, cachedSystem, logUsage, stripDashesDeep, LANGUAGE_MATCH_INSTRUCTION, createMessage } from '@/lib/ai/claude';
 import { checkUsage, checkAndIncrementUsage } from '@/lib/ai/usage-guard';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
-import { calibratePercentile } from '@/lib/ai/outcome-tracking';
-import { crossValidateBenchmark } from '@/lib/ai/cross-validate';
 
-const MAX_TOKENS = 3500; // bumped slightly for hiredCandidateProfile
+// A recruiter-style read of one resume against what employers usually look
+// for in the role. Everything is judged from the resume itself. It does NOT
+// compare the student with real applicants or real hires: there is no such
+// data behind it, so it gives no percentiles, peer medians, "hired" scores or
+// sources. A percentile can come back once enough real outcomes are recorded
+// (lib/ai/outcome-tracking.ts) and be labelled with that count.
 
-const BENCHMARK_SYSTEM = `You are a senior technical recruiter with 15+ years at FAANG companies. 50,000+ resumes reviewed. Tell the truth - not a softened version.
+/** Results saved before this version had invented comparisons; they are not reused. */
+const BENCHMARK_VERSION = 2;
 
-HIRED CANDIDATE PROFILING:
-Before scoring, you MUST build a profile of what a HIRED candidate for this role actually looks like, using your knowledge of real LinkedIn profiles, Glassdoor data, and hiring patterns for this company/role. This is NOT a hypothetical - you know what people who actually got hired at these companies have on their resumes because you've seen thousands.
+const MAX_TOKENS = 2500;
 
-When a company is provided, reference that company's SPECIFIC hiring bar:
-- Amazon: Leadership Principles, data-driven impact, "disagree and commit" mindset
-- Google: CS fundamentals, system design depth, "Googleyness", L3-L7 level matching
-- Meta: Move fast, high-impact projects, cross-functional ownership
-- Startups: Scrappiness, full-stack ability, wearing multiple hats
-- Finance/consulting: Prestige signals, quantified P&L impact, client management
+const BENCHMARK_SYSTEM = `You are an experienced recruiter reviewing one resume for one target role. Be direct and honest, not softened.
 
-When no company is provided, use general hiring patterns for the role type.
+You have NO data about real applicants, real hires or a company's hiring results, and you must never imply otherwise:
+- Never give percentiles, rankings, averages, medians, response rates, odds or any statistic.
+- Never name sources such as Glassdoor, LinkedIn, career pages or "industry data".
+- Describe what strong candidates usually show as general guidance, in plain words, without numbers about other people.
 
 RULES:
-1. SCORE CALIBRATION: 90-99th top 5%, 70-89 above avg, 50-69 mediocre (most), 30-49 weak, 1-29 reject.
-2. CITE EVIDENCE from the actual resume - quote specific bullets, titles, skills.
-3. NO EMPTY PRAISE. Adequate is baseline.
-4. KILLER FLAW = single most damaging thing vs. hired candidates.
-5. THREE FIXES must be specific and actionable today.
-6. RECRUITER'S FIRST IMPRESSION = unfiltered internal monologue.
-7. Missing user context (no JD, no target role) is NOT a resume flaw.
-8. "whatHiredCandidatesHaveThatYouDont" must reference SPECIFIC skills, experience patterns, or credentials that real hired people at this company/role typically have - not generic advice.
+1. Quote the resume: cite specific bullets, titles and skills as evidence.
+2. No empty praise. Adequate is the baseline.
+3. KILLER FLAW: the single most damaging thing for this role.
+4. THREE FIXES: specific actions the student can take today. No score gains or promised outcomes.
+5. FIRST IMPRESSION: a recruiter's honest first read, in 2 or 3 sentences.
+6. A missing job description or target role is not a resume flaw.
+7. When a company is named, describe what that kind of employer usually screens for only in general terms you are confident about.
 
 Return ONLY valid JSON. No markdown. Start with { end with }.${LANGUAGE_MATCH_INSTRUCTION}`;
 
@@ -48,64 +48,33 @@ const buildPrompt = (d: Record<string, unknown>): string => {
   const company = (d.companyName as string) || '';
   const jd = (d.jobDescription as string) || '';
 
-  const hasCompany = !!company.trim();
+  return `TARGET: ${title}${company ? ` at ${company}` : ''}
+${jd ? `JD:\n${jd.slice(0, 1500)}` : 'No JD. Judge against what this kind of role usually asks for.'}
 
-  const hiredProfileInstruction = hasCompany
-    ? `STEP 1 - BUILD HIRED CANDIDATE PROFILE FOR ${company.toUpperCase()}:
-Before scoring, research and establish what a typical HIRED ${title} at ${company} looks like:
-- What tech stack / tools do they use? (from ${company}'s known stack, job postings, engineering blog)
-- What's the typical YOE (years of experience) for this level?
-- What companies did they come FROM? (typical feeder companies for ${company})
-- What education pattern? (top CS programs? bootcamps? self-taught?)
-- What do their top 3 resume bullets look like? (quantified impact, scale, complexity)
-- What soft skills / cultural traits does ${company} specifically screen for?
-
-Use this profile as your benchmark - then compare the candidate's resume against it.`
-    : `STEP 1 - BUILD GENERAL HIRED CANDIDATE PROFILE FOR ${title}:
-Based on your knowledge of who gets hired for ${title} roles across the industry:
-- What's the typical tech stack and experience level?
-- What do strong candidates' resumes emphasize?
-- What differentiates hired vs. rejected candidates at this level?`;
-
-  return `${hiredProfileInstruction}
-
-STEP 2 - BENCHMARK THIS RESUME:
-
-TARGET: ${title}${company ? ` at ${company}` : ''}
-${jd ? `JD:\n${jd.slice(0, 1500)}` : 'No JD - benchmark against general applicants for this role.'}
-
-CURRENT SCORES: Overall ${overall}, ATS ${ats}, Content ${content}, Structure ${structure}, Skills ${skills}
+SCORES FROM THE RESUME ANALYSIS: Overall ${overall}, ATS ${ats}, Content ${content}, Structure ${structure}, Skills ${skills}
 
 ${text ? `RESUME:\n${text.slice(0, 4000)}` : 'No text available.'}
 
-${!jd ? 'Missing JD is NOT a resume flaw.' : ''}
-
 Return JSON:
 {
-  "hiredCandidateProfile": {
-    "typicalBackground": "<1-2 sentences: what hired ${title}${company ? ` at ${company}` : ''} candidates typically have>",
-    "typicalTechStack": ["<tech 1>", "<tech 2>", "<tech 3>", "<tech 4>"],
-    "typicalYOE": "<e.g. 3-5 years>",
-    "typicalEducation": "<e.g. BS/MS in CS from top-50 program>",
-    "feederCompanies": ["<company 1>", "<company 2>", "<company 3>"],
-    "keyDifferentiators": ["<what separates hired from rejected at this level>", "<another>"],
-    "sources": "${hasCompany ? `${company} career page, Glassdoor, LinkedIn employee profiles, engineering blog` : 'Industry hiring data, LinkedIn, Glassdoor'}"
+  "strongCandidateProfile": {
+    "summary": "<1-2 sentences: what a strong ${title} resume usually shows, as general guidance>",
+    "skills": ["<skill or tool>", "<another>", "<another>", "<another>"],
+    "experience": "<the kind of experience strong candidates usually show, in words, no statistics>",
+    "differentiators": ["<what tends to set a strong resume apart for this role>", "<another>"]
   },
-  "overallPercentile": <1-99>,
-  "hiringChance": "very low|low|moderate|high|very high",
-  "hiringChanceReason": "<2 sentences - reference the hired candidate profile>",
-  "killerFlaw": { "title": "<5-8 words>", "detail": "<2-3 sentences - compare to hired profile>", "urgency": "critical|high|medium" },
+  "killerFlaw": { "title": "<5-8 words>", "detail": "<2-3 sentences, quoting the resume>", "urgency": "critical|high|medium" },
   "dimensions": [
-    { "name": "ATS Compatibility", "userScore": ${ats}, "peerMedian": <n>, "hiredMedian": <n>, "topTen": <n>, "userPercentile": <1-99>, "verdict": "strong|competitive|weak|critical", "honestTake": "<specific - reference resume content>" },
-    { "name": "Content Quality", "userScore": ${content}, "peerMedian": <n>, "hiredMedian": <n>, "topTen": <n>, "userPercentile": <n>, "verdict": "<>", "honestTake": "<>" },
-    { "name": "Structure & Format", "userScore": ${structure}, "peerMedian": <n>, "hiredMedian": <n>, "topTen": <n>, "userPercentile": <n>, "verdict": "<>", "honestTake": "<>" },
-    { "name": "Skills & Keywords", "userScore": ${skills}, "peerMedian": <n>, "hiredMedian": <n>, "topTen": <n>, "userPercentile": <n>, "verdict": "<>", "honestTake": "<>" },
-    { "name": "Impact & Achievements", "userScore": <0-100>, "peerMedian": <n>, "hiredMedian": <n>, "topTen": <n>, "userPercentile": <n>, "verdict": "<>", "honestTake": "<>" }
+    { "name": "ATS Compatibility", "userScore": ${ats}, "verdict": "strong|competitive|weak|critical", "honestTake": "<specific, quoting the resume>" },
+    { "name": "Content Quality", "userScore": ${content}, "verdict": "<>", "honestTake": "<>" },
+    { "name": "Structure & Format", "userScore": ${structure}, "verdict": "<>", "honestTake": "<>" },
+    { "name": "Skills & Keywords", "userScore": ${skills}, "verdict": "<>", "honestTake": "<>" },
+    { "name": "Impact & Achievements", "userScore": <0-100, your judgment of the resume>, "verdict": "<>", "honestTake": "<>" }
   ],
-  "whatHiredCandidatesHaveThatYouDont": ["<SPECIFIC gap vs hired profile - e.g. 'Hired SWEs at Google average 3+ system design projects; you have 0'>", "<another specific gap>", "<another>"],
-  "threeThingsToFixNow": [{ "action": "<specific>", "whyItMatters": "<tied to hired profile>", "estimatedScoreGain": "<>" }, {}, {}],
-  "recruitersFirstImpression": "<2-3 sentences unfiltered - as a ${company || 'senior'} recruiter>",
-  "ifThisResumeAppliedToday": "<1 sentence - would ${company || 'a top company'} interview this person?>"
+  "gapsToStrongResume": ["<specific thing a strong resume for this role usually shows that this one does not>", "<another>", "<another>"],
+  "threeThingsToFixNow": [{ "action": "<specific>", "whyItMatters": "<>" }, {}, {}],
+  "recruitersFirstImpression": "<2-3 sentences>",
+  "ifThisResumeAppliedToday": "<1 sentence: your honest read of how it would land>"
 }`;
 };
 
@@ -142,7 +111,7 @@ export async function POST(request: NextRequest) {
 
     const cached = row.benchmark_result as Record<string, unknown> | undefined;
     const cachedAt = row.benchmark_generated_at ? new Date(row.benchmark_generated_at as string).getTime() : undefined;
-    if (!force && cached && cachedAt && Date.now() - cachedAt < 7 * 24 * 60 * 60 * 1000) return NextResponse.json({ success: true, data: stripDashesDeep(cached), cached: true });
+    if (!force && cached && cached._v === BENCHMARK_VERSION && cachedAt && Date.now() - cachedAt < 7 * 24 * 60 * 60 * 1000) return NextResponse.json({ success: true, data: stripDashesDeep(cached), cached: true });
 
     const response = await createMessage({ model: CLAUDE_MODEL, max_tokens: MAX_TOKENS, system: cachedSystem(BENCHMARK_SYSTEM), messages: [{ role: 'user', content: buildPrompt(data) }] });
     logUsage('benchmark', response);
@@ -151,20 +120,7 @@ export async function POST(request: NextRequest) {
     if (!cleaned) return NextResponse.json({ error: 'AI returned malformed response' }, { status: 500 });
     const benchmarkData = stripDashesDeep(JSON.parse(cleaned)) as Record<string, unknown>;
 
-    // ── Calibrate percentile ──────────────────────────────────────
-    const resumeScore = ((data.feedback as Record<string, unknown>)?.overallScore as number) ?? 50;
-    const calibration = await calibratePercentile(benchmarkData.overallPercentile as number, resumeScore);
-    benchmarkData.overallPercentile = calibration.adjustedPercentile;
-    benchmarkData._calibration = { confidence: calibration.confidence, note: calibration.note, sampleSize: calibration.sampleSize };
-
-    // ── Cross-validate ────────────────────────────────────────────
-    const crossVal = await crossValidateBenchmark(benchmarkData, resumeScore);
-    if (crossVal) {
-      benchmarkData._crossValidation = crossVal;
-      if (crossVal.issues.some(i => i.severity === 'critical')) {
-        console.warn('⚠️ Benchmark critical issues:', crossVal.issues);
-      }
-    }
+    benchmarkData._v = BENCHMARK_VERSION;
 
     await checkAndIncrementUsage(userId, 'resumes');
 
