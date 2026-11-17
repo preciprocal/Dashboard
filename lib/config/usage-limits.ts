@@ -55,7 +55,7 @@ export const USAGE_LIMITS: PlanLimits = {
     // a DB insert with no model call (feature-costs.ts prices it at 0), so the
     // old 10/60/150 ladder was an abuse ceiling that nobody could reach - and
     // it was advertised, so Premium's card claimed 150 real interviews a month.
-    interviewDebriefs: 2,
+    interviewDebriefs: -1,       // unlimited: a journal entry is a DB row with no model call
     debriefAnalyses: 1,
     linkedinOptimisations: 1,
     coldOutreach: 2,
@@ -68,7 +68,7 @@ export const USAGE_LIMITS: PlanLimits = {
     resumes: 10,
     studyPlans: 3,
     interviews: 3,        // 10 min per session, capped server-side - interview-limits.ts
-    interviewDebriefs: 5,
+    interviewDebriefs: -1,       // unlimited: a journal entry is a DB row with no model call
     debriefAnalyses: 2,
     linkedinOptimisations: 3,
     coldOutreach: 10,
@@ -81,7 +81,7 @@ export const USAGE_LIMITS: PlanLimits = {
     resumes: 20,
     studyPlans: 5,
     interviews: 5,        // 12 min per session, capped server-side - interview-limits.ts
-    interviewDebriefs: 10,
+    interviewDebriefs: -1,       // unlimited: a journal entry is a DB row with no model call
     debriefAnalyses: 4,
     linkedinOptimisations: 5,
     coldOutreach: 20,

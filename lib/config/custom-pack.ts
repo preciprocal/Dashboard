@@ -75,7 +75,6 @@ export const UNIT_PRICE_USD: Partial<Record<FeatureType, number>> = {
   findContacts: 0.20,
   coverLetters: 0.15,
   coldOutreach: 0.15,
-  interviewDebriefs: 0.10,     // costs $0 to serve; priced as a token amount
 };
 
 /**
@@ -95,7 +94,6 @@ export const MAX_QUANTITY: Partial<Record<FeatureType, number>> = {
   findContacts: 200,
   coverLetters: 300,
   coldOutreach: 200,
-  interviewDebriefs: 500,
 };
 
 export type CustomPackGrants = Partial<Record<FeatureType, number>>;

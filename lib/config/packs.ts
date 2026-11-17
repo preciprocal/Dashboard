@@ -75,7 +75,6 @@ export const PACKS: Record<PackKey, PackDefinition> = {
       findContacts: 2,
       linkedinOptimisations: 2,
       coldOutreach: 2,
-      interviewDebriefs: 2,
     },
     description: "A bit of everything: one mock interview, applications, and career tools.",
   },
@@ -175,8 +174,9 @@ export const PACKS: Record<PackKey, PackDefinition> = {
     // Interviews and the journal only. The cover letters were removed: they
     // belong to the application phase, and a pack that spans phases makes it
     // harder for a user to tell which one they actually need.
-    grants: { interviews: 2, interviewDebriefs: 3 },
-    description: "Two more practice interviews, plus room to log the real ones.",
+    // Journal entries left the grant once they became unlimited on every plan.
+    grants: { interviews: 2 },
+    description: "Two more practice interviews.",
   },
 };
 
