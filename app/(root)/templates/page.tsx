@@ -2,6 +2,7 @@
 "use client";
 import { Breadcrumbs, crumbsFor } from '@/components/PageHeader';
 import { BookOpen, Send, Code2, Users, Layers, MessagesSquare, ArrowRight, LayoutGrid } from 'lucide-react';
+import FeatureEmpty from '@/components/ui/feature-empty';
 
 import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from 'next/navigation';
@@ -416,28 +417,21 @@ export default function TemplatesPage() {
 
       {view === 'outreach' ? <OutreachGrid f={outreach} /> : (<>
       {/* ── Results count ── */}
-      <p className="text-slate-400 text-sm px-1">
+      {!(view === 'saved' && savedIds.size === 0) && <p className="text-slate-400 text-sm px-1">
         Showing <span className="text-white font-semibold">{filteredTemplates.length}</span> of{' '}
         <span className="text-white font-semibold">{view === 'saved' ? savedIds.size : templateData.length}</span> {view === 'saved' ? 'saved templates' : 'templates'}
-      </p>
+      </p>}
 
       {/* ── Grid ── */}
       {view === 'saved' && savedIds.size === 0 ? (
-        <div className="glass-card p-12 text-center">
-          <div className="w-14 h-14 bg-white/[0.042] border border-white/[0.06] rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Bookmark className="w-7 h-7 text-slate-400" />
-          </div>
-          <h3 className="text-lg font-semibold text-white mb-2">No saved templates yet</h3>
-          <p className="text-slate-400 text-sm mb-5 max-w-xs mx-auto">
-            Tap the bookmark on any template to keep it here for later practice.
-          </p>
-          <button onClick={() => setView('all')}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white
-                       bg-[var(--accent)] hover:bg-[var(--accent-hover)]
-                       transition-all cursor-pointer">
-            Browse templates
-          </button>
-        </div>
+        <FeatureEmpty icon={Bookmark} title="Keep the interviews you want to practise"
+          body="Save any interview template with its bookmark and it waits here, ready to start whenever you are."
+          primary={{ label: 'Browse templates', icon: LayoutGrid, onClick: () => setView('all') }}
+          steps={[
+            { icon: Search, title: 'Find a template', text: 'Filter by field, difficulty, type and length.' },
+            { icon: Bookmark, title: 'Save it', text: 'Tap the bookmark on the card.' },
+            { icon: Play, title: 'Practise when ready', text: 'Start a mock interview from it in one click.' },
+          ]} />
       ) : filteredTemplates.length === 0 ? (
         <div className="glass-card p-12 text-center">
           <div className="w-14 h-14 bg-white/[0.042] border border-white/[0.06] rounded-2xl flex items-center justify-center mx-auto mb-4">

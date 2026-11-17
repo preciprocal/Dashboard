@@ -8,7 +8,8 @@ import { ResumeService } from '@/lib/services/resume-service';
 import { Resume } from '@/types/resume';
 import RecruiterEyeSimulation from '@/components/resume/RecruiterEyeSimulation';
 import AnimatedLoader, { LoadingStep } from '@/components/loader/AnimatedLoader';
-import { AlertCircle, ArrowLeft, Eye } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Eye, Upload, ScanEye, ListChecks } from 'lucide-react';
+import FeatureEmpty from '@/components/ui/feature-empty';
 import Link from 'next/link';
 
 const loadingSteps: LoadingStep[] = [
@@ -26,6 +27,8 @@ export default function RecruiterEyePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [debugInfo, setDebugInfo] = useState<string>('');
+  // True when there is no resume to look at: shown as the first-run state.
+  const [noResume, setNoResume] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -65,7 +68,7 @@ export default function RecruiterEyePage() {
         // Step 2: Check if user has a resume set
         setLoadingStep(2);
         if (!profileData.currentResume) {
-          setError('No resume selected in your profile. Please go to your profile and select a resume first.');
+          setNoResume(true);
           setDebugInfo(`Profile loaded but currentResume is: ${profileData.currentResume}`);
           setIsLoading(false);
           return;
@@ -83,7 +86,7 @@ export default function RecruiterEyePage() {
           console.log('All user resumes:', allResumes);
           console.log('Total resumes found:', allResumes.length);
           
-          setError('Resume not found. Please select a valid resume in your profile.');
+          setNoResume(true);
           setDebugInfo(`Resume ID: ${profileData.currentResume}, Found ${allResumes.length} total resumes for user`);
           setIsLoading(false);
           return;
@@ -140,13 +143,29 @@ export default function RecruiterEyePage() {
     );
   }
 
+  if (noResume) {
+    return (
+      <div className="px-4 py-6 max-w-6xl mx-auto">
+        <FeatureEmpty icon={Eye} title="See your resume the way a recruiter skims it"
+          body="A simulated first look at your resume: what a recruiter would notice first, what they would skip, and what would make them read on. Add a resume to start."
+          primary={{ href: '/resume', label: 'Add a resume', icon: Upload }}
+          steps={[
+            { icon: Upload, title: 'Add your resume', text: 'Upload a PDF on the Resume page.' },
+            { icon: ScanEye, title: 'Run the simulation', text: 'Attention by section, from your layout and content. Not eye-tracking data.' },
+            { icon: ListChecks, title: 'Make it easier to scan', text: 'Changes that put your strongest points where the eye lands.' },
+          ]}
+          note="Uses one resume analysis from your plan." />
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen px-4">
         <div className="glass-card hover-lift max-w-md w-full">
           <div className="text-center p-8 sm:p-12">
             <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-amber-400 mx-auto mb-4" />
-            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Resume Not Found</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Could not load your resume</h2>
             <p className="text-sm sm:text-base text-slate-400 mb-4">{error}</p>
             {debugInfo && process.env.NODE_ENV === 'development' && (
               <details className="text-left mb-6">

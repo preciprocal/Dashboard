@@ -6,7 +6,8 @@
 // Status, relationship, company and "due" filter on the server; the search
 // box filters what came back, so typing never waits on a request.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Contact as ContactIcon, Plus, Search, X, Loader2, List, Columns3, AlertCircle, Database } from 'lucide-react';
+import { Contact as ContactIcon, Plus, Search, X, Loader2, List, Columns3, AlertCircle, Database, UserPlus, MessageSquare, BellRing } from 'lucide-react';
+import FeatureEmpty from '@/components/ui/feature-empty';
 import PageHeader from '@/components/PageHeader';
 import { SeeExampleButton } from '@/components/ServiceModal';
 import { AppSelect } from '@/components/ui/select';
@@ -171,12 +172,15 @@ export default function ContactsView() {
       )}
 
       {isEmpty && (
-        <div className="glass-card px-6 py-14 text-center">
-          <div className="w-11 h-11 rounded-xl bg-white/[0.04] ring-1 ring-inset ring-white/[0.08] flex items-center justify-center mx-auto mb-4"><ContactIcon className="w-5 h-5 text-[var(--accent)]" /></div>
-          <p className="text-[15px] font-semibold text-white">No contacts yet</p>
-          <p className="text-[13px] text-slate-400 mt-1.5 max-w-md mx-auto">Most offers come through people. Keep everyone you reach out to in one place, and get reminded when to follow up.</p>
-          <button onClick={() => setForm({ contact: null })} className="btn-primary mt-5"><Plus /> Add contact</button>
-        </div>
+        <FeatureEmpty icon={ContactIcon} title="Keep track of everyone you reach out to"
+          body="Recruiters, hiring managers, alumni and referrals in one place: where each conversation stands and when to follow up."
+          primary={{ label: 'Add a contact', icon: Plus, onClick: () => setForm({ contact: null }) }}
+          secondary={<SeeExampleButton serviceId="contacts" />}
+          steps={[
+            { icon: UserPlus, title: 'Add a contact', text: 'Name, company, role and how you know them.' },
+            { icon: MessageSquare, title: 'Log each message', text: 'Every touch is saved, and the next follow-up date is set for you.' },
+            { icon: BellRing, title: 'Follow up on time', text: 'See who is due or waiting on a reply, in a list or a pipeline.' },
+          ]} />
       )}
 
       {!loading && !setupRequired && !isEmpty && stats && (

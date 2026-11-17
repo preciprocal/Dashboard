@@ -10,6 +10,7 @@ import AnimatedLoader, { LoadingStep as LoaderStep } from '@/components/loader/A
 import ErrorPage from '@/components/Error';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import FeatureEmpty from '@/components/ui/feature-empty';
 
 interface JobListing {
   id: string;
@@ -481,6 +482,22 @@ function JobRecommendationsPage() {
             </div>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // No resume yet: what the page does, and where to add one.
+  if (resumes.length === 0) {
+    return (
+      <div className="pt-4 px-4 sm:px-0">
+        <FeatureEmpty icon={Target} title="Jobs matched to your resume"
+          body="We read your resume, search recent job postings for roles that fit it, and score each one against your skills and experience. Add a resume to start."
+          primary={{ href: '/resume', label: 'Add a resume', icon: Upload }}
+          steps={[
+            { icon: Upload, title: 'Add your resume', text: 'Upload a PDF on the Resume page.' },
+            { icon: Search, title: 'Search', text: 'Roles posted in the last week, filtered by job type and location.' },
+            { icon: Award, title: 'See the match', text: 'Each role scored against your resume, best matches first.' },
+          ]} />
       </div>
     );
   }
