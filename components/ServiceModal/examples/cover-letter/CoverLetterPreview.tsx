@@ -92,8 +92,8 @@ export function CoverLetterExamplePreview({ step }: { step: number }) {
           {/* Output header */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="w-5 h-5 bg-purple-500/[0.08] rounded flex items-center justify-center">
-                <FileText className="w-2.5 h-2.5 text-purple-400" />
+              <div className="w-5 h-5 bg-white/[0.06] rounded flex items-center justify-center">
+                <FileText className="w-2.5 h-2.5 text-[var(--text-2)]" />
               </div>
               <span className="text-[11px] font-bold text-white">Generated Letter</span>
             </div>
@@ -130,8 +130,8 @@ export function CoverLetterExamplePreview({ step }: { step: number }) {
             {/* Generating state */}
             {step === 2 && (
               <div className="flex-1 flex flex-col items-center justify-center text-center py-6">
-                <div className="w-10 h-10 bg-purple-500/[0.08] border border-purple-500/20 rounded-xl flex items-center justify-center mb-2.5">
-                  <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
+                <div className="w-10 h-10 bg-white/[0.06] border border-white/[0.1] rounded-xl flex items-center justify-center mb-2.5">
+                  <Loader2 className="w-5 h-5 text-[var(--text-2)] animate-spin" />
                 </div>
                 <p className="text-[11px] font-semibold text-white">Crafting your cover letter…</p>
                 <p className="text-[9px] text-slate-600 mt-1 max-w-[180px]">Researching Microsoft and matching your experience</p>

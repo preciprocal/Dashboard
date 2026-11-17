@@ -694,7 +694,7 @@ export default function InterviewDebriefPage() {
         if (!res.ok) throw new Error('Update failed');
         toast.success('Entry updated');
         await NotificationService.createNotification(
-          user.id, 'planner', 'Debrief Entry Updated 📝',
+          user.id, 'planner', 'Debrief Entry Updated',
           `Your debrief for ${formData.jobTitle} at ${formData.companyName} has been updated.`,
           { actionUrl: '/debrief', actionLabel: 'View Journal' }
         );
@@ -719,7 +719,7 @@ export default function InterviewDebriefPage() {
         await NotificationService.createNotification(
           user.id,
           formData.outcome === 'offer' ? 'achievement' : 'planner',
-          formData.outcome === 'offer' ? 'Offer Received! 🏆' : 'Interview Debrief Logged 📓',
+          formData.outcome === 'offer' ? 'Offer Received!' : 'Interview Debrief Logged',
           msgs[formData.outcome],
           { actionUrl: '/debrief', actionLabel: 'View Journal' }
         );

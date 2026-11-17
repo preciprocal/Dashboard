@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 const InteractiveSolutionsDashboard = () => {
   const [activeSolution, setActiveSolution] = useState("ai-displacement");
@@ -9,8 +10,6 @@ const InteractiveSolutionsDashboard = () => {
   const solutions = {
     "ai-displacement": {
       title: "AI Displacement Defense",
-      icon: "🤖",
-      color: "blue",
       description: "Position yourself as AI-complementary, not AI-replaceable",
       frameworks: [
         {
@@ -59,8 +58,6 @@ const InteractiveSolutionsDashboard = () => {
     },
     "layoff-recovery": {
       title: "Layoff Recovery Specialist",
-      icon: "📈",
-      color: "emerald",
       description: "Transform setbacks into comeback stories with resilience positioning",
       frameworks: [
         {
@@ -99,8 +96,6 @@ const InteractiveSolutionsDashboard = () => {
     },
     "remote-mastery": {
       title: "Remote Interview Excellence",
-      icon: "💻",
-      color: "purple",
       description: "Master virtual presence and demonstrate remote work capabilities",
       frameworks: [
         {
@@ -120,7 +115,7 @@ const InteractiveSolutionsDashboard = () => {
           steps: [
             { title: "Eye Contact", content: "Look at camera lens, not screen", example: "Place small arrow sticker near camera as reminder" },
             { title: "Gestures", content: "Keep hands visible, purposeful movements", example: "Gesture within the camera frame, avoid pointing directly at camera" },
-            { title: "Voice Projection", content: "10% more energy than normal", example: "Practice with recording - energy should match in-person enthusiasm" },
+            { title: "Voice Projection", content: "A little more energy than feels normal", example: "Practice with recording - energy should match in-person enthusiasm" },
             { title: "Engagement", content: "Use name 2-3 times, take notes", example: "Thanks for that insight, Sarah. Let me note that down as it relates to the role." }
           ]
         },
@@ -138,8 +133,6 @@ const InteractiveSolutionsDashboard = () => {
     },
     "career-pivot": {
       title: "Career Transition Mastery",
-      icon: "🎯",
-      color: "orange",
       description: "Successfully navigate industry changes and career pivots",
       frameworks: [
         {
@@ -176,8 +169,6 @@ const InteractiveSolutionsDashboard = () => {
     },
     "gen-z-professional": {
       title: "Gen Z Professional Success",
-      icon: "👨‍💼",
-      color: "indigo",
       description: "Bridge the gap from digital native to office professional",
       frameworks: [
         {
@@ -215,8 +206,6 @@ const InteractiveSolutionsDashboard = () => {
     },
     "economic-stability": {
       title: "Recession-Proof Positioning",
-      icon: "🛡️",
-      color: "red",
       description: "Demonstrate essential value during economic uncertainty",
       frameworks: [
         {
@@ -258,189 +247,78 @@ const InteractiveSolutionsDashboard = () => {
   const currentFramework = currentSolution.frameworks[activeFramework];
 
   return (
-    <div className="min-h-screen">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Header */}
-      <section className="py-12 border-b border-[var(--border)]">
-        <div className="container mx-auto px-6">
-          <div className="text-center max-w-4xl mx-auto">
-            <div className="inline-flex items-center px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-indigo-300 text-sm font-medium mb-8">
-              <span className="w-2 h-2 bg-indigo-400 rounded-full mr-2 animate-pulse"></span>
-              Interactive Solution Framework
-            </div>
-            <h1 className="text-4xl lg:text-6xl font-bold text-white leading-tight mb-6">
-              Detailed{" "}
-              <span className="bg-[var(--accent)] bg-clip-text text-transparent">
-                Action Plans
-              </span>
-            </h1>
-            <p className="text-xl text-gray-300 leading-relaxed">
-              Step-by-step frameworks, scripts, and examples for each critical job market challenge
-            </p>
-          </div>
-        </div>
-      </section>
+      <header className="px-1">
+        <p className="text-[12px] font-medium uppercase tracking-[0.1em] text-[var(--text-4)]">Interview frameworks</p>
+        <h1 className="font-display text-[26px] sm:text-[30px] font-semibold tracking-[-0.02em] text-white mt-2">Action plans for hard questions</h1>
+        <p className="text-[14px] text-[var(--text-3)] mt-1.5 max-w-2xl">Step by step frameworks, scripts and examples for the situations that come up in a job search.</p>
+      </header>
 
-      {/* Solution Selector */}
-      <section className="py-8">
-        <div className="container mx-auto px-6">
-          <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {Object.entries(solutions).map(([key, solution]) => (
-                <button
-                  key={key}
-                  onClick={() => {
-                    setActiveSolution(key);
-                    setActiveFramework(0);
-                  }}
-                  className={`p-4 rounded-xl border transition-all duration-300 ${
-                    activeSolution === key
-                      ? `bg-${solution.color}-900/30 border-${solution.color}-500/50 text-white`
-                      : 'bg-gray-800/50 border-gray-700 text-gray-300 hover:border-gray-600'
-                  }`}
-                >
-                  <div className="text-2xl mb-2">{solution.icon}</div>
-                  <div className="text-sm font-medium">{solution.title}</div>
+      {/* Solution picker */}
+      <div role="tablist" aria-label="Situation" className="flex flex-wrap gap-2">
+        {Object.entries(solutions).map(([key, solution]) => {
+          const on = activeSolution === key;
+          return (
+            <button key={key} role="tab" aria-selected={on} onClick={() => { setActiveSolution(key); setActiveFramework(0); }}
+              className={`h-9 px-3.5 rounded-lg text-[13px] font-medium transition-colors ring-1 ring-inset ${on ? 'bg-white/[0.08] text-white ring-white/[0.16]' : 'text-[var(--text-3)] ring-white/[0.07] hover:text-white hover:bg-white/[0.04]'}`}>
+              {solution.title}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
+        {/* Framework list */}
+        <aside className="glass-card p-5 self-start lg:sticky lg:top-[88px]">
+          <h2 className="font-display text-[15px] font-semibold text-white">{currentSolution.title}</h2>
+          <p className="text-[12.5px] text-[var(--text-4)] mt-1">{currentSolution.description}</p>
+          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-5)] mt-5 mb-2">Frameworks</p>
+          <div className="space-y-1.5">
+            {currentSolution.frameworks.map((framework, index) => {
+              const on = activeFramework === index;
+              return (
+                <button key={index} onClick={() => setActiveFramework(index)}
+                  className={`w-full px-3 py-2.5 rounded-lg text-left transition-colors ${on ? 'bg-white/[0.07] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)]' : 'hover:bg-white/[0.04]'}`}>
+                  <span className={`block text-[13px] font-medium ${on ? 'text-white' : 'text-[var(--text-2)]'}`}>{framework.name}</span>
+                  <span className="block text-[11.5px] text-[var(--text-4)] mt-0.5">{framework.method}</span>
                 </button>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        </div>
-      </section>
+        </aside>
 
-      {/* Main Content */}
-      <section className="py-8">
-        <div className="container mx-auto px-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="grid lg:grid-cols-4 gap-8">
-              {/* Framework Sidebar */}
-              <div className="lg:col-span-1">
-                <div className={`bg-gradient-to-br from-${currentSolution.color}-900/20 to-${currentSolution.color}-800/10 rounded-2xl p-6 border border-${currentSolution.color}-500/20 sticky top-6`}>
-                  <div className="flex items-center space-x-3 mb-6">
-                    <div className={`w-12 h-12 bg-${currentSolution.color}-500/20 rounded-xl flex items-center justify-center`}>
-                      <span className="text-2xl">{currentSolution.icon}</span>
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-bold text-white">{currentSolution.title}</h2>
-                      <p className="text-gray-300 text-sm">{currentSolution.description}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <h3 className="text-white font-semibold mb-3">Choose Framework:</h3>
-                    {currentSolution.frameworks.map((framework, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setActiveFramework(index)}
-                        className={`w-full p-3 rounded-lg text-left transition-all duration-300 ${
-                          activeFramework === index
-                            ? `bg-${currentSolution.color}-600/20 border border-${currentSolution.color}-500/50 text-white`
-                            : 'bg-gray-800/50 border border-gray-700 text-gray-300 hover:border-gray-600'
-                        }`}
-                      >
-                        <div className="font-medium text-sm">{framework.name}</div>
-                        <div className="text-xs text-gray-400 mt-1">{framework.method}</div>
-                      </button>
-                    ))}
-                  </div>
+        {/* Framework steps */}
+        <section className="glass-card p-5 sm:p-7 min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="font-display text-[19px] font-semibold tracking-[-0.01em] text-white">{currentFramework.name}</h3>
+            <span className="inline-flex items-center h-7 px-2.5 rounded-lg text-[12px] font-medium text-[var(--text-2)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]">{currentFramework.method}</span>
+          </div>
+          <ol className="mt-6 space-y-3">
+            {currentFramework.steps.map((step, index) => (
+              <li key={index} className="flex items-start gap-4 rounded-xl p-4 ring-1 ring-inset ring-white/[0.06] bg-white/[0.015]">
+                <span className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/[0.06] text-[12px] font-semibold text-[var(--text-2)] tabular-nums">{index + 1}</span>
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-[14px] font-semibold text-white">{step.title}</h4>
+                  <p className="text-[13px] text-[var(--text-3)] mt-1 leading-relaxed">{step.content}</p>
+                  {step.example && (
+                    <p className="mt-3 text-[12.5px] text-[var(--text-2)] leading-relaxed border-l-2 border-white/[0.14] pl-3">
+                      <span className="text-[var(--text-4)]">Example: </span>&ldquo;{step.example}&rdquo;
+                    </p>
+                  )}
                 </div>
-              </div>
-
-              {/* Framework Content */}
-              <div className="lg:col-span-3">
-                <div className={`bg-gradient-to-br from-${currentSolution.color}-900/20 to-${currentSolution.color}-800/10 rounded-2xl p-8 border border-${currentSolution.color}-500/20`}>
-                  <div className="mb-8">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-2xl font-bold text-white">{currentFramework.name}</h3>
-                      <div className={`px-4 py-2 bg-${currentSolution.color}-500/20 text-${currentSolution.color}-300 rounded-full text-sm font-medium`}>
-                        {currentFramework.method}
-                      </div>
-                    </div>
-                    <p className="text-gray-300">Follow these actionable steps to master this framework:</p>
-                  </div>
-
-                  {/* Steps */}
-                  <div className="space-y-6">
-                    {currentFramework.steps.map((step, index) => (
-                      <div key={index} className="bg-white/5 rounded-xl p-6 backdrop-blur-sm">
-                        <div className="flex items-start space-x-4">
-                          <div className={`w-8 h-8 bg-${currentSolution.color}-500/20 rounded-lg flex items-center justify-center mt-1 flex-shrink-0`}>
-                            <span className={`text-${currentSolution.color}-400 font-bold text-sm`}>{index + 1}</span>
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="text-lg font-semibold text-white mb-2">{step.title}</h4>
-                            <p className="text-gray-300 mb-4">{step.content}</p>
-                            {step.example && (
-                              <div className="bg-white/[0.024] rounded-lg p-4 border-l-4 border-green-500">
-                                <div className="flex items-start space-x-2">
-                                  <div className="w-6 h-6 bg-green-500/20 rounded-full flex items-center justify-center mt-0.5">
-                                    <span className="text-green-400 text-xs">💡</span>
-                                  </div>
-                                  <div>
-                                    <div className="text-green-300 font-medium text-sm mb-1">Example:</div>
-                                    <div className="text-gray-300 text-sm italic">&quot;{step.example}&quot;</div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Action Button */}
-                  <div className="mt-8 p-6 bg-white/[0.02] rounded-xl border border-[var(--border)]">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-white font-semibold mb-1">Ready to Practice?</h4>
-                        <p className="text-gray-400 text-sm">Use our AI coach to practice this framework</p>
-                      </div>
-                      <button className={`px-6 py-3 bg-${currentSolution.color}-600 hover:bg-${currentSolution.color}-700 text-white rounded-lg font-medium transition-colors`}>
-                        Start Practice Session
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl p-4 ring-1 ring-inset ring-white/[0.06]">
+            <div>
+              <p className="text-[13.5px] font-medium text-white">Practice it out loud</p>
+              <p className="text-[12.5px] text-[var(--text-4)] mt-0.5">Run a mock interview and use this framework in your answers.</p>
             </div>
+            <Link href="/interview/create" className="btn-primary justify-center">Start a mock interview</Link>
           </div>
-        </div>
-      </section>
-
-      {/* Quick Reference Card */}
-      <section className="py-16 bg-white/[0.02] border-t border-[var(--border)]">
-        <div className="container mx-auto px-6">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-white mb-4">Framework Quick Reference</h2>
-              <p className="text-gray-300">Save these key points for your next interview</p>
-            </div>
-            
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-white/5 rounded-xl p-6">
-                <h3 className={`text-${currentSolution.color}-300 font-semibold mb-4`}>Key Method</h3>
-                <div className="text-2xl font-bold text-white mb-2">{currentFramework.method}</div>
-                <p className="text-gray-300 text-sm">Primary framework for {currentSolution.title.toLowerCase()}</p>
-              </div>
-              
-              <div className="bg-white/5 rounded-xl p-6">
-                <h3 className={`text-${currentSolution.color}-300 font-semibold mb-4`}>Total Steps</h3>
-                <div className="text-2xl font-bold text-white mb-2">{currentFramework.steps.length} Steps</div>
-                <p className="text-gray-300 text-sm">Complete process with examples and scripts</p>
-              </div>
-            </div>
-
-            <div className="mt-8 text-center">
-              <button className={`px-8 py-4 bg-${currentSolution.color}-600 hover:bg-${currentSolution.color}-700 text-white rounded-lg font-semibold transition-colors mr-4`}>
-                Download Framework PDF
-              </button>
-              <button className="px-8 py-4 border border-[var(--border)] text-gray-300 rounded-lg font-semibold hover:border-[var(--border-hover)] hover:text-white transition-colors">
-                Schedule Coaching Session
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
   );
 };

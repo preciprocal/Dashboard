@@ -207,7 +207,7 @@ export default function CreatePlanPage() {
           ? `${formData.role.trim()} at ${formData.company.trim()}`
           : formData.role.trim();
         await NotificationService.createNotification(
-          user.id, 'planner', 'Study Plan Created 📅',
+          user.id, 'planner', 'Study Plan Created',
           `Your ${daysUntilInterview}-day prep plan for ${target} is ready. Start preparing today!`,
           { actionUrl: `/planner/${data.planId}`, actionLabel: 'View Plan' }
         );

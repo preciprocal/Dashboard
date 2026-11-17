@@ -318,9 +318,9 @@ const ProfilePage = () => {
         }
         setIsEditing(false);
         toast.success('Profile updated!');
-        await NotificationService.createNotification(user.id, 'system', 'Profile Updated ✅', 'Your profile has been saved.', { actionUrl: '/profile', actionLabel: 'View Profile' });
+        await NotificationService.createNotification(user.id, 'system', 'Profile Updated', 'Your profile has been saved.', { actionUrl: '/profile', actionLabel: 'View Profile' });
         if (!wasComplete && nowComplete) {
-          await NotificationService.createNotification(user.id, 'achievement', 'Profile Complete! 🏆', 'AI features will now be fully personalised to you.', { actionUrl: '/cover-letter', actionLabel: 'Try Cover Letter' });
+          await NotificationService.createNotification(user.id, 'achievement', 'Profile Complete!', 'AI features will now be fully personalised to you.', { actionUrl: '/cover-letter', actionLabel: 'Try Cover Letter' });
         }
       } else {
         toast.error(result.message || 'Failed to update profile');

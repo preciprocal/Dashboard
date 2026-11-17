@@ -50,7 +50,7 @@ export interface IntelligentAIPanelProps {
 
 // ─── Analysis Facts ───────────────────────────────────────────────────────────
 
-const ANALYSIS_FACTS = RESUME_TIPS.map(fact => ({ emoji: '💡', fact }));
+const ANALYSIS_FACTS = RESUME_TIPS.map(fact => ({ fact }));
 
 function AnalysingFacts() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -88,28 +88,27 @@ function AnalysingFacts() {
   const factIdx = orderRef.current.length > 0
     ? orderRef.current[currentIndex % orderRef.current.length]
     : currentIndex % ANALYSIS_FACTS.length;
-  const { emoji, fact } = ANALYSIS_FACTS[factIdx];
+  const { fact } = ANALYSIS_FACTS[factIdx];
 
   return (
     <div className="flex flex-col items-center gap-4 py-6 px-4">
       <div className="flex items-center gap-2.5 mb-1">
-        <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
-        <span className="text-sm text-indigo-300 font-semibold">Analyzing your resume…</span>
+        <Loader2 className="w-5 h-5 text-[var(--text-2)] animate-spin" />
+        <span className="text-sm text-white font-semibold">Analyzing your resume…</span>
       </div>
       <div className="w-full max-w-xs h-1 bg-white/[0.06] rounded-full overflow-hidden">
         <div className="h-full bg-[var(--accent)] rounded-full" style={{ width: `${progress}%`, transition: 'width 4.8s linear' }} />
       </div>
       <div className={`w-full bg-white/[0.042] border border-white/[0.06] rounded-xl p-4 transition-all duration-400 ${isExiting ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`} style={{ minHeight: 88 }}>
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-base">{emoji}</span>
-          <span className="text-[11px] font-semibold text-indigo-400 uppercase tracking-wider">Tip</span>
+          <span className="text-[11px] font-semibold text-[var(--text-2)] uppercase tracking-wider">Tip</span>
         </div>
         <p className="text-[13px] text-slate-300 leading-relaxed">{fact}</p>
       </div>
       <div className="flex items-center gap-1">
         {Array.from({ length: Math.min(5, ANALYSIS_FACTS.length) }).map((_, i) => {
           const isActive = (currentIndex % 5) === i;
-          return <div key={i} className={`rounded-full transition-all duration-300 ${isActive ? 'w-4 h-1.5 bg-indigo-400' : 'w-1.5 h-1.5 bg-slate-600'}`} />;
+          return <div key={i} className={`rounded-full transition-all duration-300 ${isActive ? 'w-4 h-1.5 bg-white/60' : 'w-1.5 h-1.5 bg-slate-600'}`} />;
         })}
       </div>
       <p className="text-[11px] text-slate-500 text-center">Sit tight - we&apos;re scoring every bullet, section &amp; keyword</p>
@@ -332,7 +331,7 @@ function KeywordsTab({ analysis, jobDescription, resumeContent, onApplySuggestio
     <div className="p-4 space-y-4">
       {analysis.matchedKeywords.length > 0 && <div><p className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider mb-2 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Matched ({analysis.matchedKeywords.length})</p><div className="flex flex-wrap gap-1.5">{analysis.matchedKeywords.map(kw => <span key={kw} className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 font-medium">{kw}</span>)}</div></div>}
       {analysis.missingKeywords.length > 0 && <div><p className="text-[11px] font-semibold text-red-400 uppercase tracking-wider mb-2 flex items-center gap-1"><XCircle className="w-3 h-3" /> Missing ({analysis.missingKeywords.length})</p><div className="flex flex-wrap gap-1.5">{analysis.missingKeywords.map(kw => <button key={kw} onClick={() => !added.has(kw) && addKw(kw)} className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium transition-all cursor-pointer ${added.has(kw) ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-300 hover:bg-red-500/20'}`}>{added.has(kw) ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}{kw}</button>)}</div><p className="text-[11px] text-slate-500 mt-2">Click to add to skills</p></div>}
-      {!jobDescription && <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl"><p className="text-xs text-indigo-300 mb-2">Add a job description for keyword analysis</p><button onClick={onShowJobInput} className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 cursor-pointer"><Plus className="w-3 h-3" /> Add Job Description</button></div>}
+      {!jobDescription && <div className="p-3 bg-white/[0.06] border border-white/[0.1] rounded-xl"><p className="text-xs text-white mb-2">Add a job description for keyword analysis</p><button onClick={onShowJobInput} className="text-xs text-[var(--text-2)] hover:text-white font-semibold flex items-center gap-1 cursor-pointer"><Plus className="w-3 h-3" /> Add Job Description</button></div>}
     </div>
   );
 }
@@ -402,14 +401,14 @@ function TailorChangeCard(props: {
   );
 
   return (
-    <div className="rounded-xl border border-indigo-500/15 bg-indigo-500/[0.03] overflow-hidden transition-all duration-200"
+    <div className="rounded-xl border border-white/[0.1] bg-white/[0.06] overflow-hidden transition-all duration-200"
       onMouseEnter={() => original && onHighlight(original)} onMouseLeave={() => onHighlight(null)}>
       <button className="w-full flex items-center gap-3 px-4 py-3 text-left cursor-pointer" onClick={() => setExpanded(!expanded)}>
-        <span className="w-6 h-6 rounded-full bg-indigo-500/15 flex items-center justify-center text-xs font-bold text-indigo-400 shrink-0">{index + 1}</span>
+        <span className="w-6 h-6 rounded-full bg-white/[0.06] flex items-center justify-center text-xs font-bold text-[var(--text-2)] shrink-0">{index + 1}</span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
             <p className="text-xs font-semibold text-white truncate">{sectionName}</p>
-            <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 shrink-0">tailored</span>
+            <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/[0.1] text-[var(--text-2)] shrink-0">tailored</span>
           </div>
           <p className="text-xs text-slate-400 truncate">{change}</p>
         </div>
@@ -423,12 +422,12 @@ function TailorChangeCard(props: {
               <div><p className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider mb-1.5 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Improved</p><div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-2.5"><p className="text-xs text-white leading-relaxed font-medium">{rewrite}</p></div></div>
             </>
           ) : (
-            <div><p className="text-[11px] font-semibold text-indigo-400 uppercase tracking-wider mb-1.5 flex items-center gap-1"><Target className="w-3 h-3" /> Change</p><div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-2.5"><p className="text-xs text-white leading-relaxed">{change}</p></div></div>
+            <div><p className="text-[11px] font-semibold text-[var(--text-2)] uppercase tracking-wider mb-1.5 flex items-center gap-1"><Target className="w-3 h-3" /> Change</p><div className="bg-white/[0.06] border border-white/[0.1] rounded-xl p-2.5"><p className="text-xs text-white leading-relaxed">{change}</p></div></div>
           )}
           {keywords.length > 0 && (
             <div className="flex items-center gap-2 bg-white/[0.042] border border-white/[0.06] rounded-xl px-3 py-2">
               <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <div className="flex flex-wrap gap-1">{keywords.map(kw => <span key={kw} className="px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/15 text-[11px] text-indigo-300 font-medium">{kw}</span>)}</div>
+              <div className="flex flex-wrap gap-1">{keywords.map(kw => <span key={kw} className="px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/[0.1] text-[11px] text-white font-medium">{kw}</span>)}</div>
             </div>
           )}
           <div className="flex gap-2">
@@ -492,16 +491,16 @@ function TailorTab({ resumeId, resumeContent, jobTitle: initTitle, companyName: 
     <div className="p-4 space-y-4">
       <div className="bg-white/[0.035] border border-white/[0.06] rounded-xl overflow-hidden">
         <button onClick={() => setShowInputs(!showInputs)} className="w-full flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors">
-          <div className="flex items-center gap-2.5"><Target className="w-4 h-4 text-indigo-400" /><span className="text-xs font-semibold text-white">{result ? `Tailored for ${jobTitle}${companyName ? ` at ${companyName}` : ''}` : 'Target Job Details'}</span></div>
+          <div className="flex items-center gap-2.5"><Target className="w-4 h-4 text-[var(--text-2)]" /><span className="text-xs font-semibold text-white">{result ? `Tailored for ${jobTitle}${companyName ? ` at ${companyName}` : ''}` : 'Target Job Details'}</span></div>
           {showInputs ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
         </button>
         {showInputs && (
           <div className="px-4 pb-4 space-y-3 border-t border-white/[0.05] pt-3">
             <div className="grid grid-cols-2 gap-2">
-              <div><label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Job Title *</label><input value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="e.g. Software Engineer" className="w-full px-3 py-2 bg-white/[0.042] border border-white/[0.08] rounded-lg text-xs text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-indigo-500/50" /></div>
-              <div><label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Company</label><input value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="e.g. Google" className="w-full px-3 py-2 bg-white/[0.042] border border-white/[0.08] rounded-lg text-xs text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-indigo-500/50" /></div>
+              <div><label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Job Title *</label><input value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="e.g. Software Engineer" className="w-full px-3 py-2 bg-white/[0.042] border border-white/[0.08] rounded-lg text-xs text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-white/20" /></div>
+              <div><label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Company</label><input value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="e.g. Google" className="w-full px-3 py-2 bg-white/[0.042] border border-white/[0.08] rounded-lg text-xs text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-white/20" /></div>
             </div>
-            <div><label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Job Description *</label><textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} placeholder="Paste the full job description…" rows={3} className="w-full px-3 py-2 bg-white/[0.042] border border-white/[0.08] rounded-xl text-xs text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-indigo-500/50 resize-none" />{jobDesc.length > 0 && jobDesc.length < 50 && <p className="text-[11px] text-amber-400 mt-1">{50 - jobDesc.length} more chars needed</p>}</div>
+            <div><label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Job Description *</label><textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} placeholder="Paste the full job description…" rows={3} className="w-full px-3 py-2 bg-white/[0.042] border border-white/[0.08] rounded-xl text-xs text-white placeholder-slate-600 outline-none focus:ring-1 focus:ring-white/20 resize-none" />{jobDesc.length > 0 && jobDesc.length < 50 && <p className="text-[11px] text-amber-400 mt-1">{50 - jobDesc.length} more chars needed</p>}</div>
             <button onClick={handleTailor} disabled={!canTailor || isTailoring} className={`w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all ${!canTailor || isTailoring ? 'bg-white/[0.06] text-slate-400 cursor-not-allowed' : 'bg-[var(--accent)] text-white shadow-lg  hover:-translate-y-0.5 cursor-pointer'}`}>{isTailoring ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Tailoring…</> : <><Target className="w-3.5 h-3.5" /> Tailor Resume</>}</button>
           </div>
         )}
@@ -526,9 +525,9 @@ function TailorTab({ resumeId, resumeContent, jobTitle: initTitle, companyName: 
               {result.sections.map((sec, si) => (
                 <div key={si} className="bg-white/[0.035] border border-white/[0.06] rounded-xl overflow-hidden">
                   <div className="px-4 py-2.5 border-b border-white/[0.04] flex items-center gap-2">
-                    <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                    <FileText className="w-3.5 h-3.5 text-[var(--text-2)]" />
                     <span className="text-xs font-semibold text-white">{sec.name}</span>
-                    {sec.keywordsInjected?.length > 0 && <span className="text-[11px] text-indigo-400 ml-auto">+{sec.keywordsInjected.length} keywords</span>}
+                    {sec.keywordsInjected?.length > 0 && <span className="text-[11px] text-[var(--text-2)] ml-auto">+{sec.keywordsInjected.length} keywords</span>}
                   </div>
                   <div className="p-3 space-y-2">
                     {sec.changes.map((change, ci) => {
@@ -558,12 +557,12 @@ function TailorTab({ resumeId, resumeContent, jobTitle: initTitle, companyName: 
             );
           })()}
 
-          {result.skillsOptimization?.added?.length ? (<div className="bg-white/[0.035] border border-white/[0.06] rounded-xl p-4"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Skills to move up</p><div className="flex flex-wrap gap-1.5">{result.skillsOptimization.added.map(s => <span key={s} className="px-2 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300 font-medium flex items-center gap-1"><Plus className="w-3 h-3" />{s}</span>)}</div></div>) : null}
+          {result.skillsOptimization?.added?.length ? (<div className="bg-white/[0.035] border border-white/[0.06] rounded-xl p-4"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Skills to move up</p><div className="flex flex-wrap gap-1.5">{result.skillsOptimization.added.map(s => <span key={s} className="px-2 py-1 rounded-lg bg-white/[0.06] border border-white/[0.1] text-xs text-white font-medium flex items-center gap-1"><Plus className="w-3 h-3" />{s}</span>)}</div></div>) : null}
           {result.interviewPrepNotes?.length ? (<div className="bg-amber-500/[0.04] border border-amber-500/15 rounded-xl p-4"><p className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Study Before Interview</p><div className="space-y-1.5">{result.interviewPrepNotes.map((n, i) => <div key={i} className="flex items-start gap-2 text-xs text-slate-300"><span className="w-4 h-4 rounded-full bg-amber-500/15 flex items-center justify-center text-[11px] font-bold text-amber-400 shrink-0 mt-0.5">{i+1}</span><span className="leading-relaxed">{n}</span></div>)}</div></div>) : null}
           <button onClick={() => { setShowInputs(true); onTailorResultChange(null); }} className="w-full py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-white/[0.035] border border-white/[0.06] hover:border-white/10 flex items-center justify-center gap-1.5 transition-all cursor-pointer"><RefreshCw className="w-3 h-3" /> Tailor for a Different Job</button>
         </div>
       )}
-      {!result && !isTailoring && !error && !showInputs && (<button onClick={() => setShowInputs(true)} className="w-full py-8 rounded-xl bg-white/[0.025] border border-dashed border-white/[0.08] flex flex-col items-center gap-2 cursor-pointer hover:border-indigo-500/30 transition-colors"><Target className="w-6 h-6 text-indigo-400" /><span className="text-xs font-medium text-slate-400">Enter job details to tailor</span></button>)}
+      {!result && !isTailoring && !error && !showInputs && (<button onClick={() => setShowInputs(true)} className="w-full py-8 rounded-xl bg-white/[0.025] border border-dashed border-white/[0.08] flex flex-col items-center gap-2 cursor-pointer hover:border-white/[0.16] transition-colors"><Target className="w-6 h-6 text-[var(--text-2)]" /><span className="text-xs font-medium text-slate-400">Enter job details to tailor</span></button>)}
     </div>
   );
 }
@@ -715,11 +714,11 @@ export default function IntelligentAIPanel({
 
         {showJobInput && (
           <div className="mb-3 space-y-2">
-            {isPreFilled && <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-lg"><CheckCircle2 className="w-3 h-3 text-indigo-400 shrink-0" /><p className="text-xs text-indigo-300">Pre-filled{initialJobTitle && <span className="font-semibold"> · {initialJobTitle}</span>}{initialCompanyName && <span className="text-indigo-400"> at {initialCompanyName}</span>}</p></div>}
-            <textarea value={jobDescription} onChange={e => setJobDescription(e.target.value)} placeholder="Paste job description…" rows={3} className="w-full px-3 py-2 bg-white/[0.042] border border-white/[0.08] rounded-xl text-xs text-slate-200 placeholder-slate-600 focus:ring-1 focus:ring-indigo-500/50 resize-none outline-none" />
+            {isPreFilled && <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.06] border border-white/[0.1] rounded-lg"><CheckCircle2 className="w-3 h-3 text-[var(--text-2)] shrink-0" /><p className="text-xs text-white">Pre-filled{initialJobTitle && <span className="font-semibold"> · {initialJobTitle}</span>}{initialCompanyName && <span className="text-[var(--text-2)]"> at {initialCompanyName}</span>}</p></div>}
+            <textarea value={jobDescription} onChange={e => setJobDescription(e.target.value)} placeholder="Paste job description…" rows={3} className="w-full px-3 py-2 bg-white/[0.042] border border-white/[0.08] rounded-xl text-xs text-slate-200 placeholder-slate-600 focus:ring-1 focus:ring-white/20 resize-none outline-none" />
             <div className="flex gap-2">
               <button onClick={() => { setJobDescription(''); setShowJobInput(false); }} className="px-3 py-1.5 bg-white/[0.06] text-slate-400 rounded-lg text-xs hover:text-white cursor-pointer">Clear</button>
-              <button onClick={() => setShowJobInput(false)} className="flex-1 py-1.5 bg-indigo-600/50 hover:bg-indigo-600/70 text-indigo-200 rounded-lg text-xs font-medium cursor-pointer">{jobDescription ? '✓ Targeting' : 'Done'}</button>
+              <button onClick={() => setShowJobInput(false)} className="flex-1 py-1.5 bg-white/[0.06] hover:bg-white/[0.08] text-white rounded-lg text-xs font-medium cursor-pointer">{jobDescription ? '✓ Targeting' : 'Done'}</button>
             </div>
           </div>
         )}
@@ -782,8 +781,8 @@ export default function IntelligentAIPanel({
             <div className="bg-white/[0.042] border border-white/[0.06] rounded-xl p-3"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2.5">Section Scores</p><div className="space-y-2">{analysis.sections.map(s => <SectionBar key={s.name} label={s.name} score={s.score} />)}</div></div>
             {analysis.quickWins.filter(w => !appliedKeys.has(w.originalText) && !ignoredKeys.has(w.originalText)).length > 0 && (
               <div className="bg-white/[0.042] border border-white/[0.06] rounded-xl p-3">
-                <div className="flex items-center justify-between mb-2"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Top Quick Wins</p><button onClick={() => setActiveTab('quickwins')} className="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer">See all <ArrowRight className="w-3 h-3" /></button></div>
-                <div className="space-y-1.5">{analysis.quickWins.filter(w => !appliedKeys.has(w.originalText) && !ignoredKeys.has(w.originalText)).slice(0, 2).map((win, i) => (<div key={win.id} className="flex items-center gap-2.5 rounded-xl bg-white/[0.024] border border-white/[0.04] px-3 py-2 cursor-pointer hover:border-indigo-500/25 transition-all" onClick={() => setActiveTab('quickwins')}><span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${win.priority === 'critical' ? 'bg-red-500/15 text-red-400' : win.priority === 'high' ? 'bg-amber-500/15 text-amber-400' : 'bg-blue-500/15 text-blue-400'}`}>{i + 1}</span><div className="flex-1 min-w-0"><p className="text-xs font-semibold text-white truncate">{win.title}</p><p className="text-[11px] text-slate-400 truncate mt-0.5">{win.description}</p></div><ChevronRight className="w-3 h-3 text-slate-500 shrink-0" /></div>))}</div>
+                <div className="flex items-center justify-between mb-2"><p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Top Quick Wins</p><button onClick={() => setActiveTab('quickwins')} className="text-[11px] text-[var(--text-2)] hover:text-white flex items-center gap-1 cursor-pointer">See all <ArrowRight className="w-3 h-3" /></button></div>
+                <div className="space-y-1.5">{analysis.quickWins.filter(w => !appliedKeys.has(w.originalText) && !ignoredKeys.has(w.originalText)).slice(0, 2).map((win, i) => (<div key={win.id} className="flex items-center gap-2.5 rounded-xl bg-white/[0.024] border border-white/[0.04] px-3 py-2 cursor-pointer hover:border-white/[0.16] transition-all" onClick={() => setActiveTab('quickwins')}><span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${win.priority === 'critical' ? 'bg-red-500/15 text-red-400' : win.priority === 'high' ? 'bg-amber-500/15 text-amber-400' : 'bg-blue-500/15 text-blue-400'}`}>{i + 1}</span><div className="flex-1 min-w-0"><p className="text-xs font-semibold text-white truncate">{win.title}</p><p className="text-[11px] text-slate-400 truncate mt-0.5">{win.description}</p></div><ChevronRight className="w-3 h-3 text-slate-500 shrink-0" /></div>))}</div>
               </div>
             )}
           </div>
@@ -806,8 +805,8 @@ export default function IntelligentAIPanel({
               </>);
             })()}
             {tailorQuickWins.length > 0 && (
-              <div className={`${analysis ? 'mt-4 pt-4 border-t border-indigo-500/15' : ''} space-y-3`}>
-                <div className="flex items-center gap-2"><div className="flex items-center gap-1.5"><Target className="w-3.5 h-3.5 text-indigo-400" /><p className="text-xs font-semibold text-indigo-300 uppercase tracking-wider">Tailored Fixes</p></div><span className="px-1.5 py-0.5 rounded bg-indigo-500/15 border border-indigo-500/20 text-[11px] font-bold text-indigo-400">{tailorQuickWins.filter(w => !appliedKeys.has(w.originalText) && !ignoredKeys.has(w.originalText)).length} pending</span><p className="text-[11px] text-slate-500 ml-auto">From job tailoring</p></div>
+              <div className={`${analysis ? 'mt-4 pt-4 border-t border-white/[0.1]' : ''} space-y-3`}>
+                <div className="flex items-center gap-2"><div className="flex items-center gap-1.5"><Target className="w-3.5 h-3.5 text-[var(--text-2)]" /><p className="text-xs font-semibold text-white uppercase tracking-wider">Tailored Fixes</p></div><span className="px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/[0.1] text-[11px] font-bold text-[var(--text-2)]">{tailorQuickWins.filter(w => !appliedKeys.has(w.originalText) && !ignoredKeys.has(w.originalText)).length} pending</span><p className="text-[11px] text-slate-500 ml-auto">From job tailoring</p></div>
                 {tailorQuickWins.filter(w => !appliedKeys.has(w.originalText) && !ignoredKeys.has(w.originalText)).map((win, i) => (<QuickWinCard key={win.id} win={win} index={i} onApply={(o, n) => { onApplySuggestion(win.lineId ?? '', n); }} onHighlight={(id) => onHighlightLine(win.lineId ?? id)} appliedSet={appliedKeys} ignoredSet={ignoredKeys} onMarkApplied={markApplied} onMarkIgnored={toggleIgnored} />))}
                 {tailorQuickWins.filter(w => appliedKeys.has(w.originalText)).length > 0 && (<div className="space-y-2">{tailorQuickWins.filter(w => appliedKeys.has(w.originalText)).map(w => (<div key={w.id} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/20"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" /><div className="flex-1 min-w-0"><p className="text-xs text-emerald-300 font-medium truncate">{w.title}</p></div></div>))}</div>)}
                 {tailorQuickWins.filter(w => ignoredKeys.has(w.originalText) && !appliedKeys.has(w.originalText)).length > 0 && (<div className="space-y-2"><p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Ignored</p>{tailorQuickWins.filter(w => ignoredKeys.has(w.originalText) && !appliedKeys.has(w.originalText)).map(w => (<QuickWinCard key={w.id} win={w} index={0} onApply={(o, n) => { onApplySuggestion(w.lineId ?? '', n); }} onHighlight={(id) => onHighlightLine(w.lineId ?? id)} appliedSet={appliedKeys} ignoredSet={ignoredKeys} onMarkApplied={markApplied} onMarkIgnored={toggleIgnored} />))}</div>)}

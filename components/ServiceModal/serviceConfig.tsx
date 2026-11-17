@@ -21,7 +21,7 @@ export const SERVICE_EXAMPLES: ServiceExample[] = [
     title: 'Resume Analysis',
     subtitle: 'See how AI breaks down your resume in seconds',
     icon: FileText,
-    gradient: 'from-indigo-500 to-violet-500',
+    gradient: 'from-indigo-500 to-white/[0.04]',
     steps: [
       { label: 'Uploading resume…', duration: 1500 },
       { label: 'Running ATS analysis…', duration: 3000 },
@@ -54,7 +54,7 @@ export const SERVICE_EXAMPLES: ServiceExample[] = [
     title: 'Mock Interviews',
     subtitle: 'Experience a realistic AI interview panel',
     icon: Video,
-    gradient: 'from-rose-600 to-pink-600',
+    gradient: 'from-rose-600 to-white/[0.04]',
     steps: [
       { label: 'Setting up waiting room…', duration: 3000 },
       { label: 'Checking devices…', duration: 2500 },
@@ -89,7 +89,7 @@ export const SERVICE_EXAMPLES: ServiceExample[] = [
     title: 'Career Tools',
     subtitle: 'LinkedIn optimizer & cold outreach generator',
     icon: Sparkles,
-    gradient: 'from-violet-600 to-purple-600',
+    gradient: 'from-white/[0.04] to-white/[0.04]',
     steps: [
       { label: 'Filling LinkedIn details…', duration: 3900 },
       { label: 'Optimising profile…', duration: 2000 },
@@ -105,7 +105,7 @@ export const SERVICE_EXAMPLES: ServiceExample[] = [
     title: 'Interview Debrief Journal',
     subtitle: 'Log real interviews, track patterns, get AI coaching',
     icon: BookOpen,
-    gradient: 'from-violet-600 to-indigo-600',
+    gradient: 'from-white/[0.04] to-indigo-600',
     steps: [
       { label: 'Logging interview details…', duration: 7000 },
       { label: 'Saving to journal…',         duration: 2500 },
@@ -121,7 +121,7 @@ export const SERVICE_EXAMPLES: ServiceExample[] = [
     title: 'Job Tracker',
     subtitle: 'Track applications, find contacts, send warm outreach',
     icon: Briefcase,
-    gradient: 'from-indigo-500 to-violet-500',
+    gradient: 'from-indigo-500 to-white/[0.04]',
     steps: [
       { label: 'Adding application…',           duration: 3000 },
       { label: 'Application saved!',             duration: 1500 },
@@ -139,7 +139,7 @@ export const SERVICE_EXAMPLES: ServiceExample[] = [
     title: 'Jobs',
     subtitle: 'Open roles with your skill match, and the full details in one place',
     icon: Search,
-    gradient: 'from-indigo-500 to-violet-500',
+    gradient: 'from-indigo-500 to-white/[0.04]',
     steps: [
       { label: 'Finding open roles…', duration: 1800 },
       { label: 'Scoring your skill match…', duration: 2600 },
@@ -154,7 +154,7 @@ export const SERVICE_EXAMPLES: ServiceExample[] = [
     title: 'Market Pay',
     subtitle: 'What a role pays in your area, and where an offer sits',
     icon: CircleDollarSign,
-    gradient: 'from-indigo-500 to-violet-500',
+    gradient: 'from-indigo-500 to-white/[0.04]',
     steps: [
       { label: 'Entering a title and location…', duration: 3000 },
       { label: 'Reading the wage tables…', duration: 1500 },
@@ -169,7 +169,7 @@ export const SERVICE_EXAMPLES: ServiceExample[] = [
     title: 'Contacts',
     subtitle: 'Keep track of who you met, and when to follow up',
     icon: Users,
-    gradient: 'from-indigo-500 to-violet-500',
+    gradient: 'from-indigo-500 to-white/[0.04]',
     steps: [
       { label: 'Adding a contact…', duration: 3600 },
       { label: 'Contact saved', duration: 2000 },

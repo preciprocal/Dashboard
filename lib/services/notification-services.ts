@@ -219,7 +219,7 @@ export const NotificationService = {
   async notifyInterviewComplete(userId: string, interviewId: string, score: number): Promise<string> {
     return this.createNotification(
       userId, 'interview',
-      'Interview Completed! 🎉',
+      'Interview Completed!',
       `Great job! You scored ${score}% on your interview.`,
       { actionUrl: `/interview/${interviewId}`, actionLabel: 'View Results', metadata: { interviewId, score } }
     );
@@ -229,7 +229,7 @@ export const NotificationService = {
     const label = score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : 'Needs Improvement';
     return this.createNotification(
       userId, 'resume',
-      'Resume Analysis Complete ✨',
+      'Resume Analysis Complete',
       `Your resume for ${companyName} scored ${score}/100 (${label}). Check the feedback!`,
       { actionUrl: `/resume/${resumeId}`, actionLabel: 'View Analysis', metadata: { resumeId, score } }
     );
@@ -238,7 +238,7 @@ export const NotificationService = {
   async notifyCoverLetterGenerated(userId: string, coverLetterId: string, companyName: string): Promise<string> {
     return this.createNotification(
       userId, 'cover_letter',
-      'Cover Letter Ready 📝',
+      'Cover Letter Ready',
       `Your cover letter for ${companyName} has been generated!`,
       { actionUrl: `/cover-letter?open=${coverLetterId}`, actionLabel: 'View Letter', metadata: { coverLetterId } }
     );
@@ -247,19 +247,18 @@ export const NotificationService = {
   async notifyPlanCreated(userId: string, planId: string, planName: string, durationDays: number): Promise<string> {
     return this.createNotification(
       userId, 'planner',
-      'Study Plan Created 📅',
+      'Study Plan Created',
       `Your ${durationDays}-day plan "${planName}" is ready. Start preparing today!`,
       { actionUrl: `/planner/${planId}`, actionLabel: 'View Plan', metadata: { planId, planName, durationDays } }
     );
   },
 
   async notifyPlanMilestone(userId: string, planId: string, planName: string, progressPercent: number): Promise<string> {
-    const emoji      = progressPercent >= 100 ? '🏆' : progressPercent >= 75 ? '🔥' : progressPercent >= 50 ? '💪' : '⭐';
     const isComplete = progressPercent >= 100;
     return this.createNotification(
       userId,
       isComplete ? 'achievement' : 'planner',
-      `${emoji} ${isComplete ? 'Plan Complete!' : `${progressPercent}% Milestone Reached`}`,
+      isComplete ? 'Plan Complete!' : `${progressPercent}% Milestone Reached`,
       isComplete
         ? `You've completed "${planName}"! Excellent preparation work.`
         : `You're ${progressPercent}% through "${planName}". Keep up the momentum!`,
@@ -270,9 +269,9 @@ export const NotificationService = {
   async notifyAchievement(userId: string, achievementTitle: string, achievementMessage: string): Promise<string> {
     return this.createNotification(
       userId, 'achievement',
-      `Achievement Unlocked! 🏆`,
+      `Achievement Unlocked!`,
       achievementMessage,
-      { metadata: { icon: '🏆', achievementTitle } }
+      { metadata: { achievementTitle } }
     );
   },
 
@@ -286,7 +285,7 @@ export const NotificationService = {
   async notifyPlannerReminder(userId: string, taskTitle: string): Promise<string> {
     return this.createNotification(
       userId, 'planner',
-      'Task Reminder 📅',
+      'Task Reminder',
       `Your task "${taskTitle}" is due soon!`,
       { actionUrl: '/planner', actionLabel: 'View Planner' }
     );
@@ -295,7 +294,7 @@ export const NotificationService = {
   async notifySubscriptionUpgraded(userId: string, planName: string): Promise<string> {
     return this.createNotification(
       userId, 'achievement',
-      'Subscription Upgraded 🚀',
+      'Subscription Upgraded',
       `Welcome to ${planName}! You now have access to all premium features.`,
       { actionUrl: '/settings', actionLabel: 'View Plan', metadata: { planName } }
     );

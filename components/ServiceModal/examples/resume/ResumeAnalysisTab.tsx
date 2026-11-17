@@ -52,10 +52,10 @@ const CATEGORIES: Category[] = [
     sublabel: 'Relevance and impact of content',
     score: 78,
     tag: 'Good',
-    barColor: 'bg-purple-500',
-    tagColor: 'text-purple-400 bg-purple-500/10 border border-purple-500/20',
-    iconBg: 'bg-purple-500/10',
-    iconEl: <FileText className="w-3 h-3 text-purple-400" />,
+    barColor: 'bg-white/60',
+    tagColor: 'text-[var(--text-2)] bg-white/[0.06] border border-white/[0.1]',
+    iconBg: 'bg-white/[0.06]',
+    iconEl: <FileText className="w-3 h-3 text-[var(--text-2)]" />,
     tips: [
       { type: 'good', title: "Strong quantified impact across roles - '2M+ events/sec', '22% lift', '99.8% uptime'.", desc: "Numbers make achievements concrete and memorable for recruiters." },
       { type: 'warning', title: "Cognizant role bullet points lack specific outcome metrics.", desc: "Adding 'resulting in X% improvement' would strengthen these points.", fix: "Revise Cognizant bullets to include specific business outcomes and impact numbers." },
@@ -105,8 +105,8 @@ export function ResumeAnalysisTab() {
       {/* Overall score card */}
       <div className="p-2.5 bg-white/[0.02] border border-white/[0.06] rounded-lg">
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-5 h-5 bg-purple-500/10 rounded flex items-center justify-center flex-shrink-0">
-            <Shield className="w-3 h-3 text-purple-400" />
+          <div className="w-5 h-5 bg-white/[0.06] rounded flex items-center justify-center flex-shrink-0">
+            <Shield className="w-3 h-3 text-[var(--text-2)]" />
           </div>
           <div>
             <p className="text-[10px] font-bold text-white text-left">Overall Score</p>
@@ -114,7 +114,7 @@ export function ResumeAnalysisTab() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <ScoreRing score={75} size={48} color="#a855f7" />
+          <ScoreRing score={75} size={48} color="#a9b0f7" />
           <div className="text-left">
             <div className="flex items-baseline gap-1">
               <span className="text-[18px] font-bold text-white leading-none">75</span>

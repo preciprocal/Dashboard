@@ -83,7 +83,7 @@ function TabBar({
               locked && !isActive ? 'cursor-not-allowed opacity-40' :
               isComplete ? 'cursor-pointer' : 'cursor-default'
             } ${isActive ? 'text-white' : isComplete ? 'text-slate-500 hover:text-slate-300' : 'text-slate-600'
-            } ${isAnim && !isActive ? 'animate-pulse text-purple-400' : ''}`}
+            } ${isAnim && !isActive ? 'animate-pulse text-[var(--text-2)]' : ''}`}
           >
             {tab.label}
           </button>
@@ -247,10 +247,10 @@ export function ResumeExamplePreview({ step, initialTab }: { step: number; initi
           <FadeIn delay={200}>
             <p className="text-[8px] text-indigo-400 text-center my-1.5 flex-shrink-0 font-medium">
               {isWriter
-                ? '✨ Hover over fixes to highlight in resume · Click Apply Change to update live'
+                ? 'Hover over fixes to highlight in resume · Click Apply Change to update live'
                 : isLocked
-                  ? `✨ Viewing ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} example`
-                  : '✨ Click tabs above and scroll to explore the full analysis'}
+                  ? `Viewing ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} example`
+                  : 'Click tabs above and scroll to explore the full analysis'}
             </p>
           </FadeIn>
         )}
@@ -261,7 +261,7 @@ export function ResumeExamplePreview({ step, initialTab }: { step: number; initi
         >
           {!isReady ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-6">
-              <Loader2 className="w-6 h-6 text-purple-400 animate-spin mb-2" />
+              <Loader2 className="w-6 h-6 text-[var(--text-2)] animate-spin mb-2" />
               <p className="text-[11px] font-semibold text-white">Uploading resume…</p>
               <p className="text-[8px] text-slate-500 mt-1">Preparing your document for AI analysis</p>
             </div>

@@ -53,7 +53,7 @@ export function ContactsExamplePreview({ step }: { step: number }) {
           {saved && (
             <FadeIn>
               <div {...demoClick(1)} className={`flex items-center gap-3 px-3 py-2.5 ${step >= 2 ? 'bg-white/[0.03]' : ''}`}>
-                {avatar('PR', '#a855f7')}
+                {avatar('PR', '#a9b0f7')}
                 <div className="min-w-0 flex-1">
                   <p className="text-[12px] font-medium text-white">Priya Raman</p>
                   <p className="text-[10.5px] text-[var(--text-3)] truncate">Engineering Manager at Northwind Labs</p>
@@ -109,7 +109,7 @@ export function ContactsExamplePreview({ step }: { step: number }) {
         ) : (
           <FadeIn>
             <div className="flex items-center gap-2.5">
-              {avatar('PR', '#a855f7')}
+              {avatar('PR', '#a9b0f7')}
               <div>
                 <p className="text-[12.5px] font-semibold text-white">Priya Raman</p>
                 <p className="text-[10.5px] text-[var(--text-3)]">Engineering Manager · Northwind Labs</p>

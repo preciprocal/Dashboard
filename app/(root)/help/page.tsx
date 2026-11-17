@@ -615,7 +615,7 @@ function HelpSupportContent() {
       // Non-critical in-app notification
       try {
         await NotificationService.createNotification(
-          user.id, 'system', 'Support Ticket Submitted 🎫',
+          user.id, 'system', 'Support Ticket Submitted',
           `Your ticket "${subject.trim()}" has been received. We'll reply by email. Track it in Help & Support > Tickets.`,
           { actionUrl: '/help?section=tickets', actionLabel: 'View Ticket' }
         );

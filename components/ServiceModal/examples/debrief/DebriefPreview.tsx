@@ -87,7 +87,7 @@ function LoadingCard({ message, sub }: { message: string; sub: string }) {
     <div className="flex-1 min-w-0 flex items-center justify-center">
       <div className="text-center px-6">
         <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-xl flex items-center justify-center mx-auto mb-3">
-          <Loader2 className="w-5 h-5 text-violet-400 animate-spin" />
+          <Loader2 className="w-5 h-5 text-[var(--text-2)] animate-spin" />
         </div>
         <p className="text-[11px] font-semibold text-white mb-1">{message}</p>
         <p className="text-[9px] text-slate-500 max-w-[220px] leading-relaxed mx-auto">{sub}</p>
@@ -178,12 +178,11 @@ function LogFormPhase({ onSave, isLoading }: { onSave: () => void; isLoading: bo
                 <p className="text-[8px] text-slate-500 mb-1">Feeling Before</p>
                 <div className="grid grid-cols-3 gap-1">
                   {[
-                    { emoji: '😎', label: 'confident', active: false },
-                    { emoji: '😰', label: 'nervous', active: false },
-                    { emoji: '🤩', label: 'excited', active: true },
+                    { label: 'confident', active: false },
+                    { label: 'nervous', active: false },
+                    { label: 'excited', active: true },
                   ].map(e => (
-                    <div key={e.label} className={`p-1 rounded-lg text-center text-[7px] ${e.active ? 'bg-violet-500/20 border border-violet-500/40 text-white' : 'bg-white/[0.03] border border-white/[0.07] text-slate-500'}`}>
-                      <span className="block text-sm leading-none mb-0.5">{e.emoji}</span>
+                    <div key={e.label} className={`p-1 rounded-lg text-center text-[7px] ${e.active ? 'bg-white/[0.06] border border-white/[0.1] text-white' : 'bg-white/[0.03] border border-white/[0.07] text-slate-500'}`}>
                       {e.label}
                     </div>
                   ))}
@@ -193,12 +192,11 @@ function LogFormPhase({ onSave, isLoading }: { onSave: () => void; isLoading: bo
                 <p className="text-[8px] text-slate-500 mb-1">Feeling After</p>
                 <div className="grid grid-cols-3 gap-1">
                   {[
-                    { emoji: '😎', label: 'confident', active: true },
-                    { emoji: '😐', label: 'neutral', active: false },
-                    { emoji: '😓', label: 'exhausted', active: false },
+                    { label: 'confident', active: true },
+                    { label: 'neutral', active: false },
+                    { label: 'exhausted', active: false },
                   ].map(e => (
-                    <div key={e.label} className={`p-1 rounded-lg text-center text-[7px] ${e.active ? 'bg-violet-500/20 border border-violet-500/40 text-white' : 'bg-white/[0.03] border border-white/[0.07] text-slate-500'}`}>
-                      <span className="block text-sm leading-none mb-0.5">{e.emoji}</span>
+                    <div key={e.label} className={`p-1 rounded-lg text-center text-[7px] ${e.active ? 'bg-white/[0.06] border border-white/[0.1] text-white' : 'bg-white/[0.03] border border-white/[0.07] text-slate-500'}`}>
                       {e.label}
                     </div>
                   ))}
@@ -299,7 +297,7 @@ function JournalLogPhase() {
       {/* Stats row */}
       <FadeIn delay={0}>
         <div className="grid grid-cols-4 gap-1.5">
-          <MiniStatCard icon={BookOpen} label="Total Logged" value={4} accentClass="text-violet-400" />
+          <MiniStatCard icon={BookOpen} label="Total Logged" value={4} accentClass="text-[var(--text-2)]" />
           <MiniStatCard icon={Star} label="Avg Score" value="71%" accentClass="text-amber-400" />
           <MiniStatCard icon={TrendingUp} label="Advance Rate" value="50%" accentClass="text-emerald-400" />
           <MiniStatCard icon={Award} label="Offers" value={0} accentClass="text-blue-400" />
@@ -315,8 +313,8 @@ function JournalLogPhase() {
               <div className="cursor-pointer" onClick={() => setExpandedIdx(isExpanded ? -1 : idx)}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-2 flex-1 min-w-0">
-                    <div className="w-6 h-6 bg-violet-500/[0.12] border border-violet-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <Building2 className="w-3 h-3 text-violet-400" />
+                    <div className="w-6 h-6 bg-white/[0.06] border border-white/[0.1] rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Building2 className="w-3 h-3 text-[var(--text-2)]" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 mb-0.5">
@@ -342,7 +340,7 @@ function JournalLogPhase() {
                   <div>
                     <p className="text-[7px] text-slate-600 uppercase font-semibold mb-0.5 flex items-center gap-0.5"><MessageSquare className="w-2 h-2" /> Questions</p>
                     {entry.questions.map((q, i) => (
-                      <p key={i} className="text-[8px] text-slate-300 flex items-start gap-1"><span className="text-violet-400 flex-shrink-0">›</span> {q}</p>
+                      <p key={i} className="text-[8px] text-slate-300 flex items-start gap-1"><span className="text-[var(--text-2)] flex-shrink-0">›</span> {q}</p>
                     ))}
                   </div>
                   <div className="grid grid-cols-2 gap-1.5">
@@ -428,17 +426,16 @@ function StatsPhase() {
       <FadeIn delay={600}>
         <MiniCard>
           <div className="flex items-center gap-1.5 mb-2">
-            <div className="w-5 h-5 rounded bg-pink-500/10 flex items-center justify-center"><Heart className="w-2.5 h-2.5 text-pink-400" /></div>
+            <div className="w-5 h-5 rounded bg-white/[0.06] flex items-center justify-center"><Heart className="w-2.5 h-2.5 text-[var(--text-2)]" /></div>
             <p className="text-[10px] font-bold text-white">Emotion vs Performance</p>
           </div>
           <div className="grid grid-cols-3 gap-1.5">
             {[
-              { emoji: '🤩', label: 'Excited', avg: 82, count: 1 },
-              { emoji: '😐', label: 'Neutral', avg: 72, count: 2 },
-              { emoji: '😟', label: 'Anxious', avg: 55, count: 1 },
+              { label: 'Excited', avg: 82, count: 1 },
+              { label: 'Neutral', avg: 72, count: 2 },
+              { label: 'Anxious', avg: 55, count: 1 },
             ].map(e => (
               <div key={e.label} className="p-2 bg-white/[0.03] border border-white/[0.07] rounded-lg text-center">
-                <span className="block text-lg mb-0.5">{e.emoji}</span>
                 <p className={`text-[11px] font-bold ${e.avg >= 75 ? 'text-emerald-400' : e.avg >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{e.avg}%</p>
                 <p className="text-[7px] text-slate-600">{e.label} ({e.count}×)</p>
               </div>
@@ -451,7 +448,7 @@ function StatsPhase() {
       <FadeIn delay={900}>
         <MiniCard>
           <div className="flex items-center gap-1.5 mb-2">
-            <div className="w-5 h-5 rounded bg-violet-500/10 flex items-center justify-center"><Users className="w-2.5 h-2.5 text-violet-400" /></div>
+            <div className="w-5 h-5 rounded bg-white/[0.06] flex items-center justify-center"><Users className="w-2.5 h-2.5 text-[var(--text-2)]" /></div>
             <p className="text-[10px] font-bold text-white">Performance by Stage</p>
           </div>
           <div className="space-y-1.5">
@@ -482,7 +479,7 @@ function AIAnalysisPhase() {
         <MiniCard>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5">
-              <div className="w-5 h-5 rounded bg-violet-500/10 flex items-center justify-center"><Brain className="w-2.5 h-2.5 text-violet-400" /></div>
+              <div className="w-5 h-5 rounded bg-white/[0.06] flex items-center justify-center"><Brain className="w-2.5 h-2.5 text-[var(--text-2)]" /></div>
               <p className="text-[10px] font-bold text-white">AI Career Coach</p>
             </div>
             <span className="text-[7px] text-slate-600">4 entries analysed</span>
@@ -583,7 +580,7 @@ function AIAnalysisPhase() {
       <FadeIn delay={1200}>
         <MiniCard>
           <div className="flex items-center gap-1.5 mb-2">
-            <div className="w-5 h-5 rounded bg-violet-500/10 flex items-center justify-center"><Target className="w-2.5 h-2.5 text-violet-400" /></div>
+            <div className="w-5 h-5 rounded bg-white/[0.06] flex items-center justify-center"><Target className="w-2.5 h-2.5 text-[var(--text-2)]" /></div>
             <p className="text-[10px] font-bold text-white">30-Day Plan</p>
           </div>
           <div className="flex items-center gap-2 mb-2">
@@ -601,8 +598,8 @@ function AIAnalysisPhase() {
               </div>
             ))}
           </div>
-          <div className="p-1.5 bg-violet-500/[0.06] border border-violet-500/15 rounded-lg">
-            <p className="text-[7px] text-violet-400 font-semibold flex items-center gap-0.5"><Target className="w-2 h-2" /> Complete 3 timed problems without running out of time</p>
+          <div className="p-1.5 bg-white/[0.06] border border-white/[0.1] rounded-lg">
+            <p className="text-[7px] text-[var(--text-2)] font-semibold flex items-center gap-0.5"><Target className="w-2 h-2" /> Complete 3 timed problems without running out of time</p>
           </div>
         </MiniCard>
       </FadeIn>
@@ -626,7 +623,7 @@ function InteractivePhase() {
       <style dangerouslySetInnerHTML={{ __html: SCROLL_CSS }} />
 
       {/* Hint */}
-      <p className="text-[8px] text-indigo-400 text-center mb-2 font-medium">✨ Switch tabs to explore all views</p>
+      <p className="text-[8px] text-indigo-400 text-center mb-2 font-medium">Switch tabs to explore all views</p>
 
       {/* Tabs */}
       <div className="flex gap-0.5 p-0.5 bg-white/[0.03] border border-white/[0.06] rounded-lg mb-3 flex-shrink-0">

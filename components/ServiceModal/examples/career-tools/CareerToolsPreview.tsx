@@ -27,7 +27,7 @@ function LoadingCard({ message, sub }: { message: string; sub: string }) {
     <div className="flex-1 min-w-0 flex items-center justify-center">
       <div className="text-center px-6">
         <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-xl flex items-center justify-center mx-auto mb-3">
-          <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
+          <Loader2 className="w-5 h-5 text-[var(--text-2)] animate-spin" />
         </div>
         <p className="text-[11px] font-semibold text-white mb-1">{message}</p>
         <p className="text-[9px] text-slate-500 max-w-[220px] leading-relaxed mx-auto">{sub}</p>
@@ -240,7 +240,7 @@ function LinkedInResults() {
                 <span className="text-[7px] text-slate-500 flex items-center gap-0.5"><Copy className="w-2 h-2" /> Copy</span>
               </div>
               <p className="text-[10px] text-white font-medium leading-relaxed">Senior Software Engineer | Building Scalable Fintech Systems | Python & Java | Ex-JPMorgan</p>
-              <p className="text-[8px] text-slate-500 mt-1">Includes target role, industry, key skills, and social proof - 4x more searchable.</p>
+              <p className="text-[8px] text-slate-500 mt-1">Includes target role, industry, key skills and social proof.</p>
             </div>
           </div>
         </FadeIn>
@@ -249,7 +249,7 @@ function LinkedInResults() {
         <FadeIn delay={600}>
           <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-bold text-white flex items-center gap-1.5"><Users className="w-3 h-3 text-violet-400" /> About Section</p>
+              <p className="text-[10px] font-bold text-white flex items-center gap-1.5"><Users className="w-3 h-3 text-[var(--text-2)]" /> About Section</p>
               <span className="text-[8px] px-1.5 py-0.5 rounded-full border font-semibold text-amber-400 bg-amber-500/10 border-amber-500/20">45/100</span>
             </div>
             <div className="space-y-1 mb-2">
@@ -324,7 +324,7 @@ function OutreachForm({ onGenerate, isLoading }: { onGenerate: () => void; isLoa
               <div>
                 <p className="text-[8px] text-slate-500 mb-0.5">Platform</p>
                 <div className="flex gap-1">
-                  <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[8px] font-medium bg-purple-500/15 border border-purple-500/40 text-purple-300"><Mail className="w-3 h-3" /> Email</div>
+                  <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[8px] font-medium bg-white/[0.06] border border-white/[0.1] text-white"><Mail className="w-3 h-3" /> Email</div>
                   <div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[8px] font-medium bg-white/[0.03] border border-white/[0.07] text-slate-500"><Linkedin className="w-3 h-3" /> LinkedIn</div>
                 </div>
               </div>
@@ -340,7 +340,7 @@ function OutreachForm({ onGenerate, isLoading }: { onGenerate: () => void; isLoa
               <p className="text-[8px] text-slate-500 mb-0.5">Type</p>
               <div className="grid grid-cols-2 gap-1">
                 {['Job Inquiry', 'Referral Request', 'Networking', 'After Applying'].map((t, i) => (
-                  <div key={t} className={`py-1.5 px-2 rounded-lg text-[8px] font-medium border text-center ${i === 0 ? 'bg-purple-500/15 border-purple-500/40 text-purple-300' : 'bg-white/[0.03] border-white/[0.07] text-slate-500'}`}>{t}</div>
+                  <div key={t} className={`py-1.5 px-2 rounded-lg text-[8px] font-medium border text-center ${i === 0 ? 'bg-white/[0.06] border-white/[0.1] text-white' : 'bg-white/[0.03] border-white/[0.07] text-slate-500'}`}>{t}</div>
                 ))}
               </div>
             </div>
@@ -487,9 +487,9 @@ function OutreachResults() {
               ))}
             </div>
 
-            <div className="flex items-start gap-1.5 p-2 bg-violet-500/[0.06] border border-violet-500/15 rounded-lg mb-2">
-              <Info className="w-2.5 h-2.5 text-violet-400 flex-shrink-0 mt-0.5" />
-              <p className="text-[8px] text-violet-300 leading-relaxed">{active.approach}</p>
+            <div className="flex items-start gap-1.5 p-2 bg-white/[0.06] border border-white/[0.1] rounded-lg mb-2">
+              <Info className="w-2.5 h-2.5 text-[var(--text-2)] flex-shrink-0 mt-0.5" />
+              <p className="text-[8px] text-white leading-relaxed">{active.approach}</p>
             </div>
 
             <div className="mb-2">
@@ -592,7 +592,7 @@ function InteractiveView() {
         </div>
 
         {/* Hint */}
-        <p className="text-[8px] text-indigo-400 text-center mb-2.5 font-medium">✨ Switch tabs to explore both tools</p>
+        <p className="text-[8px] text-indigo-400 text-center mb-2.5 font-medium">Switch tabs to explore both tools</p>
 
         {/* Form summary - changes based on active tool */}
         {activeTool === 'linkedin' ? (
@@ -669,7 +669,7 @@ function InteractiveView() {
                 <div className="p-2 bg-emerald-500/[0.06] border border-emerald-500/15 rounded-lg">
                   <p className="text-[7px] text-emerald-400 font-semibold uppercase mb-1">Optimised</p>
                   <p className="text-[10px] text-white font-medium leading-relaxed">Senior Software Engineer | Building Scalable Fintech Systems | Python & Java | Ex-JPMorgan</p>
-                  <p className="text-[8px] text-slate-500 mt-1">4x more searchable with target role, industry, skills, and social proof.</p>
+                  <p className="text-[8px] text-slate-500 mt-1">Adds the target role, industry, skills and social proof.</p>
                 </div>
               </div>
             </FadeIn>
@@ -678,7 +678,7 @@ function InteractiveView() {
             <FadeIn delay={400}>
               <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-[10px] font-bold text-white flex items-center gap-1.5"><Users className="w-3 h-3 text-violet-400" /> About Section</p>
+                  <p className="text-[10px] font-bold text-white flex items-center gap-1.5"><Users className="w-3 h-3 text-[var(--text-2)]" /> About Section</p>
                   <span className="text-[8px] px-1.5 py-0.5 rounded-full border font-semibold text-amber-400 bg-amber-500/10 border-amber-500/20">45/100</span>
                 </div>
                 <div className="p-2 bg-emerald-500/[0.06] border border-emerald-500/15 rounded-lg">
@@ -733,9 +733,9 @@ function InteractiveView() {
                     </button>
                   ))}
                 </div>
-                <div className="flex items-start gap-1.5 p-2 bg-violet-500/[0.06] border border-violet-500/15 rounded-lg mb-2">
-                  <Info className="w-2.5 h-2.5 text-violet-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-[8px] text-violet-300 leading-relaxed">{versions[activeVersion].approach}</p>
+                <div className="flex items-start gap-1.5 p-2 bg-white/[0.06] border border-white/[0.1] rounded-lg mb-2">
+                  <Info className="w-2.5 h-2.5 text-[var(--text-2)] flex-shrink-0 mt-0.5" />
+                  <p className="text-[8px] text-white leading-relaxed">{versions[activeVersion].approach}</p>
                 </div>
                 <div className="mb-2">
                   <p className="text-[7px] text-slate-600 uppercase mb-0.5">Subject line</p>

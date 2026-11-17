@@ -14,7 +14,7 @@ import { demoClick } from '../../DemoCursor';
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
 const PANEL = [
-  { id: 'hr',   name: 'Rachel Kim',    initials: 'RK', role: 'HR Manager',               gradient: 'from-pink-500 to-rose-600',     exp: '8+ years',  isLead: false },
+  { id: 'hr',   name: 'Rachel Kim',    initials: 'RK', role: 'HR Manager',               gradient: 'from-white/[0.04] to-rose-600',     exp: '8+ years',  isLead: false },
   { id: 'lead', name: 'Marcus Rivera', initials: 'MR', role: 'Frontend Lead',             gradient: 'from-blue-500 to-indigo-600',   exp: '12+ years', isLead: true  },
   { id: 'jr',   name: 'Emma Collins',  initials: 'EC', role: 'Junior Frontend Developer', gradient: 'from-green-500 to-emerald-600', exp: '2 years',   isLead: false },
 ];
@@ -24,7 +24,7 @@ const TECH_STACK = ['React', 'TypeScript', 'Next.js', 'TailwindCSS', 'GraphQL'];
 const CATEGORIES = [
   { name: 'Communication Skills',  score: 82, color: '#10b981' },
   { name: 'Technical Knowledge',   score: 74, color: '#f59e0b' },
-  { name: 'Problem Solving',       score: 78, color: '#8b5cf6' },
+  { name: 'Problem Solving',       score: 78, color: '#a9b0f7' },
   { name: 'Cultural & Role Fit',   score: 88, color: '#3b82f6' },
   { name: 'Confidence & Clarity',  score: 71, color: '#f59e0b' },
 ];
@@ -146,7 +146,7 @@ function WaitingRoom({ step }: { step: number }) {
         <FadeIn delay={100}>
           <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg">
             <p className="text-[10px] font-medium text-white flex items-center gap-1.5 mb-2.5">
-              <Users className="w-3.5 h-3.5 text-purple-400" /> Interview Panel
+              <Users className="w-3.5 h-3.5 text-[var(--text-2)]" /> Interview Panel
             </p>
             <div className="space-y-2.5">
               {PANEL.map((p, i) => (
@@ -262,7 +262,7 @@ function LiveInterview() {
 
   const participants = [
     ...PANEL.map(p => ({ ...p, isUser: false })),
-    { id: 'you', name: 'Jordan Lee', initials: 'JL', role: 'Interviewee', gradient: 'from-indigo-500 to-purple-600', exp: 'Applying for: Frontend Dev', isLead: false, isUser: true },
+    { id: 'you', name: 'Jordan Lee', initials: 'JL', role: 'Interviewee', gradient: 'from-indigo-500 to-white/[0.04]', exp: 'Applying for: Frontend Dev', isLead: false, isUser: true },
   ];
 
   const transcripts: Record<string, string[]> = {
@@ -325,11 +325,11 @@ function LiveInterview() {
               <div
                 key={p.id}
                 className={`bg-white/[0.02] border rounded-xl flex flex-col items-center justify-center text-center relative transition-all duration-300 ${
-                  p.isLead ? 'border-blue-500/30' : p.isUser ? 'border-purple-500/30' : 'border-white/[0.06]'
+                  p.isLead ? 'border-blue-500/30' : p.isUser ? 'border-white/[0.1]' : 'border-white/[0.06]'
                 } ${
                   isCurrentSpeaker
                     ? p.isUser
-                      ? 'ring-1 ring-purple-500/50 scale-[1.01] shadow-lg '
+                      ? 'ring-1 ring-white/[0.1] scale-[1.01] shadow-lg '
                       : 'ring-1 ring-blue-500/50 scale-[1.01] shadow-lg '
                     : ''
                 }`}
@@ -346,7 +346,7 @@ function LiveInterview() {
                 <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-medium border ${
                   isSpeaking
                     ? p.isUser
-                      ? 'text-purple-400 bg-purple-500/10 border-purple-500/20'
+                      ? 'text-[var(--text-2)] bg-white/[0.06] border-white/[0.1]'
                       : 'text-blue-400 bg-blue-500/10 border-blue-500/20'
                     : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
                 }`}>
@@ -369,10 +369,10 @@ function LiveInterview() {
               {speakerId && (
                 <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${
                   speakerId === 'you'
-                    ? 'bg-purple-500/10 border border-purple-500/20 text-purple-300'
+                    ? 'bg-white/[0.06] border border-white/[0.1] text-white'
                     : 'bg-blue-500/10 border border-blue-500/20 text-blue-300'
                 }`}>
-                  <div className={`w-1 h-1 rounded-full animate-pulse ${speakerId === 'you' ? 'bg-purple-400' : 'bg-blue-400'}`} />
+                  <div className={`w-1 h-1 rounded-full animate-pulse ${speakerId === 'you' ? 'bg-white/60' : 'bg-blue-400'}`} />
                   {speakerId === 'you' ? 'Jordan Lee responding' : `${participants.find(p => p.id === speakerId)?.name} asking`}
                 </span>
               )}
@@ -513,7 +513,7 @@ function FeedbackReport() {
       <FadeIn delay={600}>
         <div className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-lg">
           <div className="flex items-center gap-2 mb-3">
-            <BarChart3 className="w-4 h-4 text-purple-400" />
+            <BarChart3 className="w-4 h-4 text-[var(--text-2)]" />
             <p className="text-[12px] font-bold text-white">Detailed Performance Analysis</p>
             <span className="text-[9px] text-slate-500 ml-auto">Breakdown across 5 categories</span>
           </div>
@@ -574,8 +574,8 @@ function FeedbackReport() {
       <FadeIn delay={1300}>
         <div className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-lg">
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-6 h-6 bg-purple-500/10 rounded-lg flex items-center justify-center">
-              <Star className="w-3.5 h-3.5 text-purple-400" />
+            <div className="w-6 h-6 bg-white/[0.06] rounded-lg flex items-center justify-center">
+              <Star className="w-3.5 h-3.5 text-[var(--text-2)]" />
             </div>
             <p className="text-[12px] font-bold text-white">AI Assessment Summary</p>
           </div>

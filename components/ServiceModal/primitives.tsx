@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 
 // ─── Animated Score Ring ──────────────────────────────────────────────────────
 
-export function ScoreRing({ score, size = 64, color = '#a855f7', delay = 0 }: {
+export function ScoreRing({ score, size = 64, color = '#a9b0f7', delay = 0 }: {
   score: number; size?: number; color?: string; delay?: number;
 }) {
   const [animatedScore, setAnimatedScore] = useState(0);

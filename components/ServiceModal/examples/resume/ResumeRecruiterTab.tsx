@@ -48,8 +48,8 @@ export function ResumeRecruiterTab() {
       {/* Multi-Perspective Analysis */}
       <div className="p-2.5 bg-white/[0.02] border border-white/[0.06] rounded-lg">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-            <Users className="w-3.5 h-3.5 text-purple-400" />
+          <div className="w-6 h-6 bg-white/[0.06] rounded-lg flex items-center justify-center flex-shrink-0">
+            <Users className="w-3.5 h-3.5 text-[var(--text-2)]" />
           </div>
           <div className="text-left">
             <p className="text-[9px] font-bold text-white">Multi-Perspective Analysis</p>
@@ -136,8 +136,8 @@ export function ResumeRecruiterTab() {
       <div className="p-2.5 bg-white/[0.02] border border-white/[0.06] rounded-lg">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-              <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
+            <div className="w-6 h-6 bg-white/[0.06] rounded-lg flex items-center justify-center flex-shrink-0">
+              <TrendingUp className="w-3.5 h-3.5 text-[var(--text-2)]" />
             </div>
             <div className="text-left">
               <p className="text-[9px] font-bold text-white">Attention Heatmap</p>

@@ -67,7 +67,7 @@ const DAILY_PROGRESS = [
 function MiniRing({ pct, size = 48 }: { pct: number; size?: number }) {
   const r = (size - 6) / 2;
   const circ = 2 * Math.PI * r;
-  const color = pct === 100 ? '#10b981' : '#8b5cf6';
+  const color = pct === 100 ? '#10b981' : '#a9b0f7';
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
@@ -482,7 +482,7 @@ function AnalyticsView() {
                 { label: 'Overall', value: '43%', icon: Target, color: 'text-blue-400' },
                 { label: 'Streak', value: '3d', icon: Flame, color: 'text-orange-400' },
                 { label: 'Studied', value: '6.5h', icon: BookOpen, color: 'text-emerald-400' },
-                { label: 'Done', value: '15/41', icon: CheckCircle2, color: 'text-violet-400' },
+                { label: 'Done', value: '15/41', icon: CheckCircle2, color: 'text-[var(--text-2)]' },
               ].map(a => (
                 <div key={a.label} className="p-2 bg-white/[0.02] border border-white/[0.06] rounded-lg text-center">
                   <a.icon className={`w-3 h-3 mx-auto mb-1 ${a.color}`} />
@@ -544,13 +544,13 @@ function AnalyticsView() {
 // ─── Phase 5: AI Coach Chat ───────────────────────────────────────────────────
 
 const FULL_CHAT = [
-  { role: 'assistant' as const, text: "👋 Hi! I'm your AI interview coach. I see you're prepping for Senior Backend Engineer at Stripe. You're on Day 3 - Trees & BSTs. What can I help with?" },
+  { role: 'assistant' as const, text: "Hi, I'm your AI interview coach. I see you're prepping for Senior Backend Engineer at Stripe. You're on Day 3 - Trees & BSTs. What can I help with?" },
   { role: 'user' as const, text: "When should I use DFS vs BFS for tree problems?" },
   { role: 'assistant' as const, text: "Great question! Here's a quick rule:\n\n**DFS** → depth-related problems: path sum, max depth, validate BST, diameter of tree.\n\n**BFS** → level/width problems: level-order traversal, minimum depth, right side view, zigzag traversal.\n\nDFS uses a stack (or recursion). BFS uses a queue. For Stripe interviews, they love asking about trade-offs - DFS is O(h) space, BFS is O(w) space." },
   { role: 'user' as const, text: "Can you give me a practice question on BSTs?" },
   { role: 'assistant' as const, text: "Sure! Try this:\n\n**Given a BST, find the kth smallest element.**\n\nHint: Think about which traversal visits BST nodes in sorted order. What's the time complexity of your approach? Can you do it in O(h + k) instead of O(n)?\n\nWant me to walk through the solution after you try?" },
   { role: 'user' as const, text: "Inorder traversal gives sorted order, so I can stop at the kth element" },
-  { role: 'assistant' as const, text: "Exactly right! ✅ Inorder traversal of a BST visits nodes in ascending order. You can use an iterative approach with a stack to stop early at k.\n\nTime: O(h + k), Space: O(h). This is the optimal approach Stripe expects. Well done - mark 'Practice LCA' as done and move on! 🚀" },
+  { role: 'assistant' as const, text: "Exactly right. Inorder traversal of a BST visits nodes in ascending order. You can use an iterative approach with a stack to stop early at k.\n\nTime: O(h + k), Space: O(h). This is the optimal approach Stripe expects. Well done - mark 'Practice LCA' as done and move on! 🚀" },
 ];
 
 function AiCoachView() {
@@ -633,9 +633,9 @@ function AiCoachView() {
               <div className="flex justify-start">
                 <div className="px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.06] rounded-bl-sm">
                   <div className="flex items-center gap-1">
-                    <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <div className="w-1.5 h-1.5 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-1.5 h-1.5 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-1.5 h-1.5 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
                 </div>
               </div>
@@ -708,7 +708,7 @@ function QuizView() {
             <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <Brain className="w-4 h-4 text-purple-400" />
+                  <Brain className="w-4 h-4 text-[var(--text-2)]" />
                   <p className="text-[11px] font-bold text-white">Knowledge Quiz</p>
                 </div>
                 <span className="text-[10px] text-slate-500">Q {currentQ + 1} / {QUIZ_QUESTIONS.length}</span>
@@ -723,8 +723,8 @@ function QuizView() {
                     {a.correct ? '✓' : '✗'}
                   </div>
                 ))}
-                <div className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center">
-                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
+                <div className="w-5 h-5 rounded-full bg-white/[0.06] flex items-center justify-center">
+                  <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse" />
                 </div>
               </div>
             </div>
@@ -795,7 +795,7 @@ function QuizView() {
                     {/* Explanation */}
                     <div className={`pl-4.5 ${!isCorrect ? 'pt-1 border-t border-white/[0.04]' : ''}`}>
                       <p className={isCorrect ? 'text-emerald-300/80' : 'text-slate-400'}>
-                        <span className={`font-semibold ${isCorrect ? 'text-emerald-300' : 'text-slate-300'}`}>💡 Explanation:</span> {q.explanation}
+                        <span className={`font-semibold ${isCorrect ? 'text-emerald-300' : 'text-slate-300'}`}>Explanation:</span> {q.explanation}
                       </p>
                     </div>
                   </div>
@@ -845,7 +845,7 @@ function InteractiveView() {
       <Sidebar checkedCount={5} />
       <div className="flex-1 min-w-0 flex flex-col">
         <FadeIn delay={0}>
-          <p className="text-[8px] text-indigo-400 text-center mb-1.5 font-medium">✨ Click tabs above to explore the full plan</p>
+          <p className="text-[8px] text-indigo-400 text-center mb-1.5 font-medium">Click the tabs above to explore the full plan</p>
         </FadeIn>
         <InteractiveTabBar activeTab={activeTab} onTabChange={setActiveTab} />
 
@@ -933,7 +933,7 @@ function InteractiveView() {
                   { label: 'Overall', value: '43%', icon: Target, color: 'text-blue-400' },
                   { label: 'Streak', value: '3d', icon: Flame, color: 'text-orange-400' },
                   { label: 'Studied', value: '6.5h', icon: BookOpen, color: 'text-emerald-400' },
-                  { label: 'Done', value: '15/41', icon: CheckCircle2, color: 'text-violet-400' },
+                  { label: 'Done', value: '15/41', icon: CheckCircle2, color: 'text-[var(--text-2)]' },
                 ].map(a => (
                   <div key={a.label} className="p-2 bg-white/[0.02] border border-white/[0.06] rounded-lg text-center">
                     <a.icon className={`w-3 h-3 mx-auto mb-1 ${a.color}`} />
@@ -986,7 +986,7 @@ function InteractiveView() {
             <div className="space-y-3">
               <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2"><Brain className="w-4 h-4 text-purple-400" /><p className="text-[11px] font-bold text-white">Knowledge Quiz</p></div>
+                  <div className="flex items-center gap-2"><Brain className="w-4 h-4 text-[var(--text-2)]" /><p className="text-[11px] font-bold text-white">Knowledge Quiz</p></div>
                   <span className="text-[10px] text-emerald-400 font-semibold">2/3 Correct</span>
                 </div>
                 <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden"><div className="h-full bg-[var(--accent)] rounded-full" style={{ width: '100%' }} /></div>
@@ -1027,7 +1027,7 @@ function InteractiveView() {
                           <p className="text-emerald-300 mb-1"><span className="font-semibold">Correct:</span> {q.options[q.correct]}</p>
                         </>
                       )}
-                      <p className={isCorrect ? 'text-emerald-300/80' : 'text-slate-400'}>💡 {q.explanation}</p>
+                      <p className={isCorrect ? 'text-emerald-300/80' : 'text-slate-400'}>{q.explanation}</p>
                     </div>
                   </div>
                 );

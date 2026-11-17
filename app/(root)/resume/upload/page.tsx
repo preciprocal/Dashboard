@@ -159,7 +159,7 @@ export default function UploadResume() {
     try {
       setCurrentStep(0);
       fireNotification(
-        user.id, 'resume', 'Resume Uploaded 📄',
+        user.id, 'resume', 'Resume Uploaded',
         `"${file.name}" has been uploaded and is being analysed by AI.`,
         { actionUrl: `/resume/${resumeId}`, actionLabel: 'View Resume' },
       );
@@ -228,7 +228,7 @@ export default function UploadResume() {
         : formData.jobTitle.trim() ? ` for ${formData.jobTitle.trim()}` : '';
 
       fireNotification(
-        user.id, 'resume', 'Resume Analysis Complete ✅',
+        user.id, 'resume', 'Resume Analysis Complete',
         `"${file.name}" scored ${score}/100 (${scoreLabel})${target}. Check your detailed feedback.`,
         { actionUrl: `/resume/${resumeId}`, actionLabel: 'View Analysis' },
       );

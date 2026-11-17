@@ -56,7 +56,7 @@ const QUICK_WINS: QuickWin[] = [
     desc: "Resume lacks a summary statement connecting software engineering skills to impact and career positioning.",
     current: 'N/A - Missing section',
     improved: 'Software engineer with 4+ years of experience building distributed systems and data pipelines. Led Kubernetes migrations reducing deployment time by 3x and built real-time pipelines processing 2M+ events/sec at Datadog. MS Computer Science from Boston University.',
-    impact: 'Summary statements increase ATS match by 15-20% and immediately establish candidate fit',
+    impact: 'A summary tells the reader in one line who you are and what you do',
     targetText: 'ALEX CHEN',
   },
   {
@@ -66,7 +66,7 @@ const QUICK_WINS: QuickWin[] = [
     desc: "'Built' is passive and doesn't demonstrate analytical impact - reframe to show engineering rigor.",
     current: 'Built automated testing suite covering 85% of codebase, catching 30% more regression bugs before production release',
     improved: 'Engineered a comprehensive automated testing framework achieving 85% code coverage, reducing production regression bugs by 30% and saving 15+ engineering hours per sprint cycle',
-    impact: 'Stronger action verbs increase perceived impact by 38%',
+    impact: 'Leading with what you did reads stronger than describing a duty',
     targetText: 'Built automated testing suite',
   },
   {
@@ -76,7 +76,7 @@ const QUICK_WINS: QuickWin[] = [
     desc: "Resume lacks explicit 'System Design' and 'Microservices' keywords, which are preferred qualifications.",
     current: 'Docker, Kubernetes, Terraform, Git, Tableau, Apache Airflow',
     improved: 'Docker, Kubernetes, Terraform, Git, Tableau, Apache Airflow, System Design, Microservices Architecture',
-    impact: 'Adding role-specific keywords improves ATS match by 5-7 points',
+    impact: 'Naming the tools the posting asks for helps the resume match it',
     targetText: 'Docker, Kubernetes, Terraform',
   },
   {
@@ -86,7 +86,7 @@ const QUICK_WINS: QuickWin[] = [
     desc: "The REST API bullet lacks business outcome - add processing speed or error reduction metrics.",
     current: 'Developed REST APIs in Java/Spring Boot serving 50K+ daily requests for an insurance claims platform',
     improved: 'Developed and optimized REST APIs in Java/Spring Boot processing 50K+ daily insurance claims requests with 99.9% uptime, reducing average claim processing time by 40%',
-    impact: 'Quantified achievements are 40% more likely to get interview callbacks',
+    impact: 'A specific number shows the scale of the work',
     targetText: 'Developed REST APIs in Java/Spring Boot',
   },
   {
@@ -96,7 +96,7 @@ const QUICK_WINS: QuickWin[] = [
     desc: "FinTrack description mentions users but lacks performance or engagement metrics.",
     current: 'Real-time portfolio tracker with React, WebSocket, and Plaid API integration for 500+ active users',
     improved: 'Real-time portfolio tracker built with React, WebSocket, and Plaid API serving 500+ active users with sub-100ms latency, tracking $2M+ in aggregate portfolio value',
-    impact: 'Adding dollar values and performance metrics dramatically increases perceived impact',
+    impact: 'Results with a number are easier to remember than general claims',
     targetText: 'Real-time portfolio tracker with React',
   },
 ];
@@ -206,7 +206,7 @@ export function ResumeWriterTab({ onHighlight }: ResumeWriterTabProps) {
           <div className="p-2.5 bg-white/[0.02] border border-white/[0.06] rounded-lg">
             <div className="flex items-center justify-around">
               {[
-                { label: 'Overall', score: 75, color: '#a855f7', size: 48 },
+                { label: 'Overall', score: 75, color: '#a9b0f7', size: 48 },
                 { label: 'ATS', score: 80, color: '#10b981', size: 36 },
                 { label: 'Impact', score: 72, color: '#10b981', size: 36 },
                 { label: 'Clarity', score: 68, color: '#f59e0b', size: 36 },

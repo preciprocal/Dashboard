@@ -707,7 +707,7 @@ export default function JobTrackerPage() {
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Failed'); }
       toast.success(isEdit ? 'Application updated' : 'Application added');
       if (!isEdit && user?.id) {
-        await NotificationService.createNotification(user.id, 'planner', 'Application Tracked 📋', `${form.jobTitle} at ${form.company} has been added to your job tracker.`, { actionUrl: '/job-tracker', actionLabel: 'View Tracker' });
+        await NotificationService.createNotification(user.id, 'planner', 'Application Tracked', `${form.jobTitle} at ${form.company} has been added to your job tracker.`, { actionUrl: '/job-tracker', actionLabel: 'View Tracker' });
         setShowFeedback(true);
         setNextStepCtx({ company: form.company.trim(), jobTitle: form.jobTitle.trim() }); // ← ADDED
       }
@@ -723,10 +723,10 @@ export default function JobTrackerPage() {
       if (!res.ok) throw new Error('Failed');
       if (user?.id && app) {
         const milestones: Partial<Record<AppStatus, { title: string; message: string; type: 'interview' | 'achievement' | 'planner' }>> = {
-          'phone-screen': { type: 'interview', title: 'Phone Screen Scheduled 📞', message: `You advanced to phone screen for ${app.jobTitle} at ${app.company}!` },
-          'technical': { type: 'interview', title: 'Technical Round Incoming 💻', message: `You reached the technical round for ${app.jobTitle} at ${app.company}.` },
-          'final': { type: 'interview', title: 'Final Round! 🔥', message: `You made it to the final round for ${app.jobTitle} at ${app.company}.` },
-          'offer': { type: 'achievement', title: 'Offer Received! 🎉🏆', message: `Congratulations! You received an offer for ${app.jobTitle} at ${app.company}!` },
+          'phone-screen': { type: 'interview', title: 'Phone Screen Scheduled', message: `You advanced to phone screen for ${app.jobTitle} at ${app.company}!` },
+          'technical': { type: 'interview', title: 'Technical Round Incoming', message: `You reached the technical round for ${app.jobTitle} at ${app.company}.` },
+          'final': { type: 'interview', title: 'Final Round!', message: `You made it to the final round for ${app.jobTitle} at ${app.company}.` },
+          'offer': { type: 'achievement', title: 'Offer Received!', message: `Congratulations! You received an offer for ${app.jobTitle} at ${app.company}!` },
         };
         const m = milestones[status];
         if (m) await NotificationService.createNotification(user.id, m.type, m.title, m.message, { actionUrl: '/job-tracker', actionLabel: 'View Application' });
@@ -742,7 +742,7 @@ export default function JobTrackerPage() {
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || 'Failed to generate plan'); }
       const data = await res.json();
       toast.success(`${days}-day plan created for ${app.company}!`, { action: { label: 'Open Planner', onClick: () => window.open(`/planner/${data.planId}`, '_blank') } });
-      if (user?.id) await NotificationService.createNotification(user.id, 'planner', 'Prep Plan Created 📅', `Your ${days}-day preparation plan for ${app.jobTitle} at ${app.company} is ready.`, { actionUrl: `/planner/${data.planId}`, actionLabel: 'View Plan' });
+      if (user?.id) await NotificationService.createNotification(user.id, 'planner', 'Prep Plan Created', `Your ${days}-day preparation plan for ${app.jobTitle} at ${app.company} is ready.`, { actionUrl: `/planner/${data.planId}`, actionLabel: 'View Plan' });
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Failed to create plan'); } finally { setCreatingPlan(false); }
   };
 

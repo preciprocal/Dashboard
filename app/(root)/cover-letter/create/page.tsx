@@ -334,7 +334,7 @@ export default function CoverLetterGeneratorPage() {
         setShowNextStep(true); // ← SHOW NEXT STEP
         if (user?.id) {
           const target = companyName.trim() ? `${jobRole.trim()} at ${companyName.trim()}` : jobRole.trim();
-          await NotificationService.createNotification(user.id, 'cover_letter', 'Cover Letter Ready 📝',
+          await NotificationService.createNotification(user.id, 'cover_letter', 'Cover Letter Ready',
             `Your cover letter for ${target} has been generated.`,
             { actionUrl: '/cover-letter', actionLabel: 'View History' });
         }
@@ -377,7 +377,7 @@ export default function CoverLetterGeneratorPage() {
       toast.success('Saved to history!');
       if (user?.id) {
         const target = companyName.trim() ? `${jobRole.trim()} at ${companyName.trim()}` : jobRole.trim();
-        await NotificationService.createNotification(user.id, 'cover_letter', 'Cover Letter Saved ✅',
+        await NotificationService.createNotification(user.id, 'cover_letter', 'Cover Letter Saved',
           `Your cover letter for ${target} has been saved.`,
           { actionUrl: `/cover-letter?open=${id}`, actionLabel: 'View Letter' });
       }

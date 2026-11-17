@@ -72,7 +72,7 @@ type View = 'dashboard' | 'form' | 'contacts';
 
 function MiniCard({ app, onFindContacts, onEdit, highlight }: { app: typeof APPS[0]; onFindContacts: () => void; onEdit?: () => void; highlight?: boolean }) {
   return (
-    <div className={`bg-[var(--bg-raised)] border rounded-xl p-3 flex flex-col group transition-all ${highlight ? 'border-purple-500/40 ' : 'border-white/[0.07] hover:border-white/[0.12]'}`}>
+    <div className={`bg-[var(--bg-raised)] border rounded-xl p-3 flex flex-col group transition-all ${highlight ? 'border-white/[0.1] ' : 'border-white/[0.07] hover:border-white/[0.12]'}`}>
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-start gap-2 flex-1 min-w-0">
           <div className="w-7 h-7 bg-white/[0.07] border border-white/[0.09] rounded-lg flex items-center justify-center text-white font-bold text-[10px] flex-shrink-0">
@@ -85,7 +85,7 @@ function MiniCard({ app, onFindContacts, onEdit, highlight }: { app: typeof APPS
         </div>
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
           <ExternalLink className="w-2.5 h-2.5 text-slate-700 hover:text-blue-400 cursor-pointer" />
-          <Edit3 className="w-2.5 h-2.5 text-slate-700 hover:text-purple-400 cursor-pointer" onClick={onEdit} />
+          <Edit3 className="w-2.5 h-2.5 text-slate-700 hover:text-white cursor-pointer" onClick={onEdit} />
           <Trash2 className="w-2.5 h-2.5 text-slate-700 hover:text-red-400 cursor-pointer" />
         </div>
       </div>
@@ -113,11 +113,11 @@ function MiniCard({ app, onFindContacts, onEdit, highlight }: { app: typeof APPS
         <button
           {...(highlight ? demoClick(3) : {})}
           onClick={onFindContacts}
-          className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-[8px] font-semibold transition-all cursor-pointer ${highlight ? 'text-white bg-[var(--accent)] border border-purple-500  animate-pulse' : 'text-purple-400 bg-purple-500/[0.07] border border-purple-500/20 hover:bg-purple-500/15 hover:border-purple-500/35 hover:text-purple-300'}`}
+          className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-[8px] font-semibold transition-all cursor-pointer ${highlight ? 'text-white bg-[var(--accent)] border border-white/[0.1]  animate-pulse' : 'text-[var(--text-2)] bg-white/[0.06] border border-white/[0.1] hover:bg-white/[0.08] hover:border-white/[0.16] hover:text-white'}`}
         >
           <UserSearch className="w-2.5 h-2.5" /> Find Contacts
         </button>
-        <button className="flex items-center justify-center gap-1 py-1.5 rounded-lg text-[8px] font-semibold text-violet-400 bg-violet-500/[0.07] border border-violet-500/20 hover:bg-violet-500/15 hover:border-violet-500/35 hover:text-violet-300 transition-all cursor-pointer">
+        <button className="flex items-center justify-center gap-1 py-1.5 rounded-lg text-[8px] font-semibold text-[var(--text-2)] bg-white/[0.06] border border-white/[0.1] hover:bg-white/[0.08] hover:border-white/[0.16] hover:text-white transition-all cursor-pointer">
           <CalendarPlus className="w-2.5 h-2.5" /> Create Plan
         </button>
       </div>
@@ -222,7 +222,7 @@ export function JobTrackerExamplePreview({ step }: { step: number }) {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-[8px] text-slate-400 mb-1">Status</label>
-                  <div className="px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-purple-500/40 text-[9px] text-purple-300 flex items-center justify-between">Applied <ChevronDown className="w-2.5 h-2.5" /></div>
+                  <div className="px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.1] text-[9px] text-white flex items-center justify-between">Applied <ChevronDown className="w-2.5 h-2.5" /></div>
                 </div>
                 <div>
                   <label className="block text-[8px] text-slate-400 mb-1">Applied Date</label>
@@ -238,7 +238,7 @@ export function JobTrackerExamplePreview({ step }: { step: number }) {
                   <label className="block text-[8px] text-slate-400 mb-1">Work Type</label>
                   <div className="flex gap-1">
                     {['Remote','Hybrid','Onsite'].map(w => (
-                      <div key={w} className={`flex-1 py-1.5 rounded-lg text-[7px] font-semibold text-center border ${w==='Onsite' ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' : 'bg-white/[0.03] border-white/[0.07] text-slate-600'}`}>{w}</div>
+                      <div key={w} className={`flex-1 py-1.5 rounded-lg text-[7px] font-semibold text-center border ${w==='Onsite' ? 'bg-white/[0.06] border-white/[0.1] text-white' : 'bg-white/[0.03] border-white/[0.07] text-slate-600'}`}>{w}</div>
                     ))}
                   </div>
                 </div>
@@ -291,7 +291,7 @@ export function JobTrackerExamplePreview({ step }: { step: number }) {
           {contactsReady && (
             <FadeIn delay={150}>
               <div className="px-4 py-2 border-b border-white/[0.05]">
-                <p className="text-[8px] text-slate-400">Found <span className="text-white font-semibold">{CONTACTS.length}</span> contacts at <span className="text-purple-400 font-semibold">{contactsCompany.toLowerCase()}.com</span></p>
+                <p className="text-[8px] text-slate-400">Found <span className="text-white font-semibold">{CONTACTS.length}</span> contacts at <span className="text-[var(--text-2)] font-semibold">{contactsCompany.toLowerCase()}.com</span></p>
               </div>
             </FadeIn>
           )}
@@ -301,8 +301,8 @@ export function JobTrackerExamplePreview({ step }: { step: number }) {
             <div className="flex items-center justify-center py-20">
               <div className="text-center">
                 <div className="relative w-9 h-9 mx-auto mb-3">
-                  <Loader2 className="w-9 h-9 text-purple-400 animate-spin" />
-                  <UserSearch className="w-3.5 h-3.5 text-purple-300 absolute inset-0 m-auto" />
+                  <Loader2 className="w-9 h-9 text-[var(--text-2)] animate-spin" />
+                  <UserSearch className="w-3.5 h-3.5 text-white absolute inset-0 m-auto" />
                 </div>
                 <p className="text-[10px] font-semibold text-white mb-0.5">Finding contacts at {contactsCompany}…</p>
                 <p className="text-[8px] text-slate-500">Searching and writing personalised emails…</p>
@@ -320,7 +320,7 @@ export function JobTrackerExamplePreview({ step }: { step: number }) {
                     <button
                       {...(i === 1 ? demoClick(5) : {})}
                       onClick={() => setActiveContact(i)}
-                      className={`w-full text-left px-3 py-2.5 border-b border-white/[0.04] transition-colors ${activeContact === i ? 'bg-purple-500/[0.10] border-l-2 border-l-purple-500' : 'hover:bg-white/[0.03]'}`}
+                      className={`w-full text-left px-3 py-2.5 border-b border-white/[0.04] transition-colors ${activeContact === i ? 'bg-white/[0.06] border-l-2 border-l-purple-500' : 'hover:bg-white/[0.03]'}`}
                     >
                       <div className="flex items-start gap-2">
                         <div className="w-5 h-5 bg-white/[0.07] rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0 mt-0.5">{c.initials}</div>
@@ -379,7 +379,7 @@ export function JobTrackerExamplePreview({ step }: { step: number }) {
                     <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg overflow-hidden">
                       <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-white/[0.05]">
                         <div className="flex items-center gap-1.5">
-                          <Sparkles className="w-2.5 h-2.5 text-violet-400" />
+                          <Sparkles className="w-2.5 h-2.5 text-[var(--text-2)]" />
                           <span className="text-[8px] font-bold text-white">AI-Written Outreach</span>
                         </div>
                         <button
@@ -432,9 +432,9 @@ export function JobTrackerExamplePreview({ step }: { step: number }) {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-500/[0.07] border border-purple-500/20">
-              <Shield className="w-2.5 h-2.5 text-purple-400" />
-              <span className="text-[8px] font-semibold text-purple-400">Unlimited</span>
+            <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/[0.06] border border-white/[0.1]">
+              <Shield className="w-2.5 h-2.5 text-[var(--text-2)]" />
+              <span className="text-[8px] font-semibold text-[var(--text-2)]">Unlimited</span>
             </div>
             <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[var(--accent)] text-white text-[8px] font-semibold cursor-pointer">
               <Plus className="w-2.5 h-2.5" /> Add

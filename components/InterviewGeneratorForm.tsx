@@ -187,7 +187,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
         toast.success('Interview sessions generated!');
 
         // Fire-and-forget notification - never blocks navigation
-        if (supabaseUser?.id) NotificationService.createNotification(supabaseUser.id, 'interview', 'Interview Session Ready 🎤',
+        if (supabaseUser?.id) NotificationService.createNotification(supabaseUser.id, 'interview', 'Interview Session Ready',
           `Your mixed ${formData.role} interview (${Math.ceil(formData.amount / 2)} technical + ${Math.floor(formData.amount / 2)} behavioral) is ready.`,
           { actionUrl: `/interview/${interviewId}`, actionLabel: 'Start Interview' }
         ).catch(err => console.error('Notification failed:', err));
@@ -211,7 +211,7 @@ export default function InterviewGeneratorForm({ userId, initialRole, initialTyp
         toast.success('Interview session generated!');
 
         // Fire-and-forget notification - never blocks navigation
-        if (supabaseUser?.id) NotificationService.createNotification(supabaseUser.id, 'interview', 'Interview Session Ready 🎤',
+        if (supabaseUser?.id) NotificationService.createNotification(supabaseUser.id, 'interview', 'Interview Session Ready',
           `Your ${formData.type === 'technical' ? 'Technical' : 'Behavioral'} ${formData.role} interview (${formData.amount} questions) is ready.`,
           { actionUrl: `/interview/${interviewId}`, actionLabel: 'Start Interview' }
         ).catch(err => console.error('Notification failed:', err));
