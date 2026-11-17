@@ -63,10 +63,10 @@ function BenchmarkLoadingState() {
   }, []);
   return (
     <div className="glass-card p-10 flex flex-col items-center text-center gap-5">
-      <div className="relative"><Loader2 className="w-10 h-10 text-purple-400 animate-spin" /><div className="absolute inset-0 flex items-center justify-center"><Users className="w-4 h-4 text-purple-300" /></div></div>
+      <div className="relative"><Loader2 className="w-10 h-10 text-[var(--text-2)] animate-spin" /><div className="absolute inset-0 flex items-center justify-center"><Users className="w-4 h-4 text-white" /></div></div>
       <div><p className="text-white font-semibold mb-1">Analysing against hired candidates…</p><p className="text-slate-400 text-sm">Benchmarking your resume against real-world data</p></div>
       <div className="w-full max-w-sm bg-white/[0.042] border border-white/[0.06] rounded-xl p-4 min-h-[72px] flex flex-col items-center justify-center text-center">
-        <p className="text-[11px] font-semibold text-purple-400 uppercase tracking-widest mb-2">Tip</p>
+        <p className="text-[11px] font-semibold text-[var(--text-2)] uppercase tracking-widest mb-2">Tip</p>
         <p className="text-sm text-slate-300 leading-relaxed" style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.4s ease' }}>{BENCHMARK_FACTS[factIndex]}</p>
       </div>
     </div>
@@ -195,9 +195,9 @@ export default function CandidateBenchmarking({ resumeId, jobTitle, preloadedDat
 
       {/* ── Hired candidate profile ── */}
       {data.hiredCandidateProfile && (
-        <div className="glass-card p-5 border border-purple-500/15 bg-purple-500/[0.02]">
+        <div className="glass-card p-5 border border-white/[0.1] bg-white/[0.04]">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 bg-purple-500/15 border border-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0"><Users className="w-4 h-4 text-purple-400" /></div>
+            <div className="w-9 h-9 bg-white/[0.05] border border-white/[0.1] rounded-lg flex items-center justify-center flex-shrink-0"><Users className="w-4 h-4 text-[var(--text-2)]" /></div>
             <div><h3 className="text-sm font-semibold text-white">Hired Candidate Profile</h3><p className="text-slate-400 text-xs mt-0.5">What successful candidates for this role typically look like</p></div>
           </div>
           <p className="text-xs text-slate-300 leading-relaxed mb-3">{data.hiredCandidateProfile.typicalBackground}</p>
@@ -218,7 +218,7 @@ export default function CandidateBenchmarking({ resumeId, jobTitle, preloadedDat
           </div>
           <div>
             <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mb-1.5">Key Differentiators</p>
-            <div className="space-y-1">{data.hiredCandidateProfile.keyDifferentiators.map((d2, i) => <div key={i} className="flex items-start gap-2"><div className="w-1.5 h-1.5 bg-purple-400 rounded-full mt-1.5 flex-shrink-0" /><p className="text-xs text-slate-400 leading-relaxed">{d2}</p></div>)}</div>
+            <div className="space-y-1">{data.hiredCandidateProfile.keyDifferentiators.map((d2, i) => <div key={i} className="flex items-start gap-2"><div className="w-1.5 h-1.5 bg-white/50 rounded-full mt-1.5 flex-shrink-0" /><p className="text-xs text-slate-400 leading-relaxed">{d2}</p></div>)}</div>
           </div>
           <p className="text-[11px] text-slate-500 mt-3 flex items-center gap-1"><Info className="w-3 h-3 flex-shrink-0" /> Sources: {data.hiredCandidateProfile.sources}</p>
         </div>
@@ -271,8 +271,8 @@ export default function CandidateBenchmarking({ resumeId, jobTitle, preloadedDat
       {/* What hired candidates have */}
       {(data.whatHiredCandidatesHaveThatYouDont ?? []).length > 0 && (
         <div className="glass-card p-5">
-          <div className="flex items-center gap-3 mb-4"><div className="w-9 h-9 bg-purple-500/15 border border-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0"><Star className="w-4 h-4 text-purple-400" /></div><div><h3 className="text-sm font-semibold text-white">What Hired Candidates Have That You Don&apos;t</h3><p className="text-slate-400 text-xs mt-0.5">Specific gaps vs. people who got the offer</p></div></div>
-          <div className="space-y-2">{(data.whatHiredCandidatesHaveThatYouDont ?? []).map((item, i) => <div key={i} className="flex items-start gap-2.5 p-3 bg-purple-500/[0.05] border border-purple-500/15 rounded-xl"><ArrowRight className="w-3.5 h-3.5 text-purple-400 flex-shrink-0 mt-0.5" /><p className="text-sm text-slate-300">{item}</p></div>)}</div>
+          <div className="flex items-center gap-3 mb-4"><div className="w-9 h-9 bg-white/[0.05] border border-white/[0.1] rounded-lg flex items-center justify-center flex-shrink-0"><Star className="w-4 h-4 text-[var(--text-2)]" /></div><div><h3 className="text-sm font-semibold text-white">What Hired Candidates Have That You Don&apos;t</h3><p className="text-slate-400 text-xs mt-0.5">Specific gaps vs. people who got the offer</p></div></div>
+          <div className="space-y-2">{(data.whatHiredCandidatesHaveThatYouDont ?? []).map((item, i) => <div key={i} className="flex items-start gap-2.5 p-3 bg-white/[0.04] border border-white/[0.1] rounded-xl"><ArrowRight className="w-3.5 h-3.5 text-[var(--text-2)] flex-shrink-0 mt-0.5" /><p className="text-sm text-slate-300">{item}</p></div>)}</div>
         </div>
       )}
 

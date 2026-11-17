@@ -1233,7 +1233,7 @@ const FullScreenInterviewPanel = ({
                 <button
                   onClick={() => { setWastedReason(null); setRefundState("pending"); handleManualStart(); }}
                   className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 cursor-pointer"
-                  style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}
+                  style={{ background: "var(--accent)" }}
                 >
                   Try this interview again
                 </button>

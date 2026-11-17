@@ -248,7 +248,7 @@ export default function RefundPanel() {
                   onClick={requestSubscriptionRefund}
                   disabled={subBusy}
                   className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
-                  style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}
+                  style={{ background: "var(--accent)" }}
                 >
                   {subBusy && <Loader2 className="w-4 h-4 animate-spin" />}
                   Yes, refund {money(sub.refundCents)}
@@ -278,7 +278,7 @@ export default function RefundPanel() {
       {refundablePacks.length > 0 && (
         <section className="rounded-2xl border border-white/[0.08] bg-[var(--bg-surface)] p-5 sm:p-6">
           <div className="flex items-center gap-2.5 mb-1">
-            <Package className="w-4 h-4 text-purple-400 flex-shrink-0" />
+            <Package className="w-4 h-4 text-[var(--text-2)] flex-shrink-0" />
             <h3 className="text-white font-semibold text-sm sm:text-base">Credit packs</h3>
           </div>
           <p className="text-xs text-slate-400 mb-4">

@@ -102,8 +102,8 @@ function getPlanInfo(subscription?: UserData['subscription']): PlanInfo {
     return {
       text: 'Premium', displayName: 'Premium Plan', icon: Zap,
       description: 'The highest monthly allowances on every feature.',
-      style: 'text-purple-400',
-      badgeClass: 'bg-purple-500/10 border-purple-500/20 text-purple-400',
+      style: 'text-white',
+      badgeClass: 'bg-white/[0.06] border-white/[0.12] text-white',
       showUpgrade: false,
     };
   }
@@ -425,7 +425,7 @@ const SearchDropdown = () => {
             <div className="py-2">
               <div className="px-4 py-2.5 bg-white/[0.042]">
                 <div className="flex items-center gap-2">
-                  <HelpCircle className="w-3.5 h-3.5 text-purple-400" />
+                  <HelpCircle className="w-3.5 h-3.5 text-[var(--text-3)]" />
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Common Questions</p>
                 </div>
               </div>
@@ -435,8 +435,8 @@ const SearchDropdown = () => {
                   .map(item => (
                     <button key={item.id} onClick={() => handleFAQClick(item)} role="option"
                       className="w-full flex items-center gap-3 px-4 py-3 transition-colors text-left border-b border-[var(--border)] last:border-0 hover:bg-white/[0.086]">
-                      <div className="w-7 h-7 rounded-lg bg-purple-500/15 flex items-center justify-center flex-shrink-0">
-                        <HelpCircle className="w-3.5 h-3.5 text-purple-400" />
+                      <div className="w-7 h-7 rounded-lg bg-white/[0.05] flex items-center justify-center flex-shrink-0">
+                        <HelpCircle className="w-3.5 h-3.5 text-[var(--text-3)]" />
                       </div>
                       <span className="text-sm text-slate-300">{item.label}</span>
                       <ChevronRight className="w-3.5 h-3.5 text-slate-500 ml-auto flex-shrink-0" />
@@ -464,7 +464,7 @@ const SearchDropdown = () => {
                           className={`flex items-center gap-3 px-4 py-3 transition-colors border-b border-[var(--border)] last:border-0
                                       ${activeIndex === index ? 'bg-slate-700' : 'hover:bg-slate-800/80'}`}>
                           <div className="w-8 h-8 rounded-lg bg-[var(--bg-raised)] flex items-center justify-center flex-shrink-0">
-                            <Icon className="w-4 h-4 text-purple-400" />
+                            <Icon className="w-4 h-4 text-[var(--text-3)]" />
                           </div>
                           <span className="text-sm font-medium text-slate-200">{highlight(item.label, searchQuery)}</span>
                         </Link>
@@ -477,7 +477,7 @@ const SearchDropdown = () => {
                 <div className={`py-2 ${filteredNavigation.length > 0 ? 'border-t border-[var(--border)]' : ''}`}>
                   <div className="px-4 py-2.5 bg-white/[0.042]">
                     <div className="flex items-center gap-2">
-                      <HelpCircle className="w-3.5 h-3.5 text-purple-400" />
+                      <HelpCircle className="w-3.5 h-3.5 text-[var(--text-3)]" />
                       <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">FAQ Articles</p>
                     </div>
                   </div>
@@ -486,8 +486,8 @@ const SearchDropdown = () => {
                       <button key={item.id} onClick={() => handleFAQClick(item)} role="option"
                         className={`w-full flex items-start gap-3 px-4 py-3 transition-colors text-left border-b border-[var(--border)] last:border-0
                                     ${activeIndex === filteredNavigation.length + faqIdx ? 'bg-slate-700' : 'hover:bg-slate-800/80'}`}>
-                        <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <HelpCircle className="w-4 h-4 text-purple-400" />
+                        <div className="w-8 h-8 rounded-lg bg-white/[0.05] flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <HelpCircle className="w-4 h-4 text-[var(--text-3)]" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium line-clamp-2 mb-1 text-slate-300">{highlight(item.label, searchQuery)}</p>
@@ -500,7 +500,7 @@ const SearchDropdown = () => {
                     {filteredFAQs.length > 6 && (
                       <Link href={`/help?q=${encodeURIComponent(searchQuery)}`} onClick={closeAndNavigate}
                         className="flex items-center justify-center gap-2 px-4 py-3.5
-                                   bg-slate-800/60 text-purple-400 hover:text-purple-300
+                                   bg-slate-800/60 text-[var(--text-2)] hover:text-white
                                    text-sm font-semibold transition-colors border-t border-slate-700">
                         View all {filteredFAQs.length} FAQ results
                         <ChevronRight className="w-4 h-4" />
@@ -934,8 +934,8 @@ function LayoutContent({ children, user }: LayoutClientProps) {
                   {badge > 0 && (
                     <span
                       aria-label={`${badge} ticket${badge === 1 ? '' : 's'} with a new reply`}
-                      className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-purple-500/20 border border-purple-500/30
-                                 text-purple-300 text-[11px] font-semibold leading-none
+                      className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-[var(--primary)] border border-transparent
+                                 text-[var(--on-primary)] text-[11px] font-semibold leading-none
                                  flex items-center justify-center"
                     >
                       {badge > 9 ? '9+' : badge}

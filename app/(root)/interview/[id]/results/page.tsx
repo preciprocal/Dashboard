@@ -13,7 +13,9 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/actions/auth.action";
 import { toSupabaseUserId } from "@/lib/auth/verify-request";
 import Link from "next/link";
-import { ArrowRight, Sparkles, Lock } from "lucide-react";
+import Image from "next/image";
+import { ArrowRight } from "lucide-react";
+import logo from "@/public/logo.png";
 import { ScoreCardVisual } from "@/components/ShareScoreCard";
 
 interface Props {
@@ -127,16 +129,14 @@ export default async function InterviewResultsPage({ params }: Props) {
         {/* Header */}
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-xl gradient-primary flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-white font-bold text-lg">Preciprocal</span>
+            <Image src={logo} alt="Preciprocal" width={32} height={32} className="w-8 h-8 rounded-[9px]" priority />
+            <span className="font-display text-[17px] font-semibold tracking-[-0.01em] text-white">Preciprocal</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">
-            Shared Interview Score
+          <h1 className="font-display text-[26px] sm:text-[30px] font-semibold tracking-[-0.02em] text-white">
+            Shared interview score
           </h1>
-          <p className="text-slate-400 text-sm">
-            See how this person is preparing for their next role
+          <p className="text-[var(--text-3)] text-[14px]">
+            A mock interview score someone shared from Preciprocal
           </p>
         </div>
 
@@ -152,37 +152,20 @@ export default async function InterviewResultsPage({ params }: Props) {
 
         {/* CTA */}
         <div className="glass-card p-6 sm:p-8 text-center space-y-4">
-          <div className="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center mx-auto ">
-            <Lock className="w-5 h-5 text-white" />
-          </div>
-          <h2 className="text-xl font-bold text-white">Get your own score</h2>
-          <p className="text-slate-400 text-sm max-w-sm mx-auto">
-            Practice AI mock interviews for any role. Get brutally honest feedback and track your progress.
+          <h2 className="font-display text-[20px] font-semibold tracking-[-0.01em] text-white">Get your own score</h2>
+          <p className="text-[var(--text-3)] text-[13.5px] max-w-sm mx-auto">
+            Practice AI mock interviews for the role you want, with feedback on every answer.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link
-              href="/sign-up"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl
-                         bg-[var(--primary)]
-                         hover:bg-[var(--primary-hover)]
-                         text-[var(--on-primary)] text-sm font-semibold
-                         
-                         transition-all duration-200"
-            >
+            <Link href="/sign-up" className="btn-primary justify-center">
               Start free mock interview
               <ArrowRight className="w-4 h-4" />
             </Link>
-            <Link
-              href="/sign-in"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl
-                         bg-white/[0.04] border border-white/[0.08]
-                         text-slate-300 text-sm font-semibold
-                         hover:bg-white/[0.08] transition-colors"
-            >
+            <Link href="/sign-in" className="btn-secondary justify-center">
               Sign in
             </Link>
           </div>
-          <p className="text-xs text-slate-500">Free to start · No credit card needed</p>
+          <p className="text-xs text-[var(--text-5)]">Free to start. No card needed.</p>
         </div>
 
       </div>

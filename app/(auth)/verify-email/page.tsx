@@ -55,23 +55,23 @@ function VerifyEmailContent() {
 
       <div className="relative z-10 w-full max-w-md">
         {/* Logo */}
-        <div className="flex items-center justify-center space-x-3 mb-10">
-          <Image src={logo} alt="Preciprocal" width={44} height={44} className="rounded-xl shadow-lg" priority />
-          <span className="text-2xl font-black text-white">Preciprocal</span>
+        <div className="flex items-center justify-center gap-2.5 mb-8">
+          <Image src={logo} alt="Preciprocal" width={32} height={32} className="w-8 h-8 rounded-[9px]" priority />
+          <span className="font-display text-[17px] font-semibold tracking-[-0.01em] text-white">Preciprocal</span>
         </div>
 
         {/* Card */}
-        <div className="bg-white/[0.024] border border-[var(--border)] rounded-2xl p-8 backdrop-blur-sm shadow-2xl">
+        <div className="rounded-2xl bg-[#151618] shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_24px_60px_-16px_rgba(0,0,0,0.8)] p-6 sm:p-8">
           {/* Email icon */}
           <div className="flex justify-center mb-6">
-            <div className="w-20 h-20 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center">
-              <svg className="w-10 h-10 text-[var(--text-1)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 rounded-xl bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] flex items-center justify-center">
+              <svg className="w-5 h-5 text-[var(--text-2)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </div>
           </div>
 
-          <h1 className="text-2xl font-bold text-white text-center mb-2">Check your inbox</h1>
+          <h1 className="font-display text-[22px] font-semibold tracking-[-0.02em] text-white text-center mb-2">Check your inbox</h1>
           <p className="text-slate-400 text-center text-sm leading-relaxed mb-1">
             We sent a verification link to
           </p>
@@ -81,14 +81,14 @@ function VerifyEmailContent() {
             </p>
           )}
           <p className="text-slate-400 text-center text-xs mb-8">
-            Click the link in that email to verify your address - it will sign you in and take you straight into the app.
+            Click the link in that email to verify your address. It signs you in and takes you into the app.
           </p>
 
           {/* Resend */}
           <button
             onClick={handleResend}
             disabled={isResending || resendCooldown > 0}
-            className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-[var(--bg-raised)] hover:bg-white/[0.1] border border-[var(--border)] text-slate-300 font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            className="btn-secondary w-full !h-11 justify-center disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isResending ? (
               <>
@@ -121,7 +121,7 @@ function VerifyEmailContent() {
               </li>
               <li className="flex items-start space-x-2">
                 <span className="text-slate-500 mt-0.5">•</span>
-                <span>Links expire after 24 hours - use the resend button above</span>
+                <span>If the link has stopped working, send a new one with the button above</span>
               </li>
             </ul>
           </div>

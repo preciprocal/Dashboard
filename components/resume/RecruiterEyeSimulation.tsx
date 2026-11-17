@@ -224,10 +224,10 @@ export default function RecruiterEyeSimulation({
 
       {/* ── Company hiring profile (when company-research mode) ── */}
       {sim.companyProfile && (
-        <div className="glass-card p-5 border border-purple-500/15 bg-purple-500/[0.02]">
+        <div className="glass-card p-5 border border-white/[0.1] bg-white/[0.04]">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 bg-purple-500/15 border border-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Brain className="w-4 h-4 text-purple-400" />
+            <div className="w-9 h-9 bg-white/[0.05] border border-white/[0.1] rounded-lg flex items-center justify-center flex-shrink-0">
+              <Brain className="w-4 h-4 text-[var(--text-2)]" />
             </div>
             <div>
               <h3 className="text-sm font-semibold text-white">Hiring Manager Profile</h3>
@@ -236,18 +236,18 @@ export default function RecruiterEyeSimulation({
           </div>
           <div className="space-y-3">
             <div className="bg-white/[0.042] border border-white/[0.06] rounded-xl p-3.5">
-              <p className="text-[11px] text-purple-400 font-semibold uppercase tracking-wider mb-1.5">Company Hiring Culture</p>
+              <p className="text-[11px] text-[var(--text-2)] font-semibold uppercase tracking-wider mb-1.5">Company Hiring Culture</p>
               <p className="text-xs text-slate-300 leading-relaxed">{sim.companyProfile.hiringCulture}</p>
             </div>
             <div className="bg-white/[0.042] border border-white/[0.06] rounded-xl p-3.5">
-              <p className="text-[11px] text-purple-400 font-semibold uppercase tracking-wider mb-1.5">Hiring Manager Persona</p>
+              <p className="text-[11px] text-[var(--text-2)] font-semibold uppercase tracking-wider mb-1.5">Hiring Manager Persona</p>
               <p className="text-xs text-slate-300 leading-relaxed">{sim.companyProfile.hiringManagerPersona}</p>
             </div>
             <div>
               <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mb-1.5">What They Screen For</p>
               <div className="flex flex-wrap gap-1.5">
                 {sim.companyProfile.keyTraits.map((trait, i) => (
-                  <span key={i} className="text-[11px] px-2 py-0.5 rounded-lg bg-purple-500/10 border border-purple-500/15 text-purple-300 font-medium">{trait}</span>
+                  <span key={i} className="text-[11px] px-2 py-0.5 rounded-lg bg-white/[0.05] border border-white/[0.1] text-white font-medium">{trait}</span>
                 ))}
               </div>
             </div>
@@ -265,20 +265,20 @@ export default function RecruiterEyeSimulation({
 
       {/* ── Mode banner ── */}
       <div className={`glass-card p-4 border ${
-        sim.simulationMode === 'company-research' ? 'border-purple-500/20 bg-purple-500/[0.03]' :
+        sim.simulationMode === 'company-research' ? 'border-white/[0.1] bg-white/[0.04]' :
         sim.simulationMode === 'role-specific' ? 'border-blue-500/20 bg-blue-500/[0.03]' : 'border-white/[0.06]'
       }`}>
         <div className="flex items-start gap-3">
           <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
-            sim.simulationMode === 'company-research' ? 'bg-purple-500/15' : sim.simulationMode === 'role-specific' ? 'bg-blue-500/15' : 'bg-white/[0.06]'
+            sim.simulationMode === 'company-research' ? 'bg-white/[0.05]' : sim.simulationMode === 'role-specific' ? 'bg-blue-500/15' : 'bg-white/[0.06]'
           }`}>
             {sim.simulationMode === 'multi-perspective'
               ? <Users className="w-4 h-4 text-slate-400" />
-              : <Brain className={`w-4 h-4 ${sim.simulationMode === 'company-research' ? 'text-purple-400' : 'text-blue-400'}`} />}
+              : <Brain className={`w-4 h-4 ${sim.simulationMode === 'company-research' ? 'text-[var(--text-2)]' : 'text-blue-400'}`} />}
           </div>
           <div>
             <p className={`text-xs font-semibold mb-1 ${
-              sim.simulationMode === 'company-research' ? 'text-purple-400' : sim.simulationMode === 'role-specific' ? 'text-blue-400' : 'text-slate-300'
+              sim.simulationMode === 'company-research' ? 'text-[var(--text-2)]' : sim.simulationMode === 'role-specific' ? 'text-blue-400' : 'text-slate-300'
             }`}>
               {sim.simulationMode === 'company-research' ? 'Company Research Mode' : sim.simulationMode === 'role-specific' ? 'Role-Specific Simulation' : 'Multi-Perspective Analysis'}
             </p>
@@ -293,7 +293,7 @@ export default function RecruiterEyeSimulation({
               <div className="mt-2.5 space-y-1">
                 {sim.researchInsights.slice(0, 3).map((insight, i) => (
                   <p key={i} className="text-xs text-slate-400 flex items-start gap-1.5">
-                    <span className="text-purple-400 flex-shrink-0">•</span>{insight}
+                    <span className="text-[var(--text-2)] flex-shrink-0">•</span>{insight}
                   </p>
                 ))}
               </div>

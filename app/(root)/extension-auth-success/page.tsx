@@ -103,7 +103,7 @@ export default function ExtensionAuthSuccess() {
           <div className="mt-6">
             <div className="w-full bg-[var(--bg-raised)] rounded-full h-1 overflow-hidden">
               <div 
-                className="h-full bg-gradient-to-r from-purple-600 via-blue-600 to-green-600 rounded-full transition-all duration-1000 ease-linear"
+                className="h-full bg-white/70 rounded-full transition-all duration-1000 ease-linear"
                 style={{ 
                   width: closeBlocked ? '100%' : `${100 - (countdown / 3 * 100)}%`,
                   animation: 'shimmer 2s infinite'

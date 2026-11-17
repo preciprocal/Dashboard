@@ -70,16 +70,16 @@ interface Contact {
 
 function RoleBadge({ position }: { position: string; tier?: number }) {
   const pos = position.toLowerCase();
-  let label = ''; let cls = '';
-  if (/recruiter|talent|hr|people/.test(pos))                                                                     { label = 'Recruiter';   cls = 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'; }
-  else if (/ceo|founder|president|chief exec/.test(pos))                                                          { label = 'CEO/Founder'; cls = 'bg-amber-500/15 text-amber-400 border-amber-500/25'; }
-  else if (/cto|chief tech|vp of eng|vp eng/.test(pos))                                                          { label = 'CTO/VP Eng'; cls = 'bg-violet-500/15 text-violet-400 border-violet-500/25'; }
-  else if (/cpo|chief product/.test(pos))                                                                         { label = 'CPO';         cls = 'bg-blue-500/15 text-blue-400 border-blue-500/25'; }
-  else if (/director|vp /.test(pos))                                                                              { label = 'Director/VP'; cls = 'bg-indigo-500/15 text-indigo-400 border-indigo-500/25'; }
-  else if (/team lead|tech lead|lead data|lead ml|lead ai|lead software|lead engineer|technical lead/.test(pos)) { label = 'Team Lead';   cls = 'bg-cyan-500/15 text-cyan-400 border-cyan-500/25'; }
-  else if (/manager|principal|staff/.test(pos))                                                                   { label = 'Manager';     cls = 'bg-slate-500/15 text-slate-400 border-slate-500/25'; }
-  else                                                                                                            { label = 'Contact';     cls = 'bg-slate-500/15 text-slate-400 border-[var(--border-hover)]'; }
-  return <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold border ${cls}`}>{label}</span>;
+  let label = '';
+  if (/recruiter|talent|hr|people/.test(pos))                                                                     { label = 'Recruiter';   }
+  else if (/ceo|founder|president|chief exec/.test(pos))                                                          { label = 'CEO/Founder'; }
+  else if (/cto|chief tech|vp of eng|vp eng/.test(pos))                                                          { label = 'CTO/VP Eng'; }
+  else if (/cpo|chief product/.test(pos))                                                                         { label = 'CPO';         }
+  else if (/director|vp /.test(pos))                                                                              { label = 'Director/VP'; }
+  else if (/team lead|tech lead|lead data|lead ml|lead ai|lead software|lead engineer|technical lead/.test(pos)) { label = 'Team Lead';   }
+  else if (/manager|principal|staff/.test(pos))                                                                   { label = 'Manager';     }
+  else                                                                                                            { label = 'Contact';     }
+  return <span className="inline-flex items-center h-5 px-1.5 rounded-md text-[11px] font-medium text-[var(--text-2)] bg-white/[0.04] ring-1 ring-inset ring-white/[0.08]">{label}</span>;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────

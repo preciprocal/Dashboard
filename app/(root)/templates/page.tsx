@@ -193,7 +193,7 @@ function FilterDropdown({
                 onClick={() => { onChange(opt.value); setOpen(false); }}
                 className={`w-full px-4 py-2.5 text-left text-sm transition-colors cursor-pointer ${
                   value === opt.value
-                    ? 'bg-purple-500/20 text-purple-300'
+                    ? 'bg-white/[0.05] text-white'
                     : 'text-slate-300 hover:text-white hover:bg-white/[0.04]'
                 }`}>
                 {opt.label}

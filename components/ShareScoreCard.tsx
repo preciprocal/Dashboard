@@ -28,7 +28,7 @@ interface ShareScoreCardProps {
 
 function getScoreLabel(score: number) {
   if (score >= 90) return { label: "Exceptional", color: "#34d399", bg: "rgba(52,211,153,0.12)", border: "rgba(52,211,153,0.3)",  icon: <Trophy className="w-4 h-4" />,    grade: "A+" };
-  if (score >= 80) return { label: "Excellent",   color: "#818cf8", bg: "rgba(129,140,248,0.12)",border: "rgba(129,140,248,0.3)", icon: <Flame className="w-4 h-4" />,     grade: "A"  };
+  if (score >= 80) return { label: "Excellent",   color: "#a9b0f7", bg: "rgba(169,176,247,0.12)",border: "rgba(169,176,247,0.3)", icon: <Flame className="w-4 h-4" />,     grade: "A"  };
   if (score >= 70) return { label: "Strong",      color: "#60a5fa", bg: "rgba(96,165,250,0.12)", border: "rgba(96,165,250,0.3)",  icon: <TrendingUp className="w-4 h-4" />, grade: "B+" };
   if (score >= 55) return { label: "Good",        color: "#a78bfa", bg: "rgba(167,139,250,0.12)",border: "rgba(167,139,250,0.3)", icon: <Target className="w-4 h-4" />,    grade: "B"  };
   return              { label: "Improving",    color: "#f59e0b", bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.3)",  icon: <Zap className="w-4 h-4" />,       grade: "C"  };
@@ -94,12 +94,13 @@ export function ScoreCardVisual({
 }: Omit<ShareScoreCardProps, "interviewId" | "baseUrl">) {
   const sl = getScoreLabel(scores.overall);
 
-  // Always show 3 stat pills; fill with overall sub-metrics or computed fallbacks
-  const stats = [
-    { label: "Technical",     value: scores.technical      ?? Math.round(scores.overall * 0.95), color: "#818cf8" },
-    { label: "Communication", value: scores.communication  ?? Math.round(scores.overall * 1.05 > 100 ? 100 : scores.overall * 1.05), color: "#34d399" },
-    { label: "Problem Solving",value: scores.problemSolving ?? Math.round(scores.overall), color: "#60a5fa" },
-  ];
+  // Only the category scores the feedback actually has. A missing one is
+  // left out rather than estimated from the overall score.
+  const stats = ([
+    { label: "Technical",      value: scores.technical,      color: "#a9b0f7" },
+    { label: "Communication",  value: scores.communication,  color: "#34d399" },
+    { label: "Problem Solving", value: scores.problemSolving, color: "#60a5fa" },
+  ] as { label: string; value: number | undefined; color: string }[]).filter((x): x is { label: string; value: number; color: string } => typeof x.value === "number");
 
   const topStrengths = strengths && strengths.length > 0
     ? strengths.slice(0, 3)
@@ -152,8 +153,8 @@ export function ScoreCardVisual({
             padding: "6px 12px", borderRadius: "20px",
             background: "rgba(102,126,234,0.1)", border: "1px solid rgba(102,126,234,0.2)",
           }}>
-            <span style={{ color: "#818cf8", display: "flex" }}>{TYPE_ICONS[interviewType]}</span>
-            <span style={{ fontSize: "11px", color: "#818cf8", fontWeight: 600, letterSpacing: "0.04em" }}>
+            <span style={{ color: "#a9b0f7", display: "flex" }}>{TYPE_ICONS[interviewType]}</span>
+            <span style={{ fontSize: "11px", color: "#a9b0f7", fontWeight: 600, letterSpacing: "0.04em" }}>
               {TYPE_LABELS[interviewType]} Interview
             </span>
           </div>
@@ -208,9 +209,11 @@ export function ScoreCardVisual({
         <div style={{ height: "1px", background: "rgba(255,255,255,0.06)", margin: "0 0 20px" }} />
 
         {/* 3-stat row */}
+        {stats.length > 0 && (
         <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
           {stats.map((s) => <StatPill key={s.label} label={s.label} value={s.value} color={s.color} />)}
         </div>
+        )}
 
         {/* Strengths */}
         <div style={{ marginBottom: "24px" }}>
@@ -222,10 +225,10 @@ export function ScoreCardVisual({
               <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
                 <div style={{
                   width: "18px", height: "18px", borderRadius: "6px", flexShrink: 0, marginTop: "1px",
-                  background: "rgba(129,140,248,0.12)", border: "1px solid rgba(129,140,248,0.2)",
+                  background: "rgba(169,176,247,0.12)", border: "1px solid rgba(169,176,247,0.2)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}>
-                  <span style={{ fontSize: "10px", color: "#818cf8", fontWeight: 700 }}>✓</span>
+                  <span style={{ fontSize: "10px", color: "#a9b0f7", fontWeight: 700 }}>✓</span>
                 </div>
                 <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.55)", margin: 0, lineHeight: 1.5 }}>{s}</p>
               </div>
@@ -383,7 +386,7 @@ export default function ShareScoreCard(props: ShareScoreCardProps) {
             <button
               onClick={handleNativeShare}
               className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
-              style={{ background: "rgba(129,140,248,0.08)", border: "1px solid rgba(129,140,248,0.2)", color: "#818cf8" }}
+              style={{ background: "rgba(169,176,247,0.08)", border: "1px solid rgba(169,176,247,0.2)", color: "#a9b0f7" }}
             >
               <ExternalLink className="w-4 h-4" />
               Share via…

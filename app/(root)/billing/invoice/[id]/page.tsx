@@ -49,7 +49,7 @@ function CardPayment({ invoiceId, amount, onPaid }: { invoiceId: string; amount:
       {error && <p className="text-xs text-red-400">{error}</p>}
       <button type="button" onClick={pay} disabled={paying || !stripe}
         className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-40 cursor-pointer"
-        style={{ background: 'linear-gradient(135deg,#6366f1,#a855f7)' }}>
+        style={{ background: 'var(--accent)' }}>
         {paying ? 'Paying…' : `Pay ${amount}`}
       </button>
     </div>
@@ -116,7 +116,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
         <h1 className="text-xl font-semibold text-white">Sign in to view this invoice</h1>
         <p className="text-sm text-slate-400 mt-2">Invoices are only shown to the account they belong to.</p>
         <Link href={`/sign-in?redirect=${encodeURIComponent(`/billing/invoice/${id}`)}`}
-          className="inline-block mt-6 px-4 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: 'linear-gradient(135deg,#6366f1,#a855f7)' }}>
+          className="inline-block mt-6 px-4 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: 'var(--accent)' }}>
           Sign in
         </Link>
       </div>
@@ -160,7 +160,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
             </a>
           )}
           {open && (
-            <a href="#pay" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: 'linear-gradient(135deg,#6366f1,#a855f7)' }}>
+            <a href="#pay" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: 'var(--accent)' }}>
               <CreditCard className="w-4 h-4" /> Pay {amount}
             </a>
           )}
@@ -182,7 +182,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
             {inv.savedCard && !showCardEntry && (
               <button type="button" onClick={payWithSaved} disabled={paying}
                 className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-40 cursor-pointer"
-                style={{ background: 'linear-gradient(135deg,#6366f1,#a855f7)' }}>
+                style={{ background: 'var(--accent)' }}>
                 {paying ? 'Paying…' : `Pay with ${brandName(inv.savedCard.brand)} ending ${inv.savedCard.last4}`}
               </button>
             )}

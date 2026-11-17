@@ -920,7 +920,7 @@ Required: React, Node.js, Python, AWS..."
                         <div
                           className={`max-w-[85%] rounded-xl px-3 py-2 ${
                             msg.type === 'user'
-                              ? 'bg-purple-600 text-white'
+                              ? 'bg-white/[0.1] text-white'
                               : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700'
                           }`}
                         >

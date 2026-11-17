@@ -72,7 +72,7 @@ const ProfileInterviewCard: React.FC<ProfileInterviewCardProps> = ({
       description: "Leadership, communication, and cultural fit assessment",
     },
     Mixed: {
-      badge: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+      badge: "bg-white/[0.05] text-[var(--text-2)] border-white/[0.1]",
       description: "Combined technical and behavioral evaluation",
     },
     Technical: {
@@ -80,7 +80,7 @@ const ProfileInterviewCard: React.FC<ProfileInterviewCardProps> = ({
       description: "Technical knowledge and problem-solving assessment",
     },
     "System-design": {
-      badge: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+      badge: "bg-white/[0.05] text-[var(--text-2)] border-white/[0.1]",
       description: "System architecture and scalability design",
     },
     Coding: {
@@ -302,8 +302,8 @@ const ProfileInterviewCard: React.FC<ProfileInterviewCardProps> = ({
                   </div>
                   <div className="text-xs text-slate-400">Tech</div>
                 </div>
-                <div className="text-center p-2 glass-card border border-purple-500/20">
-                  <div className="text-sm font-semibold text-purple-400">
+                <div className="text-center p-2 glass-card border border-white/[0.1]">
+                  <div className="text-sm font-semibold text-[var(--text-2)]">
                     {feedback.problemSolving || 78}
                   </div>
                   <div className="text-xs text-slate-400">Problem</div>

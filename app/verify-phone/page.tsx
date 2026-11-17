@@ -130,7 +130,7 @@ export default function VerifyPhonePage() {
               {error && <p className="text-xs text-red-400">{error}</p>}
               <button onClick={sendCode} disabled={sending || phone.trim().length < 6}
                 className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}>
+                style={{ background: "var(--accent)" }}>
                 {sending
                   ? <span className="flex items-center justify-center gap-2"><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Sending…</span>
                   : "Send code"}
@@ -158,7 +158,7 @@ export default function VerifyPhonePage() {
               {error && <p className="text-xs text-red-400">{error}</p>}
               <button onClick={verify} disabled={verifying || code.length < 4}
                 className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}>
+                style={{ background: "var(--accent)" }}>
                 {verifying
                   ? <span className="flex items-center justify-center gap-2"><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Verifying…</span>
                   : "Verify and continue"}

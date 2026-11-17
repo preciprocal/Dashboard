@@ -299,7 +299,7 @@ function JobToolsContent() {
     return (
       <div className="flex items-center justify-center min-h-screen px-4">
         <div className="text-center">
-          <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-purple-500 animate-spin mx-auto mb-3 sm:mb-4" />
+          <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-[var(--text-2)] animate-spin mx-auto mb-3 sm:mb-4" />
           <p className="text-slate-400 text-sm sm:text-base">Authenticating...</p>
         </div>
       </div>
@@ -310,7 +310,7 @@ function JobToolsContent() {
     return (
       <div className="flex items-center justify-center min-h-screen px-4">
         <div className="text-center">
-          <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-purple-500 animate-spin mx-auto mb-3 sm:mb-4" />
+          <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-[var(--text-2)] animate-spin mx-auto mb-3 sm:mb-4" />
           <p className="text-slate-400 text-sm sm:text-base">Loading job data...</p>
           <p className="text-slate-400 text-xs mt-2">This may take a few seconds</p>
         </div>
@@ -376,7 +376,7 @@ function JobToolsContent() {
             <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-3 flex-wrap">
-                  <span className="px-3 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-400 text-xs font-semibold">{jobData.platform}</span>
+                  <span className="px-3 py-1 bg-white/[0.05] border border-white/[0.1] rounded-full text-[var(--text-2)] text-xs font-semibold">{jobData.platform}</span>
                   {jobData.jobType && jobData.jobType !== 'Not specified' && (
                     <span className="px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-blue-400 text-xs font-semibold">{jobData.jobType}</span>
                   )}
@@ -389,7 +389,7 @@ function JobToolsContent() {
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">{jobData.title}</h2>
                 <p className="text-lg sm:text-xl text-slate-300 mb-3 flex items-center gap-2">
-                  <Building2 className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0 text-purple-400" />
+                  <Building2 className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0 text-[var(--text-2)]" />
                   {jobData.company}
                 </p>
               </div>
@@ -402,7 +402,7 @@ function JobToolsContent() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
               {jobData.location && jobData.location !== 'Not specified' && (
                 <div className="glass-morphism p-3 rounded-lg border border-white/5">
-                  <div className="flex items-center gap-2 mb-1"><MapPin className="w-4 h-4 text-purple-400" /><span className="text-xs text-slate-400 font-medium">Location</span></div>
+                  <div className="flex items-center gap-2 mb-1"><MapPin className="w-4 h-4 text-[var(--text-2)]" /><span className="text-xs text-slate-400 font-medium">Location</span></div>
                   <p className="text-sm text-white font-medium">{jobData.location}</p>
                 </div>
               )}
@@ -444,7 +444,7 @@ function JobToolsContent() {
               )}
               {jobData.jobFunction && jobData.jobFunction !== 'Not specified' && (
                 <div className="glass-morphism p-3 rounded-lg border border-white/5">
-                  <div className="flex items-center gap-2 mb-1"><Award className="w-4 h-4 text-pink-400" /><span className="text-xs text-slate-400 font-medium">Job Function</span></div>
+                  <div className="flex items-center gap-2 mb-1"><Award className="w-4 h-4 text-[var(--text-2)]" /><span className="text-xs text-slate-400 font-medium">Job Function</span></div>
                   <p className="text-sm text-white font-medium">{jobData.jobFunction}</p>
                 </div>
               )}
@@ -452,7 +452,7 @@ function JobToolsContent() {
 
             {jobData.skills && jobData.skills.length > 0 && jobData.skills[0] !== 'Not specified' && (
               <div className="mb-4 pb-4 border-b border-[var(--border)]">
-                <div className="flex items-center gap-2 mb-3"><Award className="w-4 h-4 text-purple-400" /><h3 className="text-sm font-semibold text-slate-300">Required Skills</h3></div>
+                <div className="flex items-center gap-2 mb-3"><Award className="w-4 h-4 text-[var(--text-2)]" /><h3 className="text-sm font-semibold text-slate-300">Required Skills</h3></div>
                 <div className="flex flex-wrap gap-2">
                   {jobData.skills.map((skill, idx) => (
                     <span key={idx} className="px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-400 text-xs font-medium hover:bg-blue-500/20 transition-colors">{skill}</span>
@@ -475,7 +475,7 @@ function JobToolsContent() {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2"><FileText className="w-4 h-4 text-slate-400" /><h3 className="text-sm font-semibold text-slate-300">Job Description</h3></div>
-                <button onClick={() => setShowFullDescription(!showFullDescription)} className="text-xs text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1">
+                <button onClick={() => setShowFullDescription(!showFullDescription)} className="text-xs text-[var(--text-2)] hover:text-white transition-colors flex items-center gap-1">
                   {showFullDescription ? <><span>Show Less</span><ChevronUp className="w-3 h-3" /></> : <><span>Show More</span><ChevronDown className="w-3 h-3" /></>}
                 </button>
               </div>
@@ -528,7 +528,7 @@ function JobToolsContent() {
                   <div className="space-y-2.5 sm:space-y-3">
                     {results.resume.suggestions.map((suggestion, idx) => (
                       <div key={idx} className="flex gap-2 sm:gap-3 p-3 sm:p-4 glass-morphism rounded-xl hover-lift border border-white/5">
-                        <span className="text-purple-400 flex-shrink-0 font-bold">{idx + 1}.</span>
+                        <span className="text-[var(--text-2)] flex-shrink-0 font-bold">{idx + 1}.</span>
                         <span className="text-slate-300 text-xs sm:text-sm">{suggestion}</span>
                       </div>
                     ))}
@@ -545,8 +545,8 @@ function JobToolsContent() {
                 <div className="animate-fade-in-up">
                   {!results.coverLetter ? (
                     <div className="text-center py-8">
-                      <div className="w-16 h-16 bg-purple-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <MessageSquare className="w-8 h-8 text-purple-400" />
+                      <div className="w-16 h-16 bg-white/[0.05] rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <MessageSquare className="w-8 h-8 text-[var(--text-2)]" />
                       </div>
                       <h3 className="text-xl font-bold text-white mb-2">Generate Your Cover Letter</h3>
                       <p className="text-slate-400 mb-6 max-w-md mx-auto">Create a personalized cover letter tailored to this specific job posting.</p>
@@ -634,7 +634,7 @@ function JobToolsContent() {
                     {results.interviewQuestions.map((q, idx) => (
                       <div key={idx} className="glass-morphism p-4 sm:p-5 rounded-xl hover-lift border border-white/5">
                         <div className="flex items-start justify-between mb-2 sm:mb-3 gap-2">
-                          <span className="px-3 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-400 text-xs font-semibold">{q.category}</span>
+                          <span className="px-3 py-1 bg-white/[0.05] border border-white/[0.1] rounded-full text-[var(--text-2)] text-xs font-semibold">{q.category}</span>
                           <span className={`text-xs font-medium ${q.difficulty === 'Easy' ? 'text-emerald-400' : q.difficulty === 'Medium' ? 'text-amber-400' : 'text-red-400'}`}>{q.difficulty}</span>
                         </div>
                         <p className="text-white font-medium text-sm sm:text-base">{q.question}</p>
@@ -661,7 +661,7 @@ function JobToolsFallback() {
   return (
     <div className="flex items-center justify-center min-h-screen px-4">
       <div className="text-center">
-        <Loader2 className="w-10 h-10 text-purple-500 animate-spin mx-auto mb-4" />
+        <Loader2 className="w-10 h-10 text-[var(--text-2)] animate-spin mx-auto mb-4" />
         <p className="text-slate-400 text-sm">Loading...</p>
       </div>
     </div>

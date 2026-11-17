@@ -481,7 +481,7 @@ export default function SettingsPage() {
         {/* ════ ACCOUNT ════ */}
         {activeSection === 'account' && (
           <SectionCard>
-            <SectionHeader icon={User} iconColor="text-blue-400" iconBg="bg-blue-500/10 border-blue-500/20"
+            <SectionHeader icon={User} iconColor="text-[var(--text-2)]" iconBg="bg-white/[0.04] border-white/[0.08]"
               title="Account Overview" subtitle="Your profile and account details" />
             <div className="p-5 space-y-5">
               <div className="flex items-center gap-4 pb-5 border-b border-white/[0.06]">
@@ -556,7 +556,7 @@ export default function SettingsPage() {
         {/* ════ NOTIFICATIONS ════ */}
         {activeSection === 'notifications' && (
           <SectionCard>
-            <SectionHeader icon={Bell} iconColor="text-emerald-400" iconBg="bg-emerald-500/10 border-emerald-500/20"
+            <SectionHeader icon={Bell} iconColor="text-[var(--text-2)]" iconBg="bg-white/[0.04] border-white/[0.08]"
               title="Notification Preferences" subtitle="Changes are saved automatically" />
             <div className="p-5 space-y-2">
               {(
@@ -598,7 +598,7 @@ export default function SettingsPage() {
           <div className="space-y-4">
             {isGoogleUser ? (
               <SectionCard>
-                <SectionHeader icon={Shield} iconColor="text-orange-400" iconBg="bg-orange-500/10 border-orange-500/20"
+                <SectionHeader icon={Shield} iconColor="text-[var(--text-2)]" iconBg="bg-white/[0.04] border-white/[0.08]"
                   title="Security" subtitle="Your account security settings" />
                 <div className="p-5">
                   <div className="flex items-start gap-3 p-4 bg-white/[0.02] ring-1 ring-inset ring-white/[0.07] rounded-xl">
@@ -619,7 +619,7 @@ export default function SettingsPage() {
             ) : (
               <>
                 <SectionCard>
-                  <SectionHeader icon={Mail} iconColor="text-blue-400" iconBg="bg-blue-500/10 border-blue-500/20"
+                  <SectionHeader icon={Mail} iconColor="text-[var(--text-2)]" iconBg="bg-white/[0.04] border-white/[0.08]"
                     title="Email Address" subtitle="Update your sign-in email" />
                   <div className="p-5 space-y-3">
                     <FieldRow label="Current email">
@@ -648,7 +648,7 @@ export default function SettingsPage() {
                 </SectionCard>
 
                 <SectionCard>
-                  <SectionHeader icon={Lock} iconColor="text-orange-400" iconBg="bg-orange-500/10 border-orange-500/20"
+                  <SectionHeader icon={Lock} iconColor="text-[var(--text-2)]" iconBg="bg-white/[0.04] border-white/[0.08]"
                     title="Password" subtitle="Use a strong, unique password" />
                   <div className="p-5 space-y-3">
                     {[
@@ -702,7 +702,7 @@ export default function SettingsPage() {
         {activeSection === 'billing' && (
           <div className="space-y-4">
             <SectionCard>
-              <SectionHeader icon={CreditCard} iconColor="text-purple-400" iconBg="bg-purple-500/10 border-purple-500/20"
+              <SectionHeader icon={CreditCard} iconColor="text-[var(--text-2)]" iconBg="bg-white/[0.04] border-white/[0.08]"
                 title="Current Plan" subtitle="Your subscription and usage" />
               <div className="p-5 space-y-5">
                 <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.042] border border-white/[0.06]">
@@ -723,7 +723,7 @@ export default function SettingsPage() {
                               ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
                               : plan.tier === 'admin'
                               ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                              : 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                              : 'bg-white/[0.06] text-white border-white/[0.12]'
                           }`}>
                             {plan.tier === 'pro'        && <Star      className="w-2.5 h-2.5" />}
                             {plan.tier === 'enterprise' && <Building2 className="w-2.5 h-2.5" />}
@@ -791,7 +791,7 @@ export default function SettingsPage() {
                                    your limit", an empty one as "nothing used". */
                                 <div className="h-full w-full bg-[repeating-linear-gradient(45deg,rgba(148,163,184,0.18)_0_4px,transparent_4px_8px)]" />
                               ) : (
-                                <div className={`h-full rounded-full transition-all duration-500 ${near ? 'bg-amber-500/70' : 'bg-purple-500/70'}`}
+                                <div className={`h-full rounded-full transition-all duration-500 ${near ? 'bg-amber-500/70' : 'bg-white/70'}`}
                                   style={{ width: `${pct}%` }} />
                               )}
                             </div>
@@ -823,7 +823,7 @@ export default function SettingsPage() {
             )}
 
             <SectionCard>
-              <SectionHeader icon={CreditCard} iconColor="text-indigo-400" iconBg="bg-indigo-500/10 border-indigo-500/20"
+              <SectionHeader icon={CreditCard} iconColor="text-[var(--text-2)]" iconBg="bg-white/[0.04] border-white/[0.08]"
                 title="Payment and invoices" subtitle="Your card, your plan's renewal, and every invoice" />
               <div className="p-5">
                 <BillingPanel />
@@ -831,7 +831,7 @@ export default function SettingsPage() {
             </SectionCard>
 
             <SectionCard>
-              <SectionHeader icon={CreditCard} iconColor="text-indigo-400" iconBg="bg-indigo-500/10 border-indigo-500/20"
+              <SectionHeader icon={CreditCard} iconColor="text-[var(--text-2)]" iconBg="bg-white/[0.04] border-white/[0.08]"
                 title="Auto pay" subtitle="Charge your card each month, or get an invoice to pay yourself" />
               <div className="p-5">
                 <AutoPayPanel />
@@ -847,7 +847,7 @@ export default function SettingsPage() {
             <SendCreditsPanel />
 
             <SectionCard>
-              <SectionHeader icon={RotateCcw} iconColor="text-indigo-400" iconBg="bg-indigo-500/10 border-indigo-500/20"
+              <SectionHeader icon={RotateCcw} iconColor="text-[var(--text-2)]" iconBg="bg-white/[0.04] border-white/[0.08]"
                 title="Refunds" subtitle="Get money back on a subscription or an unused credit pack" />
               <div className="p-5">
                 <RefundPanel />
@@ -861,7 +861,7 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <ExtensionConnection />
             <SectionCard>
-              <SectionHeader icon={AlertCircle} iconColor="text-blue-400" iconBg="bg-blue-500/10 border-blue-500/20"
+              <SectionHeader icon={AlertCircle} iconColor="text-[var(--text-2)]" iconBg="bg-white/[0.04] border-white/[0.08]"
                 title="Setup Guide" subtitle="Get started in 4 steps" />
               <div className="p-5">
                 <ol className="space-y-3">
@@ -880,7 +880,7 @@ export default function SettingsPage() {
               </div>
             </SectionCard>
             <SectionCard>
-              <SectionHeader icon={Chrome} iconColor="text-emerald-400" iconBg="bg-emerald-500/10 border-emerald-500/20"
+              <SectionHeader icon={Chrome} iconColor="text-[var(--text-2)]" iconBg="bg-white/[0.04] border-white/[0.08]"
                 title="Extension Features" subtitle="What the extension can do for you" />
               <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {([
@@ -916,7 +916,7 @@ export default function SettingsPage() {
         {activeSection === 'danger' && (
           <div className="space-y-4">
             <SectionCard>
-              <SectionHeader icon={RefreshCw} iconColor="text-blue-400" iconBg="bg-blue-500/10 border-blue-500/20"
+              <SectionHeader icon={RefreshCw} iconColor="text-[var(--text-2)]" iconBg="bg-white/[0.04] border-white/[0.08]"
                 title="Export Your Data" subtitle="Download everything Preciprocal stores about you" />
               <div className="p-5">
                 <div className="flex items-start justify-between gap-4">

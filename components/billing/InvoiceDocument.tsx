@@ -56,7 +56,7 @@ export function InvoiceDocument({ inv }: { inv: InvoiceView }) {
 
   return (
     <article className="relative bg-white text-slate-900 rounded-2xl overflow-hidden shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] ring-1 ring-white/10">
-      <div className="h-1.5" style={{ background: 'linear-gradient(90deg,#6366f1,#a855f7)' }} />
+      <div className="h-1.5" style={{ background: 'var(--accent)' }} />
       <div className="px-6 sm:px-12 py-10">
         {/* Masthead */}
         <div className="flex items-start justify-between gap-6">

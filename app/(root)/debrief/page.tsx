@@ -437,7 +437,7 @@ function AIInsightsPanel({ entries }: { entries: DebriefEntry[] }) {
           )}
           {analysis.emotionalProfile && (
             <SectionCard>
-              <SectionHeader icon={Heart} title="Emotional Profile" accentClass="text-pink-400" />
+              <SectionHeader icon={Heart} title="Emotional Profile" accentClass="text-[var(--text-2)]" />
               <div className="grid grid-cols-2 gap-2.5 mb-3">
                 {[
                   { label: 'Usually before', val: analysis.emotionalProfile.dominantStateBefore },
@@ -1014,7 +1014,7 @@ export default function InterviewDebriefPage() {
                 </div>
               </SectionCard>
               <SectionCard>
-                <SectionHeader icon={Heart} title="Emotional State vs Performance" sub="Average self-score when you felt each way before" accentClass="text-pink-400" />
+                <SectionHeader icon={Heart} title="Emotional State vs Performance" sub="Average self-score when you felt each way before" accentClass="text-[var(--text-2)]" />
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                   {(Object.keys(EMOTIONAL_EMOJIS) as EmotionalState[]).map(emotion => {
                     const relevant = entries.filter(e => e.emotionalStateBefore === emotion);

@@ -70,8 +70,8 @@ const PLANS: Plan[] = [
     monthlyPrice: 9.99,
     description: "Everything an active job seeker needs.",
     cta: "Start Pro",
-    gradient: "from-indigo-600/20 to-purple-600/20",
-    border: "border-indigo-500/40",
+    gradient: "from-white/[0.04] to-white/[0.015]",
+    border: "border-white/[0.14]",
     popular: true,
     features: [
       ...planFeatureLines("pro"),
@@ -86,8 +86,8 @@ const PLANS: Plan[] = [
     monthlyPrice: 24.99,
     description: "Maximum power for serious candidates.",
     cta: "Start Premium",
-    gradient: "from-purple-600/20 to-pink-600/20",
-    border: "border-purple-500/30",
+    gradient: "from-white/[0.035] to-white/[0.015]",
+    border: "border-white/[0.08]",
     features: [
       ...planFeatureLines("premium"),
       { text: "Resume editor + PDF & Word export",  highlight: true },
@@ -391,7 +391,7 @@ function CheckoutFormInner({ plan, user, billedAmount, onSuccess, onClose }: Che
               <div className="flex items-start gap-2.5">
                 <button type="button" onClick={() => setAgreed(v => !v)}
                   className="mt-0.5 w-4 h-4 rounded flex-shrink-0 flex items-center justify-center transition-all"
-                  style={agreed ? { background: "linear-gradient(135deg,#6366f1,#a855f7)" } : { background: "transparent", border: "1px solid rgba(255,255,255,0.12)" }}>
+                  style={agreed ? { background: "var(--accent)" } : { background: "transparent", border: "1px solid rgba(255,255,255,0.12)" }}>
                   {agreed && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/>
                   </svg>}
@@ -407,7 +407,7 @@ function CheckoutFormInner({ plan, user, billedAmount, onSuccess, onClose }: Che
 
               <button type="submit" disabled={loading || !stripe || !ready || !agreed}
                 className="w-full py-3.5 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer"
-                style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}>
+                style={{ background: "var(--accent)" }}>
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Processing…
@@ -485,7 +485,7 @@ function AutoPayCheckbox({ checked, onChange, amount, firstChargeLabel }: {
       style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
       <button type="button" role="checkbox" aria-checked={checked} onClick={() => onChange(!checked)}
         className="mt-0.5 w-4 h-4 rounded flex-shrink-0 flex items-center justify-center transition-all cursor-pointer"
-        style={checked ? { background: "linear-gradient(135deg,#6366f1,#a855f7)" } : { background: "transparent", border: "1px solid rgba(255,255,255,0.18)" }}>
+        style={checked ? { background: "var(--accent)" } : { background: "transparent", border: "1px solid rgba(255,255,255,0.18)" }}>
         {checked && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/>
         </svg>}
@@ -569,7 +569,7 @@ function StudentCardStepInner({ clientSecret, onDone }: StudentCardStepProps) {
 
       <button onClick={submit} disabled={saving || !stripe}
         className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-        style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}>
+        style={{ background: "var(--accent)" }}>
         {saving
           ? <span className="flex items-center justify-center gap-2"><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Starting…</span>
           : "Start free month"}
@@ -693,7 +693,7 @@ function StudentModal({ onVerified, onClose }: StudentModalProps) {
               {error && <p className="text-xs text-red-400">{error}</p>}
               <button onClick={() => sendCode(false)} disabled={loading || !eduEmail}
                 className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}>
+                style={{ background: "var(--accent)" }}>
                 {loading
                   ? <span className="flex items-center justify-center gap-2"><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Sending…</span>
                   : "Send code"}
@@ -730,7 +730,7 @@ function StudentModal({ onVerified, onClose }: StudentModalProps) {
               {error && <p className="text-xs text-red-400">{error}</p>}
               <button onClick={verifyCode} disabled={verifying || code.length < 6}
                 className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}>
+                style={{ background: "var(--accent)" }}>
                 {verifying
                   ? <span className="flex items-center justify-center gap-2"><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Verifying…</span>
                   : "Claim free month"}
@@ -775,7 +775,7 @@ function SuccessOverlay({ plan, isStudent, onDone }: { plan: Plan; isStudent: bo
         </div>
         <h3 className="text-xl font-bold text-white mb-2">{isStudent ? "Your free month is active" : `You're on ${plan.name}`}</h3>
         <p className="text-slate-400 text-sm mb-4">{isStudent ? "Enjoy full Pro access for 30 days on us." : "Your subscription is active. All features are unlocked."}</p>
-        <button onClick={onDone} className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white cursor-pointer" style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}>
+        <button onClick={onDone} className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white cursor-pointer" style={{ background: "var(--accent)" }}>
           Start using Preciprocal
         </button>
       </div>

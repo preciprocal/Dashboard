@@ -7,11 +7,11 @@ import { toast } from "sonner";
 import { supabase } from "@/supabase/client";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, Eye, EyeOff, KeyRound, Loader2, AlertCircle } from "lucide-react";
 
 import { Form } from "@/components/ui/form";
-import { Button } from "@/components/ui/button";
 import logo from "@/public/logo.png";
 
 const resetPasswordSchema = z.object({
@@ -21,6 +21,24 @@ const resetPasswordSchema = z.object({
   message: "Passwords don't match",
   path: ["confirmPassword"],
 });
+
+/** The page frame shared by every state: logo, one card, a way back. */
+function Shell({ children }: { children: ReactNode }) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-10 bg-[var(--bg)]">
+      <div className="flex items-center gap-2.5 mb-8">
+        <Image src={logo} alt="Preciprocal" width={32} height={32} className="w-8 h-8 rounded-[9px]" priority />
+        <span className="font-display text-[17px] font-semibold tracking-[-0.01em] text-white">Preciprocal</span>
+      </div>
+      <div className="w-full max-w-[420px] rounded-2xl bg-[#151618] shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_24px_60px_-16px_rgba(0,0,0,0.8)] p-6 sm:p-8">
+        {children}
+      </div>
+      <Link href="/sign-in" className="mt-6 inline-flex items-center gap-1.5 text-[13px] text-[var(--text-3)] hover:text-white transition-colors">
+        <ArrowLeft className="w-3.5 h-3.5" /> Back to sign in
+      </Link>
+    </div>
+  );
+}
 
 const ResetPasswordPage = () => {
   const router = useRouter();
@@ -57,7 +75,7 @@ const ResetPasswordPage = () => {
         return;
       }
 
-      toast.success("Password reset successfully! You can now sign in with your new password.");
+      toast.success("Password reset. You can now sign in with your new password.");
       setTimeout(() => router.push("/sign-in"), 2000);
     } catch (error) {
       console.error("Password reset error:", error);
@@ -69,300 +87,76 @@ const ResetPasswordPage = () => {
 
   if (hasSession === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--bg)]">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-white/40 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400">Verifying reset link...</p>
+      <Shell>
+        <div className="flex items-center justify-center gap-2 py-6 text-[13.5px] text-[var(--text-3)]">
+          <Loader2 className="w-4 h-4 animate-spin" /> Checking your reset link
         </div>
-      </div>
+      </Shell>
     );
   }
 
   if (!hasSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] p-8">
-        <div className="max-w-md w-full text-center">
-          <div className="mb-8">
-            <Image 
-              src={logo} 
-              alt="Preciprocal" 
-              width={64} 
-              height={64} 
-              className="rounded-2xl mx-auto mb-4"
-              priority
-            />
-            <h1 className="text-2xl font-bold text-white mb-2">Invalid Reset Link</h1>
-            <p className="text-slate-400">
-              This password reset link is invalid or has expired.
-            </p>
-          </div>
-
-          <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-6 mb-6">
-            <svg className="w-16 h-16 text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p className="text-slate-400 text-sm">
-              Password reset links expire after 1 hour for security reasons.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <Link
-              href="/forgot-password"
-              className="block w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] font-semibold py-3 rounded-lg transition-all duration-200 shadow-[var(--shadow-btn)] hover:shadow-[var(--shadow-btn)]"
-            >
-              Request new reset link
-            </Link>
-            <Link
-              href="/sign-in"
-              className="block w-full text-center py-3 text-slate-400 hover:text-slate-300 font-medium transition-colors"
-            >
-              Back to sign in
-            </Link>
-          </div>
-        </div>
-      </div>
+      <Shell>
+        <span className="w-11 h-11 rounded-xl flex items-center justify-center bg-rose-500/10 ring-1 ring-inset ring-rose-500/20 mb-5">
+          <AlertCircle className="w-5 h-5 text-rose-300" />
+        </span>
+        <h1 className="font-display text-[22px] font-semibold tracking-[-0.02em] text-white">This link no longer works</h1>
+        <p className="text-[13.5px] text-[var(--text-3)] mt-2">The reset link is invalid or has expired. Ask for a new one and use it soon after it arrives.</p>
+        <Link href="/forgot-password" className="btn-primary w-full justify-center mt-6">Request a new link</Link>
+      </Shell>
     );
   }
 
+  const label = "block text-[12.5px] font-medium text-[var(--text-2)] mb-1.5";
+  const eye = "absolute inset-y-0 right-0 px-3 flex items-center text-[var(--text-4)] hover:text-white transition-colors";
+
   return (
-    <div className="min-h-screen flex bg-[var(--bg)]">
-      {/* Left Side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[var(--bg)] relative overflow-hidden">
-        {/* Subtle Grid Pattern */}
-        <div className="absolute inset-0 opacity-[0.02]" style={{
-          backgroundImage: `linear-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px),
-                           linear-gradient(90deg, rgba(148, 163, 184, 0.1) 1px, transparent 1px)`,
-          backgroundSize: '50px 50px'
-        }}></div>
+    <Shell>
+      <span className="w-11 h-11 rounded-xl flex items-center justify-center bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] mb-5">
+        <KeyRound className="w-5 h-5 text-[var(--text-2)]" />
+      </span>
+      <h1 className="font-display text-[22px] font-semibold tracking-[-0.02em] text-white">Create a new password</h1>
+      <p className="text-[13.5px] text-[var(--text-3)] mt-1.5">
+        {email ? <>For <span className="text-[var(--text-1)]">{email}</span>. At least 6 characters.</> : "At least 6 characters."}
+      </p>
 
-        {/* Animated Background Elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          
-          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-white/[0.035] rounded-full blur-2xl animate-pulse" style={{ animationDelay: "4s" }}></div>
-        </div>
-
-        {/* Geometric Accents */}
-        <div className="absolute top-20 right-20 w-32 h-32 border border-[var(--border)] rounded-2xl rotate-12 opacity-20"></div>
-        <div className="absolute bottom-40 left-20 w-24 h-24 border border-[var(--border)] rounded-full opacity-20"></div>
-
-        {/* Content */}
-        <div className="relative z-10 flex flex-col justify-center px-16 text-white">
-          <div className="mb-12">
-            <div className="flex items-center space-x-4 mb-8">
-              <Image 
-                src={logo} 
-                alt="Preciprocal" 
-                width={56} 
-                height={56} 
-                className="rounded-2xl shadow-2xl"
-                priority
-              />
-              <h1 className="text-5xl font-black tracking-tight text-white">Preciprocal</h1>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-6">
+          <div>
+            <label htmlFor="rp-password" className={label}>New password</label>
+            <div className="relative">
+              <input id="rp-password" {...form.register("password")} type={showPassword ? "text" : "password"} autoComplete="new-password"
+                className="field !pr-11" disabled={isLoading} />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className={eye} aria-label={showPassword ? "Hide password" : "Show password"}>
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
-            <h2 className="text-4xl font-bold mb-5 leading-tight tracking-tight text-white">
-              Create a New Password
-            </h2>
-            <p className="text-lg text-slate-400 leading-relaxed max-w-lg">
-              Choose a strong password to keep your account secure.
-            </p>
+            {form.formState.errors.password && <p className="text-rose-300 text-[12.5px] mt-1.5">{form.formState.errors.password.message}</p>}
           </div>
 
-          {/* Security Tips */}
-          <div className="space-y-3 mt-8">
-            <div className="group p-5 bg-white/[0.035] hover:bg-white/[0.072] border border-[var(--border)] rounded-xl transition-all duration-300 backdrop-blur-sm">
-              <div className="flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center flex-shrink-0 group-hover:bg-white/[0.07] transition-all">
-                  <svg className="w-5 h-5 text-[var(--text-1)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-base text-white mb-1">Minimum 6 Characters</h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">Use a strong, unique password</p>
-                </div>
-              </div>
+          <div>
+            <label htmlFor="rp-confirm" className={label}>Confirm new password</label>
+            <div className="relative">
+              <input id="rp-confirm" {...form.register("confirmPassword")} type={showConfirmPassword ? "text" : "password"} autoComplete="new-password"
+                className="field !pr-11" disabled={isLoading} />
+              <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className={eye} aria-label={showConfirmPassword ? "Hide password" : "Show password"}>
+                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
-
-            <div className="group p-5 bg-white/[0.035] hover:bg-white/[0.072] border border-[var(--border)] rounded-xl transition-all duration-300 backdrop-blur-sm">
-              <div className="flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-500/20 transition-all">
-                  <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-base text-white mb-1">Mix It Up</h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">Use letters, numbers, and symbols</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="group p-5 bg-white/[0.035] hover:bg-white/[0.072] border border-[var(--border)] rounded-xl transition-all duration-300 backdrop-blur-sm">
-              <div className="flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-cyan-500/20 transition-all">
-                  <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-base text-white mb-1">Avoid Common Passwords</h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">Don&apos;t use easily guessable words</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Right Side - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[var(--bg)]">
-        <div className="w-full max-w-md">
-          {/* Mobile Logo */}
-          <div className="lg:hidden text-center mb-8">
-            <div className="flex items-center justify-center space-x-3 mb-4">
-              <Image 
-                src={logo} 
-                alt="Preciprocal" 
-                width={48} 
-                height={48} 
-                className="rounded-xl"
-                priority
-              />
-              <h1 className="text-3xl font-black text-white">Preciprocal</h1>
-            </div>
+            {form.formState.errors.confirmPassword && <p className="text-rose-300 text-[12.5px] mt-1.5">{form.formState.errors.confirmPassword.message}</p>}
           </div>
 
-          {/* Form Header */}
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-white mb-2">
-              Create new password
-            </h2>
-            <p className="text-slate-400 mb-1">
-              Enter a new password for your account
-            </p>
-            {email && (
-              <p className="text-sm text-[var(--text-1)] font-semibold">
-                {email}
-              </p>
-            )}
-          </div>
+          <button type="submit" disabled={isLoading} className="btn-primary w-full !h-11 justify-center">
+            {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving</> : "Reset password"}
+          </button>
+        </form>
+      </Form>
 
-          {/* Form */}
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  New Password
-                </label>
-                <div className="relative">
-                  <input
-                    {...form.register("password")}
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    className="field !pr-12"
-                    disabled={isLoading}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-300"
-                  >
-                    {showPassword ? (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-                {form.formState.errors.password && (
-                  <p className="text-red-400 text-sm mt-2">
-                    {form.formState.errors.password.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Confirm New Password
-                </label>
-                <div className="relative">
-                  <input
-                    {...form.register("confirmPassword")}
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    className="field !pr-12"
-                    disabled={isLoading}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-300"
-                  >
-                    {showConfirmPassword ? (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-                {form.formState.errors.confirmPassword && (
-                  <p className="text-red-400 text-sm mt-2">
-                    {form.formState.errors.confirmPassword.message}
-                  </p>
-                )}
-              </div>
-
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] font-semibold py-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border-0 shadow-[var(--shadow-btn)] hover:shadow-[var(--shadow-btn)]"
-              >
-                {isLoading ? (
-                  <div className="flex items-center justify-center space-x-2">
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    <span>Resetting password...</span>
-                  </div>
-                ) : (
-                  <span>Reset password</span>
-                )}
-              </Button>
-            </form>
-          </Form>
-
-          {/* Back to Sign In */}
-          <div className="mt-6">
-            <Link
-              href="/sign-in"
-              className="flex items-center justify-center space-x-2 text-sm text-slate-400 hover:text-slate-300 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              <span>Back to sign in</span>
-            </Link>
-          </div>
-
-          {/* Help Text */}
-          <p className="mt-8 text-center text-xs text-slate-400">
-            Having trouble? Contact our{" "}
-            <Link href="/help" className="text-slate-400 hover:text-slate-300 underline">
-              support team
-            </Link>
-          </p>
-        </div>
-      </div>
-    </div>
+      <p className="mt-6 text-center text-[12px] text-[var(--text-4)]">
+        Having trouble? <Link href="/help" className="text-[var(--text-2)] underline underline-offset-2 decoration-white/25 hover:decoration-white/70">Contact support</Link>
+      </p>
+    </Shell>
   );
 };
 

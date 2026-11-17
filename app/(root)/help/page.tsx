@@ -190,7 +190,7 @@ function FileTypeIcon({ type }: { type: string }) {
   // Aliased on import: lucide's icon is named Image, which shadows next/image
   // and makes jsx-a11y/alt-text flag it as an <img> with no alt.
   if (type.startsWith('image/')) return <ImageIcon className="w-3.5 h-3.5 text-blue-400" />;
-  return <File className="w-3.5 h-3.5 text-purple-400" />;
+  return <File className="w-3.5 h-3.5 text-[var(--text-2)]" />;
 }
 
 // ─── Inner component ──────────────────────────────────────────────────────────

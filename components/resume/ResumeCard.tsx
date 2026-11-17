@@ -269,13 +269,13 @@ const ResumeCardInner = memo(function ResumeCard({
     return (
       <>
         {showDeleteModal && <DeleteModal />}
-        <div className={`glass-card transition-all duration-300 hover:border-purple-500/20 ${className}`}>
+        <div className={`glass-card transition-all duration-300 hover:border-white/[0.14] ${className}`}>
           <div className="p-5 flex items-center gap-5">
             <Link href={`/resume/${resume.id}`} className="flex-shrink-0">
               <div className="w-12 h-16 rounded-lg overflow-hidden bg-[var(--bg-raised)] border border-white/10 relative flex items-center justify-center"><Thumbnail small /></div>
             </Link>
             <Link href={`/resume/${resume.id}`} className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold text-white truncate hover:text-purple-300 transition-colors duration-200">{resume.companyName || resume.jobTitle || 'Resume Analysis'}</h3>
+              <h3 className="text-sm font-semibold text-white truncate hover:text-white transition-colors duration-200">{resume.companyName || resume.jobTitle || 'Resume Analysis'}</h3>
               {resume.jobTitle && resume.companyName && <p className="text-xs text-slate-400 truncate mt-0.5">{resume.jobTitle}</p>}
               <div className="flex items-center gap-1 mt-1.5 text-slate-500 text-xs"><Calendar className="w-3 h-3" /><span>{formatDate(resume.createdAt)}</span></div>
             </Link>
@@ -299,7 +299,7 @@ const ResumeCardInner = memo(function ResumeCard({
   return (
     <>
       {showDeleteModal && <DeleteModal />}
-      <div className={`relative glass-card overflow-hidden transition-all duration-300 hover:border-purple-500/30 hover:-translate-y-1  ${className}`}>
+      <div className={`relative glass-card overflow-hidden transition-all duration-300 hover:border-white/[0.14] hover:-translate-y-1  ${className}`}>
         <div className="px-5 pt-5 pb-3 flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-semibold text-white truncate leading-tight">{resume.companyName || resume.jobTitle || 'Resume Analysis'}</h3>

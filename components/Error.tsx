@@ -53,7 +53,7 @@ export default function ErrorPage({
       case 'NETWORK':
         return <Wifi className="w-16 h-16 text-blue-400" />;
       case 'DATABASE':
-        return <Database className="w-16 h-16 text-purple-400" />;
+        return <Database className="w-16 h-16 text-[var(--text-2)]" />;
       default:
         return <AlertTriangle className="w-16 h-16 text-red-400" />;
     }
@@ -69,7 +69,7 @@ export default function ErrorPage({
       case 'NETWORK':
         return 'bg-blue-500/10';
       case 'DATABASE':
-        return 'bg-purple-500/10';
+        return 'bg-white/[0.05]';
       default:
         return 'bg-red-500/10';
     }

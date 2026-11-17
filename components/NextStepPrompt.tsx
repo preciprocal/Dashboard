@@ -96,9 +96,9 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
         {
           id: 'mock-interview',
           icon: Mic,
-          accentColor: 'text-violet-400',
-          accentBg: 'bg-violet-500/[0.08]',
-          accentBorder: 'border-violet-500/25',
+          accentColor: 'text-[var(--text-2)]',
+          accentBg: 'bg-white/[0.04]',
+          accentBorder: 'border-white/[0.1]',
           headline: `Practice a mock interview for ${role}`,
           sub: lowScore
             ? `Your resume scored ${ctx.score}/100. Interviewers will probe the exact gaps it shows - get ahead of them now.`
@@ -122,9 +122,9 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
         {
           id: 'job-tracker',
           icon: Briefcase,
-          accentColor: 'text-purple-400',
-          accentBg: 'bg-purple-500/[0.08]',
-          accentBorder: 'border-purple-500/25',
+          accentColor: 'text-[var(--text-2)]',
+          accentBg: 'bg-white/[0.04]',
+          accentBorder: 'border-white/[0.1]',
           headline: 'Track jobs you\'re applying to',
           sub: 'Don\'t let applications fall through the cracks. Add the roles you\'re targeting and monitor every stage.',
           cta: 'Open Job Tracker',
@@ -151,9 +151,9 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
         {
           id: 'job-tracker',
           icon: Briefcase,
-          accentColor: 'text-purple-400',
-          accentBg: 'bg-purple-500/[0.08]',
-          accentBorder: 'border-purple-500/25',
+          accentColor: 'text-[var(--text-2)]',
+          accentBg: 'bg-white/[0.04]',
+          accentBorder: 'border-white/[0.1]',
           headline: `Track your ${co} application`,
           sub: `Add this to your tracker so you never miss a follow-up. It reminds you when a follow-up is due.`,
           cta: 'Add to Tracker',
@@ -163,9 +163,9 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
         {
           id: 'mock-interview',
           icon: Mic,
-          accentColor: 'text-violet-400',
-          accentBg: 'bg-violet-500/[0.08]',
-          accentBorder: 'border-violet-500/25',
+          accentColor: 'text-[var(--text-2)]',
+          accentBg: 'bg-white/[0.04]',
+          accentBorder: 'border-white/[0.1]',
           headline: `Prepare for the ${co} interview`,
           sub: `Don\'t wait for the callback to start prepping. Practice now while the job description is fresh in your head.`,
           cta: 'Practice Interview',
@@ -192,9 +192,9 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
         {
           id: 'study-plan',
           icon: BookOpen,
-          accentColor: 'text-violet-400',
-          accentBg: 'bg-violet-500/[0.08]',
-          accentBorder: 'border-violet-500/25',
+          accentColor: 'text-[var(--text-2)]',
+          accentBg: 'bg-white/[0.04]',
+          accentBorder: 'border-white/[0.1]',
           headline: `Build a prep plan for ${role}`,
           sub: `Set an interview date and get a personalised day-by-day prep plan. Each day has its own topics and tasks.`,
           cta: 'Create Study Plan',
@@ -223,9 +223,9 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
         {
           id: 'study-plan',
           icon: BookOpen,
-          accentColor: 'text-violet-400',
-          accentBg: 'bg-violet-500/[0.08]',
-          accentBorder: 'border-violet-500/25',
+          accentColor: 'text-[var(--text-2)]',
+          accentBg: 'bg-white/[0.04]',
+          accentBorder: 'border-white/[0.1]',
           headline: rejected
             ? `Turn this rejection into your next offer`
             : `Keep the momentum - build a prep plan`,
@@ -299,9 +299,9 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
         {
           id: 'job-tracker',
           icon: Briefcase,
-          accentColor: 'text-purple-400',
-          accentBg: 'bg-purple-500/[0.08]',
-          accentBorder: 'border-purple-500/25',
+          accentColor: 'text-[var(--text-2)]',
+          accentBg: 'bg-white/[0.04]',
+          accentBorder: 'border-white/[0.1]',
           headline: `Track this ${co} opportunity`,
           sub: `You\'ve sent outreach - now monitor it. Add ${co} to your tracker to follow up at the right time.`,
           cta: 'Track Application',
@@ -330,9 +330,9 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
         {
           id: 'study-plan',
           icon: Target,
-          accentColor: 'text-violet-400',
-          accentBg: 'bg-violet-500/[0.08]',
-          accentBorder: 'border-violet-500/25',
+          accentColor: 'text-[var(--text-2)]',
+          accentBg: 'bg-white/[0.04]',
+          accentBorder: 'border-white/[0.1]',
           headline: lowScore
             ? `Build a plan to fix ${weak}`
             : `Lock in your gains with a structured plan`,
