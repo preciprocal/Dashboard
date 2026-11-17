@@ -28,13 +28,18 @@ import type { FeatureType } from "@/lib/config/usage-limits";
 // A pack that spans phases makes that choice harder, which is why cover
 // letters were removed from interview_boost and cold outreach was added to
 // networking_pack.
-export type PackKey =
+export type SinglePackKey =
   | "starter_pack"
   | "job_applications"
   | "application_boost"
   | "networking_pack"
   | "prep_pack"
   | "interview_boost";
+
+/** A 4-person version of a pack: everyone in the group gets the full set. */
+export type GroupPackKey = `group_${SinglePackKey}`;
+
+export type PackKey = SinglePackKey | GroupPackKey;
 
 export interface PackDefinition {
   key: PackKey;
@@ -48,9 +53,16 @@ export interface PackDefinition {
   /** True while the price is derived from an unverified cost estimate. */
   provisionalPricing?: boolean;
   description: string;
+  /**
+   * Set on group packs: how many people the pack is for, the buyer included.
+   * Each of them gets the full `grants` (lib/packs/groups.ts).
+   */
+  seats?: number;
+  /** On a group pack, the single pack it is a version of. */
+  base?: SinglePackKey;
 }
 
-export const PACKS: Record<PackKey, PackDefinition> = {
+const SINGLE_PACKS: Record<SinglePackKey, PackDefinition> = {
   starter_pack: {
     key: "starter_pack",
     name: "Starter Pack",
@@ -179,6 +191,48 @@ export const PACKS: Record<PackKey, PackDefinition> = {
     description: "Two more practice interviews.",
   },
 };
+
+// ── Group packs ──────────────────────────────────────────────────────────────
+//
+// For friends job hunting together. The buyer gets the full pack and an
+// invite link; up to three people who open it and sign in get the full pack
+// too (lib/packs/groups.ts). So a group pack costs us four packs to serve.
+//
+// 25% off four singles ($19.96 -> $14.99), which keeps each above 50% after
+// cost and Stripe fees; Group Starter is the tightest at about 53% (four mock
+// interviews). Interview Boost is the exception: eight Premium-length
+// interviews cost about $10.27, so 25% off ($19.49) would return about 43%.
+// $22.49 (about 13% off) returns about 50%. If its grant changes, re-price.
+export const GROUP_SEATS = 4;
+
+const GROUP_PRICE_USD: Record<SinglePackKey, number> = {
+  starter_pack: 14.99,
+  job_applications: 14.99,
+  application_boost: 14.99,
+  networking_pack: 14.99,
+  prep_pack: 14.99,
+  interview_boost: 22.49,
+};
+
+const GROUP_PACKS = Object.fromEntries(
+  (Object.keys(SINGLE_PACKS) as SinglePackKey[]).map((k) => {
+    const p = SINGLE_PACKS[k];
+    const key = `group_${k}` as GroupPackKey;
+    return [key, {
+      ...p,
+      key,
+      name: `Group ${p.name}`,
+      priceUsd: GROUP_PRICE_USD[k],
+      seats: GROUP_SEATS,
+      base: k,
+      description: `For ${GROUP_SEATS} people: you and 3 friends each get the full pack.`,
+    } satisfies PackDefinition];
+  }),
+) as Record<GroupPackKey, PackDefinition>;
+
+export const PACKS: Record<PackKey, PackDefinition> = { ...SINGLE_PACKS, ...GROUP_PACKS };
+
+export const isGroupPack = (key: string): key is GroupPackKey => key.startsWith("group_") && key in PACKS;
 
 /**
  * Stripe one-time Price id for a pack.

@@ -9,6 +9,7 @@ import { recordCancellation, recordReactivation } from "@/lib/subscription/react
 import { recordCouponStudentPerk } from "@/lib/subscription/student-coupon";
 import { planFromPriceId, warnUnknownPrice } from "@/lib/config/stripe-prices";
 import { grantPack } from "@/lib/packs/grant";
+import { ensureGroup } from "@/lib/packs/groups";
 import { claimEvent, confirmEvent, releaseEvent } from "@/lib/stripe/event-ledger";
 import { periodOf, subscriptionIdOfInvoice } from "@/lib/stripe/compat";
 import {
@@ -277,6 +278,13 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     stripePaymentIntentId: paymentIntentId,
     amountCents,
   });
+
+  // A group pack's invite link. On a redelivery too, in case the first
+  // attempt granted the credits but failed here. Never blocks the grant: the
+  // Settings panel makes a missing group on first load.
+  if (outcome.packId && (outcome.status === "granted" || outcome.status === "duplicate")) {
+    await ensureGroup(supabaseUserId, outcome.packId, packKey).catch(err => console.error(`⚠️ group for pack ${outcome.packId}:`, err));
+  }
 
   switch (outcome.status) {
     case "granted":

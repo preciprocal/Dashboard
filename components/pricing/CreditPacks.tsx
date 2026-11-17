@@ -13,7 +13,7 @@ import { useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe-js";
 import { stripePromise } from "@/lib/stripe/client";
-import { PACKS, type PackKey } from "@/lib/config/packs";
+import { PACKS, GROUP_SEATS, type PackKey, type SinglePackKey } from "@/lib/config/packs";
 import { featureLabel } from "@/lib/config/plan-features";
 import type { FeatureType } from "@/lib/config/usage-limits";
 
@@ -24,7 +24,7 @@ import type { FeatureType } from "@/lib/config/usage-limits";
 // Order follows PACKS in lib/config/packs.ts - starter, applying, networking,
 // interviewing - which is the order people actually move through.
 const PACK_STYLE: Record<
-  PackKey,
+  SinglePackKey,
   { phase: string; gradient: string; border: string; accent: string; icon: React.ReactNode }
 > = {
   starter_pack: {
@@ -96,7 +96,9 @@ export default function CreditPacks({ user }: CreditPacksProps) {
   // env vars, which are server-only and would read as undefined in the browser,
   // making every pack look unconfigured. The purchase route runs that check
   // where the values actually exist.
-  const packs = (Object.keys(PACKS) as PackKey[]).map((k) => PACKS[k]);
+  // Just me, or a group of four (each person gets the full pack).
+  const [group, setGroup] = useState(false);
+  const packs = (Object.keys(PACKS) as PackKey[]).map((k) => PACKS[k]).filter((p) => !!p.seats === group);
 
   const buy = async (key: PackKey) => {
     if (!user) { window.location.href = "/sign-in?redirect=/pricing"; return; }
@@ -170,6 +172,22 @@ export default function CreditPacks({ user }: CreditPacksProps) {
         </p>
       </div>
 
+      <div className="flex justify-center mb-8">
+        <div role="radiogroup" aria-label="Who the pack is for" className="inline-flex p-1 rounded-xl bg-white/[0.04] ring-1 ring-inset ring-white/[0.08]">
+          {[{ v: false, t: "Just me" }, { v: true, t: `Group of ${GROUP_SEATS}` }].map((o) => (
+            <button key={o.t} type="button" role="radio" aria-checked={group === o.v} onClick={() => setGroup(o.v)}
+              className={`h-9 px-4 rounded-lg text-[13px] font-medium transition-colors cursor-pointer ${group === o.v ? "bg-white/[0.1] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]" : "text-slate-400 hover:text-white"}`}>
+              {o.t}
+            </button>
+          ))}
+        </div>
+      </div>
+      {group && (
+        <p className="-mt-4 mb-8 text-center text-[13px] text-slate-400 max-w-xl mx-auto">
+          You and 3 friends each get the full pack. After you buy, share the invite link from Settings, Plan and Billing. Friends sign in to join.
+        </p>
+      )}
+
       {notice && (
         <div className="mb-6 mx-auto max-w-2xl p-4 rounded-2xl border border-amber-500/20 bg-amber-500/5 flex items-start gap-3">
           <svg className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -181,7 +199,7 @@ export default function CreditPacks({ user }: CreditPacksProps) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 w-full">
         {packs.map((pack) => {
-          const style   = PACK_STYLE[pack.key];
+          const style   = PACK_STYLE[pack.base ?? (pack.key as SinglePackKey)];
           const isBusy  = busy === pack.key;
           const entries = Object.entries(pack.grants) as [FeatureType, number][];
 
@@ -208,9 +226,11 @@ export default function CreditPacks({ user }: CreditPacksProps) {
               <div className="mb-5">
                 <div className="flex items-end gap-1.5 flex-wrap">
                   <span className="text-4xl font-bold text-white">${pack.priceUsd}</span>
-                  <span className="text-slate-400 text-sm mb-1.5">one time</span>
+                  <span className="text-slate-400 text-sm mb-1.5">{pack.seats ? `for ${pack.seats} people` : "one time"}</span>
                 </div>
-                <p className="text-xs text-slate-400 mt-1">No subscription, never expires</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {pack.seats ? `About $${(pack.priceUsd / pack.seats).toFixed(2)} each, one time, never expires` : "No subscription, never expires"}
+                </p>
               </div>
 
               {/* The list sits ABOVE the button here, unlike the plan cards
@@ -219,6 +239,7 @@ export default function CreditPacks({ user }: CreditPacksProps) {
                   a large empty tail while its neighbour is full. flex-1 on the
                   list absorbs that difference instead, and every card's CTA
                   lands on the same line. */}
+              {pack.seats && <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2.5">Each person gets</p>}
               <ul className="space-y-2.5 flex-1 mb-6">
                 {entries.map(([feature, qty]) => (
                   <li key={feature} className="flex items-start gap-2.5">

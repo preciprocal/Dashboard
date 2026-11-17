@@ -28,7 +28,8 @@ import { z } from "zod";
 import { getAuthedUser } from "@/lib/auth/verify-request";
 import { applyRateLimit } from "@/lib/ai/rate-limit";
 import { supabaseAdmin } from "@/supabase/admin";
-import { PACKS, type PackKey } from "@/lib/config/packs";
+import { PACKS, isGroupPack, type PackKey } from "@/lib/config/packs";
+import { groupHasMembers } from "@/lib/packs/groups";
 import { feesFor } from "@/lib/refund/fees";
 
 export const runtime = "nodejs";
@@ -66,13 +67,13 @@ export async function GET(req: NextRequest) {
     .order("purchased_at", { ascending: false })
     .limit(50);
 
-  const items = (packs ?? []).map((p) => {
+  const items = await Promise.all((packs ?? []).map(async (p) => {
     const row = p as PackRow;
-    const reason = ineligibilityReason(row);
+    const reason = ineligibilityReason(row, await joinedGroup(row));
     return {
       packId: row.id,
       packKey: row.pack_key,
-      name: row.stripe_payment_intent_id ? (PACKS[row.pack_key as PackKey]?.name ?? row.pack_key) : "Bonus credits",
+      name: row.stripe_payment_intent_id || isGroupPack(row.pack_key) ? (PACKS[row.pack_key as PackKey]?.name ?? row.pack_key) : "Bonus credits",
       priceCents: row.price_cents,
       purchasedAt: row.purchased_at,
       used: row.first_used_at !== null,
@@ -81,7 +82,7 @@ export async function GET(req: NextRequest) {
       // Shown to the user, so it explains rather than just refusing.
       reason,
     };
-  });
+  }));
 
   return NextResponse.json({ packs: items, windowDays: PACK_REFUND_WINDOW_DAYS });
 }
@@ -112,7 +113,7 @@ export async function POST(req: NextRequest) {
     }
 
     const row    = pack as PackRow;
-    const reason = ineligibilityReason(row);
+    const reason = ineligibilityReason(row, await joinedGroup(row));
     if (reason) {
       return NextResponse.json({ refunded: false, reason }, { status: 409 });
     }
@@ -210,8 +211,15 @@ export async function POST(req: NextRequest) {
  * conditions are identical and must stay that way; the SQL is the record of
  * intent, this is the same rule with an explanation attached.
  */
-function ineligibilityReason(row: PackRow): string | null {
+/** A paid group pack that someone has joined: its credits went to them too. */
+async function joinedGroup(row: PackRow): Promise<boolean> {
+  return !!row.stripe_payment_intent_id && isGroupPack(row.pack_key) && !row.refunded_at && await groupHasMembers(row.id);
+}
+
+function ineligibilityReason(row: PackRow, joined = false): string | null {
   if (row.refunded_at) return "This pack has already been refunded.";
+  if (!row.stripe_payment_intent_id && isGroupPack(row.pack_key)) return "A friend shared this group pack with you, so there is nothing to refund.";
+  if (joined) return "Someone has joined this group pack, so it can no longer be returned.";
   // Bonus credits from the team (granted in the ERP) were never paid for.
   if (!row.stripe_payment_intent_id) return "These are bonus credits from our team, so there is nothing to refund.";
 

@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import AnimatedLoader from '@/components/loader/AnimatedLoader';
 import ExtensionConnection from '@/components/ExtensionConnection';
 import RefundPanel from '@/components/billing/RefundPanel';
+import GroupPacksPanel from '@/components/billing/GroupPacksPanel';
 import AutoPayPanel from '@/components/billing/AutoPayPanel';
 import BillingPanel from '@/components/billing/BillingPanel';
 import DevicesPanel from '@/components/settings/DevicesPanel';
@@ -841,6 +842,8 @@ export default function SettingsPage() {
                 complete and tested with nothing calling them, so the 30-day
                 guarantee advertised on the pricing page was real in code and
                 unreachable in the product. */}
+            <GroupPacksPanel />
+
             <SectionCard>
               <SectionHeader icon={RotateCcw} iconColor="text-indigo-400" iconBg="bg-indigo-500/10 border-indigo-500/20"
                 title="Refunds" subtitle="Get money back on a subscription or an unused credit pack" />
