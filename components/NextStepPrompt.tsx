@@ -45,7 +45,7 @@ import Link from 'next/link';
 import {
   ArrowRight, X, FileText, Mic, Mail, BookOpen,
   Briefcase, Send, Target, ChevronRight,
-  Sparkles, TrendingUp,
+  Sparkles,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -114,7 +114,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           accentBg: 'bg-indigo-500/[0.08]',
           accentBorder: 'border-indigo-500/25',
           headline: 'Write a targeted cover letter',
-          sub: 'Your resume is ready. A tailored cover letter using the same job description doubles your callback rate.',
+          sub: 'Your resume is ready. Write a cover letter from the same job description, so the two tell one story.',
           cta: 'Generate Cover Letter',
           href: '/cover-letter/create',
           isPrimary: false,
@@ -143,7 +143,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           accentBg: 'bg-emerald-500/[0.08]',
           accentBorder: 'border-emerald-500/25',
           headline: `Find the hiring manager at ${co}`,
-          sub: `You have the letter. Now send it to the right person. Cold applications get a 2% response rate - direct outreach gets 27%.`,
+          sub: `You have the letter. Now find the right person to send it to at the company.`,
           cta: 'Find Contacts',
           href: '/job-tracker',
           isPrimary: true,
@@ -155,7 +155,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           accentBg: 'bg-purple-500/[0.08]',
           accentBorder: 'border-purple-500/25',
           headline: `Track your ${co} application`,
-          sub: `Add this to your tracker so you never miss a follow-up. Most offers go to candidates who follow up - once.`,
+          sub: `Add this to your tracker so you never miss a follow-up. It reminds you when a follow-up is due.`,
           cta: 'Add to Tracker',
           href: '/job-tracker',
           isPrimary: false,
@@ -184,7 +184,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           accentBg: 'bg-indigo-500/[0.08]',
           accentBorder: 'border-indigo-500/25',
           headline: `Write a cover letter for ${co}`,
-          sub: `You\'ve committed to applying. A targeted letter takes 30 seconds to generate here and meaningfully improves your odds.`,
+          sub: `You\'ve committed to applying. Write a letter for this role from its job description.`,
           cta: 'Generate Cover Letter',
           href: '/cover-letter/create',
           isPrimary: true,
@@ -196,7 +196,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           accentBg: 'bg-violet-500/[0.08]',
           accentBorder: 'border-violet-500/25',
           headline: `Build a prep plan for ${role}`,
-          sub: `Set an interview date and get a personalised day-by-day prep plan. Structured prep beats cramming every time.`,
+          sub: `Set an interview date and get a personalised day-by-day prep plan. Each day has its own topics and tasks.`,
           cta: 'Create Study Plan',
           href: '/planner',
           isPrimary: false,
@@ -208,7 +208,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           accentBg: 'bg-emerald-500/[0.08]',
           accentBorder: 'border-emerald-500/25',
           headline: `Find a contact at ${co}`,
-          sub: `80% of jobs are filled via networking. Find the recruiter or hiring manager now - before you even apply.`,
+          sub: `Find the recruiter or hiring manager now, before you apply.`,
           cta: 'Find Contacts',
           href: '/job-tracker',
           isPrimary: false,
@@ -303,7 +303,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           accentBg: 'bg-purple-500/[0.08]',
           accentBorder: 'border-purple-500/25',
           headline: `Track this ${co} opportunity`,
-          sub: `You\'ve sent outreach - now monitor it. Add ${co} to your tracker to follow up at the right time. Follow-ups get 25% more replies.`,
+          sub: `You\'ve sent outreach - now monitor it. Add ${co} to your tracker to follow up at the right time.`,
           cta: 'Track Application',
           href: '/job-tracker',
           isPrimary: true,
@@ -350,7 +350,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           accentBg: 'bg-blue-500/[0.08]',
           accentBorder: 'border-blue-500/25',
           headline: `Practice ${weak} again`,
-          sub: `Deliberate repetition is the only thing that actually builds interview skill. One more focused session today beats three rushed ones tomorrow.`,
+          sub: `Run another session on the same role and compare the feedback.`,
           cta: 'Practice Again',
           href: '/interview/create',
           isPrimary: false,
@@ -362,7 +362,7 @@ function buildSteps(trigger: NextStepTrigger, ctx: NextStepContext): Step[] {
           accentBg: 'bg-amber-500/[0.08]',
           accentBorder: 'border-amber-500/25',
           headline: 'Log this as a real interview debrief',
-          sub: `If this was a real interview, log it in your debrief journal. AI will find patterns across all your interviews and tell you what\'s actually holding you back.`,
+          sub: `If this was a real interview, log it in your debrief journal. Across several entries, it points out the patterns in what you were asked and how it went.`,
           cta: 'Log Debrief',
           href: '/debrief',
           isPrimary: false,
@@ -430,13 +430,13 @@ export default function NextStepPrompt({
         {/* Header */}
         <div className="px-5 pt-5 pb-4 border-b border-white/[0.05]">
           <div className="flex items-center gap-2 mb-1">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            <p className="text-[13px] font-bold text-indigo-300 uppercase tracking-wider">
+            <Sparkles className="w-3.5 h-3.5 text-[var(--text-3)]" />
+            <p className="text-[12px] font-medium text-[var(--text-3)] uppercase tracking-[0.08em]">
               {customHeadline || 'What\'s next in your job search?'}
             </p>
           </div>
           <p className="text-sm text-slate-300 leading-relaxed">
-            Keep the momentum going - here&apos;s your logical next move.
+            A good next step from here.
           </p>
         </div>
 
@@ -444,15 +444,15 @@ export default function NextStepPrompt({
 
           {/* Primary card */}
           <Link href={primary.href} className="block group">
-            <div className={`relative rounded-xl p-4 border ${primary.accentBg} ${primary.accentBorder} transition-all duration-200 hover:brightness-110`}>
+            <div className={`relative rounded-xl p-4 border bg-white/[0.03] border-white/[0.09] transition-colors duration-200 hover:bg-white/[0.05]`}>
               <div className="absolute top-3 right-3">
                 <span className="text-[11px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-white/[0.08] text-slate-400">
                   Recommended
                 </span>
               </div>
               <div className="flex items-start gap-3 pr-20">
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${primary.accentBg} border ${primary.accentBorder}`}>
-                  <PrimaryIcon className={`w-4 h-4 ${primary.accentColor}`} />
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-white/[0.05] border border-white/[0.08]`}>
+                  <PrimaryIcon className="w-4 h-4 text-[var(--text-2)]" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-base font-semibold text-white mb-1 leading-snug">{primary.headline}</p>
@@ -460,17 +460,9 @@ export default function NextStepPrompt({
                 </div>
               </div>
               <div className="mt-4 flex items-center gap-3">
-                <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-150 group-hover:-translate-y-0.5 group-hover:shadow-lg ${
-                  primary.accentColor === 'text-violet-400' ? 'bg-[var(--accent)] ' :
-                  primary.accentColor === 'text-emerald-400' ? 'bg-emerald-600 ' :
-                  primary.accentColor === 'text-indigo-400'  ? 'bg-[var(--accent)] ' :
-                  primary.accentColor === 'text-blue-400'    ? 'bg-[var(--accent)] ' :
-                  primary.accentColor === 'text-amber-400'   ? 'bg-gradient-to-r from-amber-600 to-orange-600 ' :
-                  'bg-[var(--accent)] '
-                }`}>
+                <span className="btn-primary !h-9 !text-[13px]">
                   {primary.cta} <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                 </span>
-                <span className="text-[13px] text-slate-400">Takes 30 seconds</span>
               </div>
             </div>
           </Link>
@@ -490,9 +482,9 @@ export default function NextStepPrompt({
                   // mt-auto then pins the call to action to the bottom of
                   // whichever card is taller, so both CTAs sit on one line.
                   <Link key={step.id} href={step.href} className="block group h-full">
-                    <div className={`flex h-full items-start gap-3 p-3.5 rounded-xl border ${step.accentBorder} bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-150`}>
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${step.accentBg}`}>
-                        <Icon className={`w-3.5 h-3.5 ${step.accentColor}`} />
+                    <div className={`flex h-full items-start gap-3 p-3.5 rounded-xl border border-white/[0.07] bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-150`}>
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/[0.05]`}>
+                        <Icon className="w-3.5 h-3.5 text-[var(--text-2)]" />
                       </div>
                       <div className="flex flex-1 min-w-0 flex-col">
                         {/* Clamped for the same reason the body is: these are
@@ -501,11 +493,11 @@ export default function NextStepPrompt({
                             of the whole row. */}
                         <p className="text-[15px] font-semibold text-white leading-snug mb-1 line-clamp-2">{step.headline}</p>
                         <p className="text-sm text-slate-300 leading-relaxed line-clamp-3 mb-2.5">{step.sub}</p>
-                        <span className={`mt-auto inline-flex items-center gap-1 text-[13px] font-semibold ${step.accentColor} group-hover:gap-1.5 transition-all`}>
+                        <span className={`mt-auto inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--text-1)] group-hover:gap-1.5 transition-all`}>
                           {step.cta} <ArrowRight className="w-2.5 h-2.5" />
                         </span>
                       </div>
-                      <ChevronRight className={`w-3.5 h-3.5 ${step.accentColor} flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity`} />
+                      <ChevronRight className={`w-3.5 h-3.5 text-[var(--text-3)] flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity`} />
                     </div>
                   </Link>
                 );
@@ -513,16 +505,6 @@ export default function NextStepPrompt({
             </div>
           )}
 
-        </div>
-
-        {/* Progress indicator - subtle visual of the job search journey */}
-        <div className="px-5 pb-4 pt-1">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-3 h-3 text-slate-500 flex-shrink-0" />
-            <p className="text-[13px] text-slate-400">
-              Each step you complete increases your interview odds - most offers go to candidates who used 3+ tools.
-            </p>
-          </div>
         </div>
 
       </div>
