@@ -13,6 +13,7 @@ import PageHeader from '@/components/PageHeader';
 import AutoApplyDetailsNotice from '@/components/apply/AutoApplyDetailsNotice';
 import { useExtensionStatus, extensionStoreUrl } from '@/lib/extension';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
+import { CompanyLogo, useCompanyLogos } from '@/components/jobs/CompanyLogo';
 
 interface Usage {
   totals: { jobsTracked: number; fromLinkedIn: number; autoTracked: number; coverLetters: number; reachedInterview: number; offers: number };
@@ -53,6 +54,7 @@ export default function ExtensionPage() {
     return () => { alive = false; };
   }, [user, authLoading]);
 
+  const logos = useCompanyLogos((usage?.recentJobs ?? []).filter(j => j.company).map(j => ({ company: j.company!, url: j.url })));
   const installed = ext.status === 'installed';
   const loading = !usage && !error;
   const t = usage?.totals;
@@ -159,46 +161,27 @@ export default function ExtensionPage() {
         </div>
       </section>
 
-      {/* Recent */}
-      <section className="glass-card grid grid-cols-1 lg:grid-cols-2 overflow-hidden">
-        <div className="p-5 sm:p-6" aria-labelledby="jobs-h">
-          <div className="flex items-center justify-between mb-3">
-            <h2 id="jobs-h" className="text-[15px] font-semibold text-white">Recent jobs</h2>
-            <Link href="/job-tracker" className="text-[12.5px] font-medium text-[var(--text-3)] hover:text-white inline-flex items-center gap-1">Job tracker <ArrowRight className="w-3.5 h-3.5" /></Link>
-          </div>
-          {loading ? <ListSkeleton /> : usage && usage.recentJobs.length > 0 ? (
-            <ul className="divide-y divide-white/[0.06]">
-              {usage.recentJobs.map(j => (
-                <li key={j.id} className="flex items-center gap-3 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13.5px] font-medium text-white truncate">{j.jobTitle || 'Untitled role'}</p>
-                    <p className="text-[12px] text-[var(--text-3)] truncate">{j.company || 'Unknown company'} · {j.platform} · {fmtDate(j.createdAt)}</p>
-                  </div>
-                  <span className="text-[11.5px] font-medium text-[var(--text-2)] bg-white/[0.04] ring-1 ring-inset ring-white/[0.07] px-2 py-0.5 rounded-md flex-shrink-0">{STATUS_LABEL[j.status ?? ''] ?? 'Applied'}</span>
-                  {j.url && <a href={j.url} target="_blank" rel="noopener noreferrer" aria-label="Open job posting" className="text-[var(--text-4)] hover:text-white flex-shrink-0"><ExternalLink className="w-3.5 h-3.5" /></a>}
-                </li>
-              ))}
-            </ul>
-          ) : <EmptyList text="Save a job on LinkedIn or apply on a supported site and it appears here." />}
+      {/* Recent jobs */}
+      <section className="glass-card p-5 sm:p-6" aria-labelledby="jobs-h">
+        <div className="flex items-center justify-between mb-3">
+          <h2 id="jobs-h" className="text-[15px] font-semibold text-white">Recent jobs</h2>
+          <Link href="/job-tracker" className="text-[12.5px] font-medium text-[var(--text-3)] hover:text-white inline-flex items-center gap-1">Job tracker <ArrowRight className="w-3.5 h-3.5" /></Link>
         </div>
-        <div className="p-5 sm:p-6 border-t lg:border-t-0 lg:border-l border-[var(--border)]" aria-labelledby="letters-h">
-          <div className="flex items-center justify-between mb-3">
-            <h2 id="letters-h" className="text-[15px] font-semibold text-white">Recent cover letters</h2>
-            <Link href="/cover-letter" className="text-[12.5px] font-medium text-[var(--text-3)] hover:text-white inline-flex items-center gap-1">Cover letters <ArrowRight className="w-3.5 h-3.5" /></Link>
-          </div>
-          {loading ? <ListSkeleton /> : usage && usage.recentCoverLetters.length > 0 ? (
-            <ul className="divide-y divide-white/[0.06]">
-              {usage.recentCoverLetters.map(l => (
-                <li key={l.id} className="py-3">
-                  <Link href={`/cover-letter?open=${l.id}`} className="block group">
-                    <p className="text-[13.5px] font-medium text-white truncate group-hover:text-[#c5cbf5]">{l.jobRole || 'Cover letter'}</p>
-                    <p className="text-[12px] text-[var(--text-3)] truncate">{l.company || 'Unknown company'} · {fmtDate(l.createdAt)}</p>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : <EmptyList text="Cover letters you write from a job posting appear here." />}
-        </div>
+        {loading ? <ListSkeleton /> : usage && usage.recentJobs.length > 0 ? (
+          <ul className="grid grid-cols-1 lg:grid-cols-2 lg:gap-x-10">
+            {usage.recentJobs.map(j => (
+              <li key={j.id} className="flex items-center gap-3 py-3 border-t border-white/[0.06] first:border-t-0 lg:[&:nth-child(2)]:border-t-0">
+                <CompanyLogo company={j.company || '?'} domain={j.company ? logos[j.company] : null} size={36} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13.5px] font-medium text-white truncate">{j.jobTitle || 'Untitled role'}</p>
+                  <p className="text-[12px] text-[var(--text-3)] truncate">{j.company || 'Unknown company'} · {j.platform} · {fmtDate(j.createdAt)}</p>
+                </div>
+                <span className="text-[11.5px] font-medium text-[var(--text-2)] bg-white/[0.04] ring-1 ring-inset ring-white/[0.07] px-2 py-0.5 rounded-md flex-shrink-0">{STATUS_LABEL[j.status ?? ''] ?? 'Applied'}</span>
+                {j.url && <a href={j.url} target="_blank" rel="noopener noreferrer" aria-label="Open job posting" className="text-[var(--text-4)] hover:text-white flex-shrink-0"><ExternalLink className="w-3.5 h-3.5" /></a>}
+              </li>
+            ))}
+          </ul>
+        ) : <EmptyList text="Save a job on LinkedIn or apply on a supported site and it appears here." />}
       </section>
 
       {/* How it works */}
