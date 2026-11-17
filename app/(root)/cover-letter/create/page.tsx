@@ -6,7 +6,7 @@ import { Pen as HeaderIcon } from 'lucide-react';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  FileText, Sparkles, Download, Copy, Check, AlertCircle,
+  FileText, Download, Copy, Check, AlertCircle,
   Wand2, Loader2, ArrowRight,
   CheckCircle2, RefreshCw, ChevronDown,
   Save, History, FileDown, ExternalLink, Shield,
@@ -69,99 +69,31 @@ const inp = 'field';
 // ─── Tips / facts ─────────────────────────────────────────────────────────────
 
 const COVER_LETTER_FACTS = [
-  "🎯 Recruiters spend just 7.4 seconds on your cover letter - start with a bang, not 'I am writing to apply...'",
-  "🔥 The magic formula: Problem they have → Your solution → Proof it worked.",
-  "💰 Mentioning '$500K revenue increase' beats saying 'increased revenue' - numbers = credibility!",
-  "🎪 Cover letters with a brief personal story get 60% more callbacks than generic ones.",
-  "🚀 'Achieved, Led, Created' >> 'Responsible for, Worked on, Helped with' - own your wins!",
-  "📱 80% of cover letters are now read on mobile first - keep paragraphs short and punchy.",
-  "🎭 Mirror their vibe: Startup? Be conversational. Corporate? Polish it up.",
-  "⚡ The 3-paragraph play: 1) Why you're excited 2) Why you're qualified 3) What's next",
-  "🔍 Check their 'About' page or latest blog post for insider intel.",
-  "💡 End with confidence: 'I look forward to discussing…' NOT 'I hope to hear from you…'",
-  "🎯 Tailor-made > Template. 20 mins customizing beats 50 generic letters.",
-  "📊 Addressing hiring managers by name gets 2× more responses.",
-  "✨ Show don't tell: 'Built an app used by 10K users' >> 'I'm a skilled developer'",
+  "Open with why this company and this role, not with 'I am writing to apply'.",
+  "A useful shape: a problem they have, what you did about something like it, and how it went.",
+  "Use the numbers from your own resume. A specific result reads better than a general claim.",
+  "Lead with verbs like built, led and created rather than 'responsible for'.",
+  "Keep paragraphs short. Many people read letters on a phone.",
+  "Match the company's tone: plainer for a startup, more formal for a large firm.",
+  "Three paragraphs is enough: why them, why you, and what happens next.",
+  "Their About page or a recent post often gives you one specific line to mention.",
+  "Address the hiring manager by name when you can find it.",
 ];
 
 // ─── Upgrade Gate ─────────────────────────────────────────────────────────────
 
 function UpgradeGate({ used, limit }: { used: number; limit: number }) {
-  const [activeStat, setActiveStat] = useState(0);
-
-  const STATS = [
-    { num: '83%',  line: 'of hiring managers read cover letters - even when optional' },
-    { num: '1.9×', line: 'more interviews when you send a tailored letter' },
-    { num: '94%',  line: 'say cover letters influence who gets the interview' },
-    { num: '81%',  line: 'of recruiters have rejected someone based on their letter alone' },
-  ];
-
-  useEffect(() => {
-    const t = setInterval(() => setActiveStat(i => (i + 1) % STATS.length), 4000);
-    return () => clearInterval(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
-    <div className="space-y-3 animate-fade-in-up">
-      <div className="relative overflow-hidden rounded-2xl border border-white/[0.08]
-                      bg-[var(--bg-surface)]">
-        <div className="absolute -top-24 -right-24 w-56 h-56 rounded-full
-                        bg-white/[0.02] blur-3xl pointer-events-none" />
-        <div className="relative p-6">
-          <div className="inline-flex items-center gap-1.5 bg-amber-500/[0.08] border border-amber-500/20
-                          rounded-full px-3 py-1 mb-4">
-            <Sparkles className="w-3 h-3 text-amber-400" />
-            <span className="text-xs font-semibold text-amber-400">
-              {used}/{limit} letters used
-            </span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-2">
-            Your next interview is one letter away.
-          </h2>
-          <p className="text-sm text-slate-400 mb-6 max-w-md">
-            You&apos;ve built momentum - don&apos;t let a limit decide where your job search stops.
-          </p>
-          <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06]
-                          rounded-xl px-5 py-4 mb-6 min-h-[64px]">
-            <span className="text-3xl font-black text-[#a9b0f7] flex-shrink-0 w-16 text-center">
-              {STATS[activeStat].num}
-            </span>
-            <span className="text-sm text-slate-400 leading-snug">
-              {STATS[activeStat].line}
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/pricing"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-                         text-sm font-bold text-[var(--on-primary)]
-                         bg-[var(--primary)]
-                         hover:bg-[var(--primary-hover)]
-                         
-                         
-                         transition-all group"
-            >
-              Get More
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-            <span className="text-[11px] text-slate-500">Cancel anytime · Instant access</span>
-          </div>
-        </div>
+    <section className="glass-card p-6 sm:p-8 animate-fade-in-up">
+      <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11.5px] font-medium text-[var(--text-2)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" aria-hidden="true" />{used} of {limit} cover letters used this month
+      </span>
+      <h2 className="font-display text-[22px] sm:text-[26px] font-semibold tracking-[-0.02em] text-white mt-4">You have used this month&apos;s cover letters</h2>
+      <p className="text-[13.5px] text-[var(--text-3)] mt-2 max-w-lg">Your limit resets on your billing date. Upgrade for more now, or buy a pack. Letters written in the Apply flow use your tailored applications instead.</p>
+      <div className="flex flex-wrap gap-2 mt-6">
+        <Link href="/pricing" className="btn-primary">See plans <ArrowRight className="w-4 h-4" /></Link>
       </div>
-      <div className="grid grid-cols-3 gap-2.5">
-        {[
-          { num: '83%',   label: 'read your letter'      },
-          { num: '1.9×',  label: 'more callbacks'         },
-          { num: '35.8%', label: 'offer rate with letters' },
-        ].map(s => (
-          <div key={s.num} className="glass-card py-4 text-center">
-            <p className="text-xl font-black text-[#a9b0f7]">{s.num}</p>
-            <p className="text-xs text-slate-400 mt-1">{s.label}</p>
-          </div>
-        ))}
-      </div>
-    </div>
+    </section>
   );
 }
 

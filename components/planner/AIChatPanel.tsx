@@ -247,7 +247,7 @@ export default function AIChatPanel({ planId }: AIChatPanelProps) {
     {
       id: 'welcome',
       role: 'assistant',
-      content: "👋 Hi! I'm your AI interview coach powered by Gemini 2.0 Flash. I can help you with:\n\n• Explaining technical concepts\n• Generating practice questions\n• Evaluating your mock answers\n• Providing study tips and strategies\n\nWhat would you like help with today?",
+      content: "Hi, I'm your AI interview coach. I can help you with:\n\n• Explaining technical concepts\n• Generating practice questions\n• Evaluating your mock answers\n• Providing study tips and strategies\n\nWhat would you like help with today?",
       timestamp: new Date().toISOString()
     }
   ]);

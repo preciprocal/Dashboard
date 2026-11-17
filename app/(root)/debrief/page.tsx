@@ -142,13 +142,13 @@ const OUTCOME_LABELS: Record<InterviewOutcome, string> = {
   rejected:        'Rejected',
   ghosted:         'Ghosted',
   withdrew:        'Withdrew',
-  offer:           '🎉 Offer!',
+  offer:           'Offer',
   practice:        'Practice',
 };
 
 const EMOTIONAL_EMOJIS: Record<EmotionalState, string> = {
-  confident: '😎', nervous: '😰', neutral: '😐',
-  excited: '🤩', anxious: '😟', exhausted: '😓',
+  confident: 'Confident', nervous: 'Nervous', neutral: 'Neutral',
+  excited: 'Excited', anxious: 'Anxious', exhausted: 'Exhausted',
 };
 
 const SEVERITY_COLORS: Record<AIWeakness['severity'], string> = {
@@ -907,8 +907,7 @@ export default function InterviewDebriefPage() {
                         <div className="grid grid-cols-3 gap-1.5">
                           {(Object.keys(EMOTIONAL_EMOJIS) as EmotionalState[]).map(e => (
                             <button key={e} type="button" aria-pressed={formData[field] === e} onClick={() => setFormData(p => ({ ...p, [field]: e }))} className={pick(formData[field] === e)}>
-                              <span className="block text-lg leading-none mb-1">{EMOTIONAL_EMOJIS[e]}</span>
-                              <span className="block leading-none capitalize">{e}</span>
+                              <span className="block leading-none">{EMOTIONAL_EMOJIS[e]}</span>
                             </button>
                           ))}
                         </div>
@@ -1024,9 +1023,9 @@ export default function InterviewDebriefPage() {
                     const clr      = avg >= 75 ? 'text-emerald-400' : avg >= 50 ? 'text-amber-400' : 'text-red-400';
                     return (
                       <div key={emotion} className="p-3 bg-white/[0.03] border border-white/[0.07] rounded-xl">
-                        <div className="text-2xl mb-1">{EMOTIONAL_EMOJIS[emotion]}</div>
-                        <p className={`text-[14px] font-bold ${clr}`}>{avg}%</p>
-                        <p className="text-xs text-slate-500 capitalize">{emotion} ({relevant.length}×)</p>
+                        <p className="text-[12.5px] text-[var(--text-2)]">{EMOTIONAL_EMOJIS[emotion]}</p>
+                        <p className={`text-[16px] font-semibold tabular-nums mt-1 ${clr}`}>{avg}%</p>
+                        <p className="text-xs text-slate-500">{relevant.length} {relevant.length === 1 ? 'entry' : 'entries'}</p>
                       </div>
                     );
                   })}
@@ -1132,7 +1131,7 @@ export default function InterviewDebriefPage() {
                                   </span>
                                   {entry.emotionalStateBefore && entry.emotionalStateAfter && (
                                     <span className="text-[13px]">
-                                      {EMOTIONAL_EMOJIS[entry.emotionalStateBefore]} → {EMOTIONAL_EMOJIS[entry.emotionalStateAfter]}
+                                      {EMOTIONAL_EMOJIS[entry.emotionalStateBefore]} to {EMOTIONAL_EMOJIS[entry.emotionalStateAfter]}
                                     </span>
                                   )}
                                   {entry.difficultyRating > 0 && <span className="text-amber-400 text-xs">{'★'.repeat(entry.difficultyRating)}</span>}

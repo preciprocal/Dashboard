@@ -90,7 +90,7 @@ const STATUS_CONFIG: Record<AppStatus, { label: string; color: string; bg: strin
   'phone-screen': { label: 'Phone Screen', color: 'text-violet-400',  bg: 'bg-violet-500/10',  border: 'border-violet-500/20',  dot: 'bg-violet-400'  },
   technical:      { label: 'Technical',    color: 'text-indigo-400',  bg: 'bg-indigo-500/10',  border: 'border-indigo-500/20',  dot: 'bg-indigo-400'  },
   final:          { label: 'Final Round',  color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20',   dot: 'bg-amber-400'   },
-  offer:          { label: '🎉 Offer',     color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', dot: 'bg-emerald-400' },
+  offer:          { label: 'Offer',     color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', dot: 'bg-emerald-400' },
   rejected:       { label: 'Rejected',     color: 'text-red-400',     bg: 'bg-red-500/10',     border: 'border-red-500/20',     dot: 'bg-red-400'     },
   ghosted:        { label: 'Ghosted',      color: 'text-slate-400',   bg: 'bg-slate-500/10',   border: 'border-slate-500/20',   dot: 'bg-slate-500'   },
   withdrew:       { label: 'Withdrew',     color: 'text-orange-400',  bg: 'bg-orange-500/10',  border: 'border-orange-500/20',  dot: 'bg-orange-400'  },
@@ -115,76 +115,18 @@ const inp = 'field';
 // ─── Upgrade Gate ─────────────────────────────────────────────────────────────
 
 function UpgradeGate({ feature }: { feature: 'jobs' | 'contacts' }) {
-  const [activeStat, setActiveStat] = useState(0);
-
-  const STATS_MAP = {
-    jobs: [
-      { num: '32+',  line: 'applications needed on average before landing an offer' },
-      { num: '85%',  line: 'of jobs are filled through networking - track every lead' },
-      { num: '68.5', line: 'days median time to first offer - organisation wins the race' },
-      { num: '44%',  line: 'of hires come from candidates already in a company\'s system' },
-    ],
-    contacts: [
-      { num: '85%',  line: 'of jobs are filled through connections, not cold applications' },
-      { num: '5×',   line: 'more likely to get hired when referred by an internal contact' },
-      { num: '44%',  line: 'of hires come from candidates already in the employer\'s system' },
-      { num: '80%',  line: 'of job openings are never publicly posted - warm intros unlock them' },
-    ],
-  };
-
-  const STRIP_MAP = {
-    jobs:     [{ num: '32+', label: 'avg apps to offer' }, { num: '68.5d', label: 'median time to hire' }, { num: '85%', label: 'hired via networking' }],
-    contacts: [{ num: '85%', label: 'jobs via networking' }, { num: '5×', label: 'referral hire boost' }, { num: '80%', label: 'jobs never posted' }],
-  };
-
-  const HEADLINE_MAP = { jobs: "Organised job seekers get hired faster. Don\u2019t lose track.", contacts: "Cold applying? You\u2019re playing on hard mode." };
-  const SUB_MAP = {
-    jobs: "The average search takes 32+ applications and over 2 months. Without a tracker, you\u2019re flying blind \u2014 missing follow-ups, forgetting where you applied, and losing momentum.",
-    contacts: "Referrals are 5\u00d7 more effective than cold applications. Finding the right person at the company is the single highest-ROI action in your job search.",
-  };
-
   const isJobs = feature === 'jobs';
-  const STATS = STATS_MAP[feature];
-  const STRIP = STRIP_MAP[feature];
-
-  useEffect(() => {
-    const t = setInterval(() => setActiveStat(i => (i + 1) % STATS.length), 4000);
-    return () => clearInterval(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [feature]);
-
   return (
-    <div className="space-y-3 animate-fade-in-up">
-      <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--bg-surface)]">
-        <div className={`absolute -top-24 -right-24 w-56 h-56 rounded-full pointer-events-none blur-3xl ${isJobs ? 'bg-[var(--accent-subtle)]' : 'bg-white/[0.03]'}`} />
-        <div className="relative p-6">
-          <div className="inline-flex items-center gap-1.5 bg-amber-500/[0.08] border border-amber-500/20 rounded-full px-3 py-1 mb-4">
-            <Sparkles className="w-3 h-3 text-amber-400" />
-            <span className="text-xs font-semibold text-amber-400">{isJobs ? 'Job tracker limit reached' : 'Find contacts limit reached'}</span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white leading-snug mb-2">{HEADLINE_MAP[feature]}</h2>
-          <p className="text-sm text-slate-400 mb-6 max-w-md">{SUB_MAP[feature]}</p>
-          <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.06] rounded-xl px-5 py-4 mb-6 min-h-[64px]">
-            <span className={`text-3xl font-black flex-shrink-0 w-16 text-center ${isJobs ? 'text-[#a9b0f7]' : 'text-white'}`}>{STATS[activeStat].num}</span>
-            <span className="text-sm text-slate-400 leading-snug">{STATS[activeStat].line}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link href="/pricing" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-[var(--on-primary)] transition-all group bg-[var(--primary)] hover:bg-[var(--primary-hover)]  ">
-              Go Unlimited <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-            <span className="text-[11px] text-slate-500">Cancel anytime · Instant access</span>
-          </div>
-        </div>
+    <section className="glass-card p-6 sm:p-8 animate-fade-in-up">
+      <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11.5px] font-medium text-[var(--text-2)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" aria-hidden="true" />{isJobs ? 'Job tracker limit reached' : 'Contact search limit reached'}
+      </span>
+      <h2 className="font-display text-[22px] sm:text-[26px] font-semibold tracking-[-0.02em] text-white mt-4">{isJobs ? 'Your plan has reached its tracked jobs' : 'You have used this month\u2019s contact searches'}</h2>
+      <p className="text-[13.5px] text-[var(--text-3)] mt-2 max-w-lg">{isJobs ? 'Remove a job you are no longer pursuing, or upgrade.' : 'Your limit resets on your billing date. Upgrade or buy a Networking Pack for more now.'}</p>
+      <div className="flex flex-wrap gap-2 mt-6">
+        <Link href="/pricing" className="btn-primary">See plans <ArrowRight className="w-4 h-4" /></Link>
       </div>
-      <div className="grid grid-cols-3 gap-2.5">
-        {STRIP.map(s => (
-          <div key={s.num} className="glass-card py-4 text-center">
-            <p className={`text-xl font-black ${isJobs ? 'text-[#a9b0f7]' : 'text-white'}`}>{s.num}</p>
-            <p className="text-xs text-slate-400 mt-1">{s.label}</p>
-          </div>
-        ))}
-      </div>
-    </div>
+    </section>
   );
 }
 

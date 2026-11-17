@@ -56,7 +56,6 @@ interface APIResponse {
 
 interface PerformanceInfo {
   level: string;
-  emoji: string;
   icon: LucideIcon;
   color: string;
   bg: string;
@@ -171,7 +170,6 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
     const percentage = (score / questions.length) * 100;
     if (percentage >= 90) return { 
       level: 'Outstanding', 
-      emoji: '🌟',
       icon: Trophy, 
       color: 'text-yellow-400', 
       bg: 'bg-amber-500/[0.06]',
@@ -180,7 +178,6 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
     };
     if (percentage >= 75) return { 
       level: 'Excellent', 
-      emoji: '⭐',
       icon: Star, 
       color: 'text-blue-400', 
       bg: 'bg-[var(--accent-subtle)]',
@@ -189,7 +186,6 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
     };
     if (percentage >= 60) return { 
       level: 'Good Progress', 
-      emoji: '🎯',
       icon: Target, 
       color: 'text-green-400', 
       bg: 'bg-emerald-500/[0.08]',
@@ -198,7 +194,6 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
     };
     return { 
       level: 'Keep Practicing', 
-      emoji: '💪',
       icon: Zap, 
       color: 'text-[#a9b0f7]', 
       bg: 'bg-[var(--accent-subtle)]',
@@ -446,7 +441,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
           </div>
           
           <h1 className="text-5xl font-bold text-white mb-3">
-            {performance.level} {performance.emoji}
+            {performance.level}
           </h1>
           <p className="text-xl text-slate-400 mb-2">
             {performance.message}
@@ -715,7 +710,7 @@ export default function InterviewQuiz({ planId, onClose }: QuizProps) {
                     ? 'text-green-100' 
                     : 'text-blue-100'
                 }`}>
-                  {isCorrect ? '✨ Perfect! That\'s Correct!' : '💡 Learning Moment'}
+                  {isCorrect ? 'Correct' : 'Not quite'}
                 </h3>
                 <p className={`${
                   isCorrect 

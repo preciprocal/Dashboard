@@ -58,8 +58,8 @@ export default function ExtensionAuthSuccess() {
           <div className="glass-card bg-white/[0.035] p-5 rounded-xl mb-6 border border-[var(--border)]">
             <div className="flex items-start gap-3 text-left">
               <div className="flex-shrink-0 mt-1">
-                <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                  <span className="text-purple-400">✓</span>
+                <div className="w-8 h-8 bg-white/[0.05] ring-1 ring-inset ring-white/[0.08] rounded-lg flex items-center justify-center">
+                  <span className="text-emerald-400">✓</span>
                 </div>
               </div>
               <div>

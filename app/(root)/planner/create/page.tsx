@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import { SkillLevel } from '@/types/planner';
 import {
-  Sparkles, Calendar, Loader2, CheckCircle2, Search, X, Lock, ArrowRight, Shield, History,
+  Sparkles, Calendar, Loader2, CheckCircle2, Search, X, ArrowRight, Shield, History,
 } from 'lucide-react';
 import { FormSection, Field } from '@/components/profile/FormKit';
 import Link from 'next/link';
@@ -70,26 +70,16 @@ const FOCUS_AREAS_BY_CATEGORY = {
 
 function UpgradeGate({ used, limit }: { used: number; limit: number }) {
   return (
-    <div className="flex items-center justify-center h-[calc(100vh-200px)]">
-      <div className="max-w-md w-full space-y-4 text-center">
-        <div className="w-14 h-14 bg-amber-500/[0.08] border border-amber-500/20 rounded-2xl flex items-center justify-center mx-auto">
-          <Lock className="w-6 h-6 text-amber-400" />
-        </div>
-        <div>
-          <h2 className="text-xl font-bold text-white mb-2">Study Plan Limit Reached</h2>
-          <p className="text-sm text-slate-400 max-w-xs mx-auto leading-relaxed">
-            You&apos;ve used {used} of {limit} free study plans this month. Upgrade to Pro for 10 a month, or Premium for 25.
-          </p>
-        </div>
-        <Link href="/pricing"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] text-sm font-semibold transition-all">
-          Upgrade to Pro <ArrowRight className="w-4 h-4" />
-        </Link>
-        <Link href="/planner" className="block text-sm text-slate-400 hover:text-slate-300 transition-colors">
-          ← Back to Plans
-        </Link>
+    <section className="glass-card p-6 sm:p-8 animate-fade-in-up">
+      <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11.5px] font-medium text-[var(--text-2)] bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" aria-hidden="true" />{used} of {limit} study plans used this month
+      </span>
+      <h2 className="font-display text-[22px] sm:text-[26px] font-semibold tracking-[-0.02em] text-white mt-4">You have used this month&apos;s study plans</h2>
+      <p className="text-[13.5px] text-[var(--text-3)] mt-2 max-w-lg">Your limit resets on your billing date. Upgrade, or buy a Prep Pack for three more.</p>
+      <div className="flex flex-wrap gap-2 mt-6">
+        <Link href="/pricing" className="btn-primary">See plans <ArrowRight className="w-4 h-4" /></Link>
       </div>
-    </div>
+    </section>
   );
 }
 

@@ -269,7 +269,7 @@ export default function ShareScoreCard(props: ShareScoreCardProps) {
 
   const handleTwitterShare = useCallback(() => {
     const target = company ? `${role} at ${company}` : role;
-    const tweet  = `Just scored ${scores.overall}/100 on an AI ${TYPE_LABELS[interviewType]} mock interview for ${target} - rated "${sl.label}" 🎯\n\nPrepare smarter → ${shareUrl}`;
+    const tweet  = `Just scored ${scores.overall}/100 on an AI ${TYPE_LABELS[interviewType]} mock interview for ${target} - rated "${sl.label}".\n\n${shareUrl}`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweet)}`, "_blank", "noopener");
   }, [scores.overall, role, company, interviewType, sl.label, shareUrl]);
 
@@ -390,12 +390,6 @@ export default function ShareScoreCard(props: ShareScoreCardProps) {
             </button>
           )}
 
-          {/* Social proof nudge */}
-          <div className="rounded-xl p-3 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
-            <p className="text-[11px] text-slate-600 leading-relaxed">
-              People who share their scores are <span className="text-slate-400 font-semibold">3× more likely</span> to stay consistent and land offers 🎯
-            </p>
-          </div>
         </div>
       </div>
     </div>

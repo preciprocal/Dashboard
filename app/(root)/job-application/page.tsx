@@ -615,10 +615,10 @@ Required: React, Node.js, Python, AWS..."
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
-                  { value: 'professional', label: 'Professional', emoji: '💼' },
-                  { value: 'enthusiastic', label: 'Enthusiastic', emoji: '🚀' },
-                  { value: 'technical', label: 'Technical', emoji: '⚙️' },
-                  { value: 'creative', label: 'Creative', emoji: '🎨' }
+                  { value: 'professional', label: 'Professional' },
+                  { value: 'enthusiastic', label: 'Enthusiastic' },
+                  { value: 'technical', label: 'Technical' },
+                  { value: 'creative', label: 'Creative' }
                 ].map((t) => (
                   <button
                     key={t.value}
@@ -629,7 +629,6 @@ Required: React, Node.js, Python, AWS..."
                         : 'border-slate-200 dark:border-slate-700 hover:border-white/[0.08]'
                     }`}
                   >
-                    <div className="text-2xl mb-1">{t.emoji}</div>
                     <p className="font-semibold text-sm text-slate-900 dark:text-white">
                       {t.label}
                     </p>

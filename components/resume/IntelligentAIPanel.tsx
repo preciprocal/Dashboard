@@ -214,7 +214,7 @@ function BulletRow({ bullet, onApply, onHighlight, appliedSet, ignoredSet, onMar
               <div className="flex gap-2">
                 <button onClick={() => { onApply(bullet.originalText, bullet.rewrite!); onMarkApplied(bullet.originalText); toast.success('Applied!'); }}
                   className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1 cursor-pointer"><Check className="w-3 h-3" /> Apply</button>
-                <button onClick={() => { onMarkIgnored(bullet.originalText); toast('Ignored', { icon: '🙈', duration: 1500 }); }}
+                <button onClick={() => { onMarkIgnored(bullet.originalText); toast('Ignored', { duration: 1500 }); }}
                   className="px-3 py-1.5 bg-white/[0.06] hover:bg-slate-600/60 text-slate-400 hover:text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1 cursor-pointer"><XCircle className="w-3 h-3" /> Ignore</button>
                 <button onClick={async () => { await navigator.clipboard.writeText(bullet.rewrite!); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
                   className="px-3 py-1.5 bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 rounded-lg text-xs transition-colors flex items-center gap-1 cursor-pointer">
@@ -302,7 +302,7 @@ function QuickWinCard({ win, index, onApply, onHighlight, appliedSet, ignoredSet
           <div className="flex gap-2">
             <button onClick={() => { onApply(win.originalText, win.rewrite); onMarkApplied(win.originalText); toast.success('Applied to resume'); }}
               className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"><Check className="w-3.5 h-3.5" /> Apply</button>
-            <button onClick={() => { onMarkIgnored(win.originalText); toast('Ignored', { icon: '🙈', duration: 1500 }); }}
+            <button onClick={() => { onMarkIgnored(win.originalText); toast('Ignored', { duration: 1500 }); }}
               className="px-3 py-2 bg-white/[0.06] hover:bg-slate-600/60 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer"><XCircle className="w-3.5 h-3.5" /> Ignore</button>
             <button onClick={async () => { await navigator.clipboard.writeText(win.rewrite); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
               className="px-3 py-2 bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 rounded-xl text-xs transition-colors flex items-center gap-1 cursor-pointer">
@@ -436,7 +436,7 @@ function TailorChangeCard(props: {
               <button onClick={() => { onApply(original, rewrite); onMarkApplied(); toast.success('Applied to resume'); }}
                 className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"><Check className="w-3.5 h-3.5" /> Apply</button>
             )}
-            <button onClick={() => { onMarkIgnored(); toast('Ignored', { icon: '🙈', duration: 1500 }); }}
+            <button onClick={() => { onMarkIgnored(); toast('Ignored', { duration: 1500 }); }}
               className={`${hasOriginal ? '' : 'flex-1 '}px-3 py-2 bg-white/[0.06] hover:bg-slate-600/60 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer`}><XCircle className="w-3.5 h-3.5" /> Ignore</button>
             <button onClick={async () => { await navigator.clipboard.writeText(hasOriginal ? rewrite : change); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
               className="px-3 py-2 bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 rounded-xl text-xs transition-colors flex items-center gap-1 cursor-pointer">

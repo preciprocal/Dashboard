@@ -301,9 +301,9 @@ function CheckoutFormInner({ plan, user, billedAmount, onSuccess, onClose }: Che
               </div>
             </div>
             <div className="relative z-10 flex items-center justify-between pt-6">
-              {[{ icon: "🔒", text: "SSL encrypted" }, { icon: "↩", text: "Refunds for unused credits" }, { icon: "✕", text: "Cancel anytime" }].map(t => (
+              {[{ text: "SSL encrypted" }, { text: "Refunds for unused credits" }, { text: "Cancel anytime" }].map(t => (
                 <span key={t.text} className="flex items-center gap-1.5 text-xs text-slate-500">
-                  <span>{t.icon}</span>{t.text}
+                  {t.text}
                 </span>
               ))}
             </div>
@@ -773,7 +773,7 @@ function SuccessOverlay({ plan, isStudent, onDone }: { plan: Plan; isStudent: bo
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/>
           </svg>
         </div>
-        <h3 className="text-xl font-bold text-white mb-2">{isStudent ? "Free month activated! 🎓" : `You're on ${plan.name}! 🎉`}</h3>
+        <h3 className="text-xl font-bold text-white mb-2">{isStudent ? "Your free month is active" : `You're on ${plan.name}`}</h3>
         <p className="text-slate-400 text-sm mb-4">{isStudent ? "Enjoy full Pro access for 30 days on us." : "Your subscription is active. All features are unlocked."}</p>
         <button onClick={onDone} className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white cursor-pointer" style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}>
           Start using Preciprocal

@@ -384,7 +384,7 @@ function JobToolsContent() {
                     <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-400 text-xs font-semibold">{jobData.workplaceType}</span>
                   )}
                   {jobData.hasEasyApply && (
-                    <span className="px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full text-green-400 text-xs font-semibold">⚡ Easy Apply</span>
+                    <span className="px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full text-green-400 text-xs font-semibold">Easy Apply</span>
                   )}
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">{jobData.title}</h2>
