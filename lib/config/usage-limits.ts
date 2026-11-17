@@ -60,9 +60,7 @@ export const USAGE_LIMITS: PlanLimits = {
     linkedinOptimisations: 1,
     coldOutreach: 2,
     findContacts: 2,
-    jobTracker: 10,      // DB rows, $0 to serve - see feature-costs.ts. A
-                         // round number that fits a real early job search;
-                         // the cap is an abuse control, not cost rationing.
+    jobTracker: -1,      // unlimited on every plan: DB rows, $0 to serve
   },
   pro: {
     applications: 6,

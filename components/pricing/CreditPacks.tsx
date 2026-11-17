@@ -34,8 +34,22 @@ const PACK_STYLE: Record<
     accent: "text-slate-300",
     icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>,
   },
+  job_applications: {
+    phase: "Applying to jobs",
+    gradient: "from-emerald-600/15 to-emerald-800/15",
+    border: "border-emerald-500/25",
+    accent: "text-emerald-300",
+    icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>,
+  },
+  prep_pack: {
+    phase: "Preparing",
+    gradient: "from-sky-600/15 to-sky-800/15",
+    border: "border-sky-500/25",
+    accent: "text-sky-300",
+    icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>,
+  },
   application_boost: {
-    phase: "Applying",
+    phase: "Resumes and letters",
     gradient: "from-indigo-600/20 to-indigo-800/20",
     border: "border-indigo-500/30",
     accent: "text-indigo-300",
@@ -165,7 +179,7 @@ export default function CreditPacks({ user }: CreditPacksProps) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 w-full">
         {packs.map((pack) => {
           const style   = PACK_STYLE[pack.key];
           const isBusy  = busy === pack.key;

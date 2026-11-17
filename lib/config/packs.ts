@@ -30,8 +30,10 @@ import type { FeatureType } from "@/lib/config/usage-limits";
 // networking_pack.
 export type PackKey =
   | "starter_pack"
+  | "job_applications"
   | "application_boost"
   | "networking_pack"
+  | "prep_pack"
   | "interview_boost";
 
 export interface PackDefinition {
@@ -77,9 +79,23 @@ export const PACKS: Record<PackKey, PackDefinition> = {
     },
     description: "A bit of everything: one mock interview, applications, and career tools.",
   },
+  // Whole applications through the Apply flow: tailored resume, cover letter
+  // and prep for each job (lib/applications/charge.ts). Provisional: priced on
+  // the estimated $0.21 a unit in feature-costs.ts. Five cost $1.05 and Stripe
+  // takes about $0.44, so $4.99 returns about 70%.
+  job_applications: {
+    key: "job_applications",
+    name: "Job Application Pack",
+    priceUsd: 4.99,
+    grants: { applications: 5 },
+    provisionalPricing: true,
+    description: "Five more jobs taken through Apply: a tailored resume, cover letter and prep for each.",
+  },
   application_boost: {
     key: "application_boost",
-    name: "Application Boost",
+    // Renamed from "Application Boost" once whole applications got their own
+    // pack: this one is resume analyses and standalone cover letters.
+    name: "Resume and Letter Pack",
     priceUsd: 4.99,
     // Originally specced as +10 resumes, +15 cover letters, +20 tracked jobs.
     // The tracked-jobs grant was dropped, for two independent reasons:
@@ -113,6 +129,15 @@ export const PACKS: Record<PackKey, PackDefinition> = {
     // makes the other two useful.
     grants: { findContacts: 15, linkedinOptimisations: 3, coldOutreach: 15 },
     description: "Find the right people, polish your profile, and reach out.",
+  },
+  // Study plans and AI analyses of the interview journal. Costs $0.29 to
+  // serve (3 x $0.05 + 2 x $0.07), so $4.99 returns about 85%.
+  prep_pack: {
+    key: "prep_pack",
+    name: "Prep Pack",
+    priceUsd: 4.99,
+    grants: { studyPlans: 3, debriefAnalyses: 2 },
+    description: "Three more study plans and two AI analyses of your real interviews.",
   },
   // ── The only pack whose price is set by cost rather than positioning ─────
   //

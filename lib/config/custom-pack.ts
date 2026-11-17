@@ -67,6 +67,7 @@ export const UNIT_PRICE_USD: Partial<Record<FeatureType, number>> = {
   // At $3.50 two interviews return 56.1%, twenty return 60.0%, and every
   // custom basket prices at or above its fixed-pack equivalent.
   interviews: 3.50,            // cost $1.284 at Premium - the only tight one
+  applications: 1.10,          // cost ~$0.21 (provisional); 5 = $5.50, above the $4.99 pack
   debriefAnalyses: 0.50,       // cost $0.070, a full analysis of their history
   linkedinOptimisations: 0.60,
   studyPlans: 0.40,
@@ -85,6 +86,7 @@ export const UNIT_PRICE_USD: Partial<Record<FeatureType, number>> = {
  * interview minutes than we would want one account holding at once.
  */
 export const MAX_QUANTITY: Partial<Record<FeatureType, number>> = {
+  applications: 50,
   interviews: 20,
   debriefAnalyses: 50,
   linkedinOptimisations: 50,
