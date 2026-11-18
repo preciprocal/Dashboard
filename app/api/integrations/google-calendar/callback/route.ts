@@ -11,6 +11,7 @@ import {
 import { encryptToken } from '@/lib/calendar/crypto';
 import { AAD_ACCESS, AAD_REFRESH } from '@/lib/calendar/tokens';
 import { saveConnection } from '@/lib/calendar/store';
+import { removeMicrosoftConnection } from '@/lib/calendar/microsoft-store';
 
 export const runtime = 'nodejs';
 
@@ -69,6 +70,8 @@ export async function GET(req: NextRequest) {
       access_token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
       calendar_id: 'primary',
     });
+    // One calendar at a time: a Google connection replaces Outlook.
+    await removeMicrosoftConnection(user.supabaseUserId);
     return done(ret, 'connected');
   } catch (err) {
     console.error('google-calendar callback:', err instanceof Error ? err.message : err);

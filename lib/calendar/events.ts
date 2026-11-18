@@ -175,3 +175,46 @@ export function reconcileEvent(
   if (startsAt === new Date(stored.startsAt).toISOString() && endsAt === new Date(stored.endsAt).toISOString()) return { kind: 'same' };
   return { kind: 'moved', startsAt, endsAt };
 }
+
+// ─── Outlook (Microsoft Graph) ───────────────────────────────────────────────
+
+/**
+ * Named property Preciprocal stamps on its Outlook events (in the public
+ * strings property set), the Outlook counterpart of the Google marker.
+ */
+export const OUTLOOK_MARKER_ID = 'String {00020329-0000-0000-C000-000000000046} Name preciprocal';
+
+export interface OutlookEventPayload {
+  subject: string;
+  body: { contentType: 'text'; content: string };
+  start: { dateTime: string; timeZone: 'UTC' };
+  end: { dateTime: string; timeZone: 'UTC' };
+  location?: { displayName: string };
+  isReminderOn: true;
+  reminderMinutesBeforeStart: number;
+  singleValueExtendedProperties: { id: string; value: string }[];
+}
+
+/** Graph wants a zone-less local time plus a zone; UTC keeps the instant exact and Outlook shows it in the user's own zone. */
+const graphUtc = (d: Date) => d.toISOString().replace(/Z$/, '');
+
+export function buildOutlookEvent(s: ResolvedSchedule, appUrl: string): OutlookEventPayload {
+  return {
+    subject: eventTitle(s.jobTitle, s.company),
+    body: { contentType: 'text', content: eventDescription(s, appUrl) },
+    start: { dateTime: graphUtc(s.start), timeZone: 'UTC' },
+    end: { dateTime: graphUtc(s.end), timeZone: 'UTC' },
+    ...(s.meetingUrl ? { location: { displayName: s.meetingUrl } } : {}),
+    // Outlook keeps one reminder per event: half an hour before, to join.
+    isReminderOn: true,
+    reminderMinutesBeforeStart: 30,
+    singleValueExtendedProperties: [{ id: OUTLOOK_MARKER_ID, value: `${EVENT_MARKER_VALUE}:${s.applicationId}` }],
+  };
+}
+
+/** The Graph event fields read back, in the shape reconcileEvent() takes. */
+export function outlookToLite(ev: { id: string; isCancelled?: boolean; start?: { dateTime?: string }; end?: { dateTime?: string } }): GoogleEventLite {
+  // Read with Prefer: outlook.timezone="UTC", so the times are UTC without a suffix.
+  const utc = (v?: string) => (v ? (/[zZ]|[+-]\d\d:\d\d$/.test(v) ? v : `${v}Z`) : undefined);
+  return { id: ev.id, status: ev.isCancelled ? 'cancelled' : undefined, start: { dateTime: utc(ev.start?.dateTime) }, end: { dateTime: utc(ev.end?.dateTime) } };
+}

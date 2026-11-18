@@ -12,9 +12,15 @@ import type { CalendarConfig } from './oauth';
 
 const CONN_COLS = 'user_id, google_email, scopes, refresh_token_enc, access_token_enc, access_token_expires_at, calendar_id, connected_at, last_error, broken_at';
 
+/** Postgres "undefined_column" (a migration that adds a column is not applied yet). */
+export function isMissingColumn(err: { code?: string; message?: string } | null | undefined): boolean {
+  if (!err) return false;
+  return err.code === '42703' || /column .* does not exist/i.test(err.message ?? '');
+}
+
 /** Postgres "undefined_table", or PostgREST's "not in the schema cache". */
 export function isMissingTable(err: { code?: string; message?: string } | null | undefined): boolean {
-  if (!err) return false;
+  if (!err || isMissingColumn(err)) return false;
   return err.code === '42P01' || err.code === 'PGRST205' || /does not exist|schema cache/i.test(err.message ?? '');
 }
 
@@ -102,25 +108,48 @@ export interface ScheduleRow {
   notes: string | null;
   google_event_id: string | null;
   google_calendar_id: string | null;
+  /** Migration 0070. Undefined until it is applied. */
+  microsoft_event_id?: string | null;
 }
 
 export const SCHEDULE_COLS = 'id, user_id, application_id, starts_at, ends_at, time_zone, stage, meeting_url, notes, google_event_id, google_calendar_id';
 
+export const SCHEDULE_COLS_MS = `${SCHEDULE_COLS}, microsoft_event_id`;
+
+// Whether migration 0070 (Outlook) is applied. Rechecked every minute, so
+// applying it takes effect without a deploy.
+let msSchema: { ok: boolean; at: number } | null = null;
+export async function microsoftSchemaReady(): Promise<boolean> {
+  if (msSchema && Date.now() - msSchema.at < 60_000) return msSchema.ok;
+  const [a, b] = await Promise.all([
+    supabaseAdmin.from('microsoft_calendar_connections').select('user_id').limit(1),
+    supabaseAdmin.from('interview_schedules').select('microsoft_event_id').limit(1),
+  ]);
+  const ok = !a.error && !b.error;
+  msSchema = { ok, at: Date.now() };
+  return ok;
+}
+
+/** The schedule columns to read: with the Outlook event id once 0070 is in. */
+export async function scheduleCols(): Promise<string> {
+  return (await microsoftSchemaReady().catch(() => false)) ? SCHEDULE_COLS_MS : SCHEDULE_COLS;
+}
+
 export async function listSchedules(userId: string): Promise<ScheduleRow[]> {
-  const { data, error } = await supabaseAdmin.from('interview_schedules').select(SCHEDULE_COLS).eq('user_id', userId).order('starts_at');
+  const { data, error } = await supabaseAdmin.from('interview_schedules').select(await scheduleCols()).eq('user_id', userId).order('starts_at');
   if (error) {
     if (isMissingTable(error)) throw new SchemaMissingError();
     throw error;
   }
-  return (data as ScheduleRow[]) ?? [];
+  return (data as unknown as ScheduleRow[]) ?? [];
 }
 
 export async function getSchedule(userId: string, applicationId: string): Promise<ScheduleRow | null> {
-  const { data, error } = await supabaseAdmin.from('interview_schedules').select(SCHEDULE_COLS)
+  const { data, error } = await supabaseAdmin.from('interview_schedules').select(await scheduleCols())
     .eq('user_id', userId).eq('application_id', applicationId).maybeSingle();
   if (error) {
     if (isMissingTable(error)) throw new SchemaMissingError();
     throw error;
   }
-  return (data as ScheduleRow | null) ?? null;
+  return (data as unknown as ScheduleRow | null) ?? null;
 }

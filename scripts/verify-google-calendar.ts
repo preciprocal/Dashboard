@@ -278,7 +278,7 @@ function mockFetch(responses: { status: number; body?: unknown }[]) {
   eq('ics: file name fallback', icsFileName('***'), 'interview-preciprocal.ics');
 
   // ─── Upcoming strip ─────────────────────────────────────────────────────────
-  const mk = (id: string, hoursFromNow: number) => ({ applicationId: id, startsAt: new Date(now + hoursFromNow * 3600_000).toISOString(), endsAt: new Date(now + (hoursFromNow + 1) * 3600_000).toISOString(), timeZone: 'UTC', stage: 'technical', meetingUrl: null, notes: null, onGoogle: false });
+  const mk = (id: string, hoursFromNow: number) => ({ applicationId: id, startsAt: new Date(now + hoursFromNow * 3600_000).toISOString(), endsAt: new Date(now + (hoursFromNow + 1) * 3600_000).toISOString(), timeZone: 'UTC', stage: 'technical', meetingUrl: null, notes: null, onGoogle: false, onCalendar: null });
   eq('upcoming: next 14 days only, soonest first', upcomingWithin([mk('later', 15 * 24), mk('b', 48), mk('past', -5), mk('a', 2), mk('now', -0.5)], 14, now).map((s) => s.applicationId), ['now', 'a', 'b']);
 
   console.log(`\n${pass} passed, ${fail} failed`);

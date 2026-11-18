@@ -3,9 +3,9 @@
 // components/calendar/InterviewScheduleModal.tsx
 // "Add to calendar" for a tracker card in an interview stage: date, time,
 // duration, timezone, stage, link and notes. Saves the time on the card and,
-// when Google Calendar is connected, writes a real event with reminders.
-// Without a connection it still works: the time is saved and the user
-// downloads an .ics for Outlook, Apple Calendar or anything else.
+// when Google Calendar or Outlook is connected, writes a real event with
+// reminders. Without a connection it still works: the time is saved and the
+// user downloads an .ics for Apple Calendar or anything else.
 //
 // Portalled to <body> so a transformed ancestor (the tracker's fade-in
 // sections) cannot become the containing block of this fixed overlay.
@@ -15,7 +15,7 @@ import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import { CalendarPlus, Download, Loader2, X, AlertTriangle, Trash2, Check } from 'lucide-react';
 import { AppSelect } from '@/components/ui/select';
-import { GoogleCalendarIcon } from '@/components/icons/BrandIcons';
+import { ProviderIcon } from '@/components/calendar/GoogleCalendarSettings';
 import { DURATIONS, INTERVIEW_STAGES, resolveSchedule, stageForStatus, cleanMeetingUrl, type InterviewStage } from '@/lib/calendar/events';
 import { buildIcs, icsFileName } from '@/lib/calendar/ics';
 import { detectTimeZone, listTimeZones, utcToZonedWallTime } from '@/lib/calendar/time';
@@ -34,7 +34,7 @@ function timeOptions(current: string) {
   }
   return out;
 }
-import { connectHref, type CalendarStatus, type GoogleSyncResult, type InterviewSchedule } from '@/lib/calendar/status';
+import { connectHref, PROVIDER_NAME, type CalendarProvider, type CalendarStatus, type GoogleSyncResult, type InterviewSchedule } from '@/lib/calendar/status';
 
 export interface ScheduleTarget { id: string; company: string; jobTitle: string; status: string }
 
@@ -46,7 +46,7 @@ interface Props {
   onClose: () => void;
   onSaved: (s: InterviewSchedule) => void;
   onRemoved: (applicationId: string) => void;
-  /** Page to come back to after connecting Google. */
+  /** Page to come back to after connecting a calendar. */
   returnTo?: string;
 }
 
@@ -98,19 +98,24 @@ export default function InterviewScheduleModal({ app, existing, calendar, schema
   });
   const invalid = 'error' in resolved ? resolved.error : linkBad ? 'Meeting link must start with https://' : null;
 
-  const googleReady = calendar.configured && calendar.connected;
-  const willGoogle = googleReady && (toGoogle || !!existing?.onGoogle);
+  const provider: CalendarProvider = calendar.provider ?? 'google';
+  const calName = PROVIDER_NAME[provider];
+  const googleReady = calendar.configured && calendar.connected && !!calendar.provider;
+  const onThisCalendar = !!existing && (existing.onCalendar ?? (existing.onGoogle ? 'google' : null)) === calendar.provider;
+  const willGoogle = googleReady && (toGoogle || onThisCalendar);
+  const connectable = (['google', 'microsoft'] as const).filter((p) => calendar.available?.[p] ?? p === 'google');
 
   const save = async (google: boolean): Promise<InterviewSchedule | null> => {
     const res = await fetch('/api/job-tracker/schedule', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ applicationId: app.id, date, time, timeZone: tz, durationMinutes: duration, stage, meetingUrl: link.trim() || null, notes: notes.trim() || null, google }),
+      body: JSON.stringify({ applicationId: app.id, date, time, timeZone: tz, durationMinutes: duration, stage, meetingUrl: link.trim() || null, notes: notes.trim() || null, calendar: google, google }),
     });
-    const j = (await res.json().catch(() => ({}))) as { error?: string; schedule?: InterviewSchedule; google?: GoogleSyncResult };
+    const j = (await res.json().catch(() => ({}))) as { error?: string; schedule?: InterviewSchedule; google?: GoogleSyncResult; calendar?: GoogleSyncResult };
     if (!res.ok || !j.schedule) throw new Error(j.error || 'Could not save the interview time');
     onSaved(j.schedule);
-    if (j.google === 'reconnect') toast.warning('Saved on the card. Google Calendar needs reconnecting in Settings, or download an .ics.');
-    else if (j.google === 'failed') toast.warning('Saved on the card, but Google Calendar did not accept the event. Try again or download an .ics.');
+    const sync = j.calendar ?? j.google;
+    if (sync === 'reconnect') toast.warning(`Saved on the card. ${calName} needs reconnecting in Settings, or download an .ics.`);
+    else if (sync === 'failed') toast.warning(`Saved on the card, but ${calName} did not accept the event. Try again or download an .ics.`);
     return j.schedule;
   };
 
@@ -119,7 +124,7 @@ export default function InterviewScheduleModal({ app, existing, calendar, schema
     setBusy('save');
     try {
       await save(willGoogle);
-      toast.success(willGoogle ? 'Interview added to Google Calendar' : 'Interview time saved');
+      toast.success(willGoogle ? `Interview added to ${calName}` : 'Interview time saved');
       onClose();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not save');
@@ -160,10 +165,11 @@ export default function InterviewScheduleModal({ app, existing, calendar, schema
     setBusy('remove');
     try {
       const res = await fetch(`/api/job-tracker/schedule?applicationId=${encodeURIComponent(app.id)}`, { method: 'DELETE' });
-      const j = (await res.json().catch(() => ({}))) as { error?: string; google?: GoogleSyncResult };
+      const j = (await res.json().catch(() => ({}))) as { error?: string; google?: GoogleSyncResult; calendar?: GoogleSyncResult };
       if (!res.ok) throw new Error(j.error || 'Could not remove');
       onRemoved(app.id);
-      toast.success(j.google === 'deleted' ? 'Removed from the card and Google Calendar' : j.google === 'reconnect' || j.google === 'failed' ? 'Removed from the card. Delete the event in Google Calendar yourself.' : 'Interview time removed');
+      const sync = j.calendar ?? j.google;
+      toast.success(sync === 'deleted' ? `Removed from the card and ${calName}` : sync === 'reconnect' || sync === 'failed' ? `Removed from the card. Delete the event in ${calName} yourself.` : 'Interview time removed');
       onClose();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not remove');
@@ -224,30 +230,34 @@ export default function InterviewScheduleModal({ app, existing, calendar, schema
 
           {/* Where the event goes */}
           {googleReady ? (
-            existing?.onGoogle ? (
+            onThisCalendar ? (
               <div className="flex items-center gap-2.5 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--bg-subtle)] px-3.5 py-3">
-                <GoogleCalendarIcon className="w-5 h-5 flex-shrink-0" />
-                <p className="text-xs text-slate-300">Changes update the event in Google Calendar{calendar.email ? <> ({calendar.email})</> : null}.</p>
+                <ProviderIcon provider={provider} className="w-5 h-5 flex-shrink-0" />
+                <p className="text-xs text-slate-300">Changes update the event in {calName}{calendar.email ? <> ({calendar.email})</> : null}.</p>
               </div>
             ) : (
               <label className="flex items-center gap-2.5 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--bg-subtle)] px-3.5 py-3 cursor-pointer">
                 <input type="checkbox" checked={toGoogle} onChange={(e) => setToGoogle(e.target.checked)} className="w-4 h-4 accent-[var(--accent)]" />
-                <GoogleCalendarIcon className="w-5 h-5 flex-shrink-0" />
-                <span className="text-xs text-slate-300 min-w-0">Add to Google Calendar{calendar.email ? <span className="text-slate-400"> ({calendar.email})</span> : null}</span>
+                <ProviderIcon provider={provider} className="w-5 h-5 flex-shrink-0" />
+                <span className="text-xs text-slate-300 min-w-0">Add to {calName}{calendar.email ? <span className="text-slate-400"> ({calendar.email})</span> : null}</span>
               </label>
             )
           ) : calendar.configured && calendar.broken ? (
             <div className="flex items-start gap-2.5 rounded-[var(--r-md)] border border-amber-500/25 bg-amber-500/[0.06] px-3.5 py-3">
               <AlertTriangle className="w-4 h-4 text-amber-300 flex-shrink-0 mt-0.5" />
               <div className="min-w-0">
-                <p className="text-xs text-amber-200">Google Calendar stopped accepting our access. Reconnect to add events, or download an .ics.</p>
-                <a href={connectHref(returnTo)} className="inline-flex items-center gap-1.5 mt-2 text-xs font-semibold text-white hover:text-indigo-200"><GoogleCalendarIcon className="w-4 h-4" /> Reconnect Google Calendar</a>
+                <p className="text-xs text-amber-200">{calName} stopped accepting our access. Reconnect to add events, or download an .ics.</p>
+                <a href={connectHref(returnTo, provider)} className="inline-flex items-center gap-1.5 mt-2 text-xs font-semibold text-white hover:text-[var(--text-2)]"><ProviderIcon provider={provider} className="w-4 h-4" /> Reconnect {calName}</a>
               </div>
             </div>
           ) : calendar.configured ? (
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--bg-subtle)] px-3.5 py-3">
-              <p className="text-xs text-slate-400 flex-1">Connect Google Calendar to add this as an event with reminders. No account? Download an .ics below.</p>
-              <a href={connectHref(returnTo)} className="btn-secondary !h-9 !text-xs flex-shrink-0"><GoogleCalendarIcon /> Connect Google Calendar</a>
+            <div className="flex flex-col gap-3 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--bg-subtle)] px-3.5 py-3">
+              <p className="text-xs text-slate-400">Connect a calendar to add this as an event with reminders, or download an .ics below.</p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                {connectable.map((p) => (
+                  <a key={p} href={connectHref(returnTo, p)} className="btn-secondary !h-9 !text-xs justify-center"><ProviderIcon provider={p} className="w-4 h-4" /> Connect {PROVIDER_NAME[p]}</a>
+                ))}
+              </div>
             </div>
           ) : null}
 
@@ -259,7 +269,7 @@ export default function InterviewScheduleModal({ app, existing, calendar, schema
             <button type="button" onClick={handleRemove} disabled={!!busy}
               className={`inline-flex items-center justify-center gap-1.5 h-10 px-3 rounded-[var(--r-md)] text-xs font-semibold transition-colors sm:mr-auto ${confirmRemove ? 'text-red-300 bg-red-500/10 border border-red-500/30' : 'text-slate-400 hover:text-red-300 border border-transparent'}`}>
               {busy === 'remove' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-              {confirmRemove ? (existing.onGoogle ? 'Remove from card and Google' : 'Confirm remove') : 'Remove'}
+              {confirmRemove ? (onThisCalendar ? `Remove from card and ${provider === 'microsoft' ? 'Outlook' : 'Google'}` : 'Confirm remove') : 'Remove'}
             </button>
           )}
           <button type="button" onClick={handleIcs} disabled={!!busy || !!invalid} className={`btn-secondary ${existing ? '' : 'sm:mr-auto'} disabled:opacity-45 disabled:cursor-not-allowed`}>
@@ -268,7 +278,7 @@ export default function InterviewScheduleModal({ app, existing, calendar, schema
           {schemaReady && (
             <button type="button" onClick={handleSave} disabled={!!busy || !!invalid} className="btn-primary">
               {busy === 'save' ? <Loader2 className="animate-spin" /> : willGoogle ? <CalendarPlus /> : <Check />}
-              {willGoogle ? (existing?.onGoogle ? 'Update event' : 'Add to Google Calendar') : 'Save time'}
+              {willGoogle ? (onThisCalendar ? 'Update event' : `Add to ${calName}`) : 'Save time'}
             </button>
           )}
         </div>

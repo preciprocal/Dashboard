@@ -1338,3 +1338,67 @@ percentile from that data alone (not blended with an AI guess, as
 calibratePercentile() does today), labelled with the number of outcomes.
 
 **Unblocked by** 100+ real outcomes recorded.
+
+## 40. OPEN - turn on Outlook calendar (Microsoft 365, Outlook.com, school accounts)
+
+**Severity: low. Ships hidden; nothing changes for users until this is done.**
+
+Outlook works like Google Calendar (item 36): Settings > Integrations shows an
+Outlook Calendar row beside Google, and the job tracker's "Add to calendar"
+writes an Outlook event with a reminder 30 minutes before, and follows changes
+made in Outlook. A user has one calendar connected at a time: connecting one
+replaces the other. Without either, "Add to calendar" is an .ics download.
+
+What the owner needs to do:
+
+1. **Azure app registration** (portal.azure.com > Microsoft Entra ID > App
+   registrations > New registration):
+   - Name: Preciprocal.
+   - Supported account types: **Accounts in any organizational directory and
+     personal Microsoft accounts** (this is the `common` tenant the code uses).
+   - Redirect URI, platform **Web**:
+     - `https://app.preciprocal.com/api/integrations/microsoft-calendar/callback`
+     - add `http://localhost:3000/api/integrations/microsoft-calendar/callback`
+       under Authentication for local development.
+     (`NEXT_PUBLIC_APP_URL` plus this path; it must match exactly.)
+2. **Client secret**: Certificates & secrets > New client secret. Copy the
+   **Value** (not the Secret ID). Secrets expire (Azure offers up to 24
+   months); write the expiry date here, because Outlook stops working for
+   everyone on that day until a new secret is set.
+   - Expiry: (fill in)
+3. **API permissions** > Add a permission > Microsoft Graph > Delegated:
+   `openid`, `email`, `offline_access`, `User.Read`, `Calendars.ReadWrite`.
+   None of these need admin consent in a personal account; some school
+   tenants require an admin to approve any outside app, and those students
+   see "Need admin approval" (the app shows "Outlook was not connected").
+4. **Publisher verification** (Branding & properties > Publisher domain, then
+   verify with a Microsoft Partner Network ID). Without it, the consent screen
+   shows the app as "unverified" and many school tenants block user consent
+   to unverified multi-tenant apps. Works for personal accounts without it.
+5. **Env vars** (Vercel Production and `.env.local`):
+   - `MICROSOFT_CALENDAR_CLIENT_ID` (Application (client) ID on the Overview page)
+   - `MICROSOFT_CALENDAR_CLIENT_SECRET` (the secret Value from step 2)
+   - `TOKEN_ENCRYPTION_KEY` is shared with Google (item 36); set it once.
+6. **Apply `supabase/migrations/0070_microsoft_calendar.sql`** in the SQL
+   editor (new `microsoft_calendar_connections` table, and a
+   `microsoft_event_id` column on `interview_schedules`). Additive; Google
+   rows are untouched.
+7. **Privacy policy**: add that Outlook calendar access is optional, used only
+   to create, update, delete and read back the interview events the user adds,
+   that tokens are encrypted, and that disconnecting deletes them (Microsoft
+   has no per-app revoke call; users can remove the app from their Microsoft
+   account's apps and services page).
+
+What hides until then: without the two env vars, TOKEN_ENCRYPTION_KEY, or
+migration 0070, the Outlook row and every "Connect Outlook" button are hidden.
+Google keeps working either way.
+
+Check after setup: connect from Settings > Integrations with a personal
+Outlook.com account and with a school account, add a time to an
+interview-stage card, confirm the event in Outlook (title "Interview: <Role> at
+<Company>", reminder 30 minutes before, description links back), move it in
+Outlook, reload the tracker after two minutes and confirm the card moved. Then
+connect Google and confirm Outlook shows as not connected.
+
+`npx tsx --tsconfig tsconfig.json scripts/verify-microsoft-calendar.ts` runs
+the offline checks (authorize URL, token requests, event payload, read-back).

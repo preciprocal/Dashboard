@@ -5,7 +5,7 @@
 // calendar" before a time is set, the time (in the viewer's own zone) after.
 
 import { CalendarPlus, Clock, Pencil } from 'lucide-react';
-import { GoogleCalendarIcon } from '@/components/icons/BrandIcons';
+import { ProviderIcon } from '@/components/calendar/GoogleCalendarSettings';
 import { formatScheduled } from '@/lib/calendar/time';
 import { stageLabel } from '@/lib/calendar/events';
 import type { InterviewSchedule } from '@/lib/calendar/status';
@@ -24,7 +24,7 @@ export default function InterviewScheduleRow({ schedule, onOpen }: { schedule: I
   return (
     <button type="button" onClick={onOpen} title={`${stageLabel(schedule.stage)}, set in ${schedule.timeZone.replace(/_/g, ' ')}. Click to edit.`}
       className="group/sch w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left border border-[var(--border)] bg-[var(--bg-subtle)] hover:border-[var(--border-hover)] transition-colors">
-      {schedule.onGoogle ? <GoogleCalendarIcon className="w-4 h-4 flex-shrink-0" /> : <Clock className="w-3.5 h-3.5 text-indigo-300 flex-shrink-0" />}
+      {schedule.onCalendar || schedule.onGoogle ? <ProviderIcon provider={schedule.onCalendar ?? 'google'} className="w-4 h-4 flex-shrink-0" /> : <Clock className="w-3.5 h-3.5 text-[var(--text-3)] flex-shrink-0" />}
       <span className={`flex-1 min-w-0 truncate text-xs font-semibold ${past ? 'text-slate-400' : 'text-white'}`}>
         {past ? 'Was ' : ''}{formatScheduled(start)}
       </span>

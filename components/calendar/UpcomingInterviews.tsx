@@ -5,13 +5,13 @@
 // Renders nothing when there are none, so the tracker stays as it was for
 // anyone who never schedules one.
 //
-// When Google Calendar is connected the times have already been checked
-// against Google (the schedule API follows events the user moved or deleted
-// there), so this strip reflects the calendar, not just what was typed here.
+// When a calendar is connected the times have already been checked against it
+// (the schedule API follows events the user moved or deleted there), so this
+// strip reflects the calendar, not just what was typed here.
 
 import Link from 'next/link';
 import { CalendarClock, Mic, Video } from 'lucide-react';
-import { GoogleCalendarIcon } from '@/components/icons/BrandIcons';
+import { ProviderIcon } from '@/components/calendar/GoogleCalendarSettings';
 import { stageLabel } from '@/lib/calendar/events';
 import { upcomingWithin, type InterviewSchedule } from '@/lib/calendar/status';
 
@@ -53,7 +53,7 @@ export default function UpcomingInterviews({ schedules, apps, onOpen }: { schedu
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-white truncate">{app.jobTitle} at {app.company}</p>
                 <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-slate-400">
-                  {s.onGoogle && <GoogleCalendarIcon className="w-3.5 h-3.5 flex-shrink-0" />}
+                  {(s.onCalendar || s.onGoogle) && <ProviderIcon provider={s.onCalendar ?? 'google'} className="w-3.5 h-3.5 flex-shrink-0" />}
                   {stageLabel(s.stage)}
                   {s.meetingUrl && (
                     <a href={s.meetingUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-slate-300 hover:text-white"><Video className="w-3 h-3" /> Join</a>

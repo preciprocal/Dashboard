@@ -1,14 +1,14 @@
 'use client';
 
 // components/calendar/GoogleCalendarSettings.tsx
-// Settings > Integrations: connect or disconnect Google Calendar, see which
-// Google account is connected, and read exactly what access that grants.
+// Settings > Integrations: connect Google Calendar or Outlook (one at a time),
+// see which account is connected, and read exactly what access that grants.
 
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AlertTriangle, CheckCircle2, Loader2, ShieldCheck, Unplug } from 'lucide-react';
-import { GoogleCalendarIcon } from '@/components/icons/BrandIcons';
-import { callbackMessage, connectHref, NOT_CONFIGURED, type CalendarStatus } from '@/lib/calendar/status';
+import { GoogleCalendarIcon, OutlookIcon } from '@/components/icons/BrandIcons';
+import { callbackMessage, connectHref, NOT_CONFIGURED, PROVIDER_NAME, type CalendarProvider, type CalendarStatus } from '@/lib/calendar/status';
 
 /** Status for the Settings tab bar, so the Integrations tab only appears when it can work. */
 export function useCalendarStatus(enabled = true) {
@@ -26,29 +26,36 @@ export function useCalendarStatus(enabled = true) {
 
 const RETURN_TO = '/settings?section=integrations';
 
-export default function GoogleCalendarSettings({ status, onChanged }: { status: CalendarStatus; onChanged: () => void }) {
+export function ProviderIcon({ provider, className }: { provider: CalendarProvider; className?: string }) {
+  return provider === 'microsoft' ? <OutlookIcon className={className ?? 'w-5 h-5'} /> : <GoogleCalendarIcon className={className ?? 'w-5 h-5'} />;
+}
+
+const ACCESS: Record<CalendarProvider, { asks: string; held: string }> = {
+  google: {
+    asks: 'Google asks you to allow Preciprocal to see, create, change and delete events on calendars you own. We use that narrowly: we create, update and delete only the interview events you add here, and we read back only those events (to show upcoming interviews and follow any you move in Google). We never list, read or change your other events, and we have no access to Gmail.',
+    held: 'The Google access token we hold is encrypted at rest. Disconnecting revokes our access at Google; events already added stay on your calendar.',
+  },
+  microsoft: {
+    asks: 'Microsoft asks you to allow Preciprocal to read and write your calendars, keep that access, and see your basic profile. We use it narrowly: we create, update and delete only the interview events you add here, and we read back only those events, by their id (to follow any you move or delete in Outlook). We never list, read or change your other events, and we have no access to your email.',
+    held: 'The Microsoft access token we hold is encrypted at rest. Disconnecting deletes it here; to remove Preciprocal from your Microsoft account as well, use the apps and services page in your Microsoft account settings. Events already added stay in Outlook.',
+  },
+};
+
+function ProviderRow({ provider, status, onChanged }: { provider: CalendarProvider; status: CalendarStatus; onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
-
-  // The OAuth callback lands here with ?calendar=<result>. Say what happened
-  // once, then drop the parameter so a refresh does not repeat it.
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    const msg = callbackMessage(url.searchParams.get('calendar'));
-    if (!msg) return;
-    if (msg.ok) toast.success(msg.text); else toast.error(msg.text);
-    url.searchParams.delete('calendar');
-    window.history.replaceState(null, '', url.toString());
-  }, []);
+  const name = PROVIDER_NAME[provider];
+  const mine = status.provider === provider;
+  const other = status.provider && status.provider !== provider ? PROVIDER_NAME[status.provider] : null;
 
   const disconnect = async () => {
     if (!confirming) { setConfirming(true); return; }
     setBusy(true);
     try {
-      const r = await fetch('/api/integrations/google-calendar/disconnect', { method: 'POST' });
+      const r = await fetch(`/api/integrations/${provider === 'microsoft' ? 'microsoft' : 'google'}-calendar/disconnect`, { method: 'POST' });
       const j = (await r.json().catch(() => ({}))) as { error?: string };
       if (!r.ok) throw new Error(j.error || 'Could not disconnect');
-      toast.success('Google Calendar disconnected');
+      toast.success(`${name} disconnected`);
       setConfirming(false);
       onChanged();
     } catch (e) {
@@ -61,55 +68,84 @@ export default function GoogleCalendarSettings({ status, onChanged }: { status: 
   return (
     <div className="glass-card overflow-hidden">
       <div className="px-5 py-4 border-b border-white/[0.06] flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center border bg-white/[0.04] border-white/[0.08]">
-          <GoogleCalendarIcon className="w-5 h-5" />
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/[0.04] ring-1 ring-inset ring-white/[0.08]">
+          <ProviderIcon provider={provider} />
         </div>
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-white">Google Calendar</h3>
-          <p className="text-slate-400 text-xs mt-0.5">Put interviews from your job tracker on your calendar, with reminders</p>
+          <h3 className="text-sm font-semibold text-white">{provider === 'microsoft' ? 'Outlook Calendar' : 'Google Calendar'}</h3>
+          <p className="text-[var(--text-4)] text-xs mt-0.5">
+            {provider === 'microsoft' ? 'Outlook.com and Microsoft 365, including school accounts that allow it' : 'Put interviews from your job tracker on your calendar, with reminders'}
+          </p>
         </div>
       </div>
 
       <div className="p-5 space-y-4">
-        {status.broken ? (
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-[var(--r-md)] border border-amber-500/25 bg-amber-500/[0.06] px-4 py-3">
+        {mine && status.broken ? (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-[var(--r-md)] ring-1 ring-inset ring-amber-500/25 bg-amber-500/[0.06] px-4 py-3">
             <AlertTriangle className="w-4 h-4 text-amber-300 flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm text-amber-200 font-medium">Reconnect needed</p>
-              <p className="text-xs text-slate-300 mt-0.5">Google stopped accepting our access{status.email ? <> to {status.email}</> : null}. This happens when access is removed in your Google account or after a password change.</p>
+              <p className="text-xs text-[var(--text-2)] mt-0.5">{provider === 'microsoft' ? 'Microsoft' : 'Google'} stopped accepting our access{status.email ? <> to {status.email}</> : null}. This happens when access is removed in your account or after a password change.</p>
             </div>
-            <a href={connectHref(RETURN_TO)} className="btn-primary flex-shrink-0">Reconnect</a>
+            <a href={connectHref(RETURN_TO, provider)} className="btn-primary flex-shrink-0">Reconnect</a>
           </div>
-        ) : status.connected ? (
+        ) : mine && status.connected ? (
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="flex items-center gap-2.5 flex-1 min-w-0">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
               <div className="min-w-0">
                 <p className="text-sm text-white font-medium truncate">Connected{status.email ? <> as {status.email}</> : null}</p>
-                {status.connectedAt && <p className="text-xs text-slate-400">Since {new Date(status.connectedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>}
+                {status.connectedAt && <p className="text-xs text-[var(--text-4)]">Since {new Date(status.connectedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>}
               </div>
             </div>
             <button type="button" onClick={disconnect} disabled={busy}
-              className={`btn-secondary flex-shrink-0 ${confirming ? '!text-red-300 !border-red-500/30' : ''}`}>
+              className={`btn-secondary flex-shrink-0 ${confirming ? '!text-red-300' : ''}`}>
               {busy ? <Loader2 className="animate-spin" /> : <Unplug />} {confirming ? 'Confirm disconnect' : 'Disconnect'}
             </button>
           </div>
         ) : (
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <p className="text-sm text-slate-300 flex-1">Not connected. When you add an interview time on a job tracker card, it becomes a Google Calendar event with a link back to practise for it.</p>
-            <a href={connectHref(RETURN_TO)} className="btn-primary flex-shrink-0"><GoogleCalendarIcon /> Connect Google Calendar</a>
+            <p className="text-sm text-[var(--text-2)] flex-1">
+              {other
+                ? <>You have {other} connected. Connecting {name} replaces it, so new interviews go to {name}.</>
+                : <>Not connected. When you add an interview time on a job tracker card, it becomes {provider === 'microsoft' ? 'an Outlook' : 'a Google Calendar'} event with a link back to practise for it.</>}
+            </p>
+            <a href={connectHref(RETURN_TO, provider)} className={`${other ? 'btn-secondary' : 'btn-primary'} flex-shrink-0`}><ProviderIcon provider={provider} className="w-4 h-4" /> Connect {name}</a>
           </div>
         )}
 
-        <div className="flex items-start gap-3 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--bg-subtle)] px-4 py-3">
-          <ShieldCheck className="w-4 h-4 text-indigo-300 flex-shrink-0 mt-0.5" />
-          <div className="text-xs text-slate-300 leading-relaxed space-y-1.5">
+        <div className="flex items-start gap-3 rounded-[var(--r-md)] ring-1 ring-inset ring-white/[0.07] bg-white/[0.02] px-4 py-3">
+          <ShieldCheck className="w-4 h-4 text-[var(--text-3)] flex-shrink-0 mt-0.5" />
+          <div className="text-xs text-[var(--text-2)] leading-relaxed space-y-1.5">
             <p className="text-white font-medium">What we can access</p>
-            <p>Google asks you to allow Preciprocal to see, create, change and delete events on calendars you own. We use that narrowly: we create, update and delete only the interview events you add here, and we read back only those events (to show upcoming interviews and follow any you move in Google). We never list, read or change your other events, and we have no access to Gmail.</p>
-            <p className="text-slate-400">The Google access token we hold is encrypted at rest. Disconnecting revokes our access at Google; events already added stay on your calendar.</p>
+            <p>{ACCESS[provider].asks}</p>
+            <p className="text-[var(--text-4)]">{ACCESS[provider].held}</p>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+export default function GoogleCalendarSettings({ status, onChanged }: { status: CalendarStatus; onChanged: () => void }) {
+  // The OAuth callbacks land here with ?calendar=<result>. Say what happened
+  // once, then drop the parameter so a refresh does not repeat it.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const msg = callbackMessage(url.searchParams.get('calendar'));
+    if (!msg) return;
+    if (msg.ok) toast.success(msg.text); else toast.error(msg.text);
+    url.searchParams.delete('calendar');
+    window.history.replaceState(null, '', url.toString());
+  }, []);
+
+  const providers = (['google', 'microsoft'] as const).filter((p) => status.available?.[p] ?? p === 'google');
+  return (
+    <div className="space-y-4">
+      {providers.length > 1 && (
+        <p className="text-[12.5px] text-[var(--text-4)] px-1">Connect one calendar. Interviews you add from the job tracker go there, with reminders.</p>
+      )}
+      {providers.map((p) => <ProviderRow key={p} provider={p} status={status} onChanged={onChanged} />)}
     </div>
   );
 }
