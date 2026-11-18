@@ -219,7 +219,7 @@ export function NewJobs({ data, logos, applying, onApply, personalized = false }
       {data === undefined ? (
         <div className="space-y-3">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-[58px]" />)}</div>
       ) : !data || !data.jobs.length ? (
-        <p className="text-[13px] text-slate-400 py-6 text-center">No new {personalized ? 'matching ' : ''}roles in the last 7 days. <Link href={personalized ? '/onboarding?edit=1' : '/jobs'} className="text-indigo-300 hover:underline">{personalized ? 'Widen your preferences' : 'Browse all jobs'}</Link></p>
+        <p className="text-[13px] text-slate-400 py-6 text-center">No new {personalized ? 'matching ' : ''}roles in the last 7 days. <Link href={personalized ? '/jobs?prefs=1' : '/jobs'} className="text-indigo-300 hover:underline">{personalized ? 'Widen your preferences' : 'Browse all jobs'}</Link></p>
       ) : (
         <>
           <p className="text-[12.5px] text-slate-400 -mt-2 mb-3"><span className="text-white font-semibold tabular-nums">{data.total.toLocaleString('en-US')}</span> {personalized ? 'roles matching your preferences posted this week' : 'internships and entry-level roles posted this week'}</p>

@@ -17,6 +17,7 @@ import SendCreditsPanel from '@/components/billing/SendCreditsPanel';
 import AutoPayPanel from '@/components/billing/AutoPayPanel';
 import BillingPanel from '@/components/billing/BillingPanel';
 import DevicesPanel from '@/components/settings/DevicesPanel';
+import JobSetupPanel from '@/components/settings/JobSetupPanel';
 import GoogleCalendarSettings, { useCalendarStatus } from '@/components/calendar/GoogleCalendarSettings';
 import {
   USAGE_LIMITS, FEATURE_NAMES, isUnlimited, type FeatureType,
@@ -24,7 +25,7 @@ import {
 import {
   Bell, User, Shield, CreditCard, Chrome, Loader2,
   AlertTriangle, Check, Eye, EyeOff, Trash2, Mail, Lock, Zap,
-  Star, AlertCircle, RefreshCw, ExternalLink, Building2, Link2, RotateCcw, MonitorSmartphone, Plug,
+  Star, AlertCircle, RefreshCw, ExternalLink, Building2, Link2, RotateCcw, MonitorSmartphone, Plug, Briefcase,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -174,7 +175,7 @@ export default function SettingsPage() {
   // boundary around the whole page.
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get('section');
-    if (requested && ['account', 'notifications', 'security', 'devices', 'billing', 'extension', 'integrations', 'danger'].includes(requested)) {
+    if (requested && ['account', 'job-setup', 'notifications', 'security', 'devices', 'billing', 'extension', 'integrations', 'danger'].includes(requested)) {
       setActiveSection(requested);
     }
   }, []);
@@ -403,6 +404,7 @@ export default function SettingsPage() {
 
   const sections = [
     { id: 'account',       label: 'Account',          icon: User,          danger: false, badge: null },
+    { id: 'job-setup',     label: 'Job setup',        icon: Briefcase,     danger: false, badge: null },
     { id: 'notifications', label: 'Notifications',    icon: Bell,          danger: false, badge: null },
     { id: 'security',      label: 'Security',         icon: Shield,        danger: false, badge: null },
     { id: 'devices',       label: 'Devices',          icon: MonitorSmartphone, danger: false, badge: null },
@@ -592,6 +594,8 @@ export default function SettingsPage() {
         )}
 
         {/* ════ SECURITY ════ */}
+        {activeSection === 'job-setup' && <JobSetupPanel />}
+
         {activeSection === 'devices' && <DevicesPanel />}
 
         {activeSection === 'security' && (

@@ -169,6 +169,12 @@ const PUBLIC_ROUTES = [
   '/help', '/terms', '/privacy', '/subscription',
 ];
 
+/**
+ * Pages a new account may open before finishing onboarding: accepting a group
+ * pack invite, finishing a checkout, and the extension's sign-in hand-off.
+ */
+const ONBOARDING_EXEMPT = ['/join/', '/billing', '/extension-auth-success'];
+
 // ─── Resume count hook ────────────────────────────────────────────────────────
 
 /**
@@ -634,6 +640,31 @@ function LayoutContent({ children, user }: LayoutClientProps) {
     }
   }, [user, authResolved, pathname, router]);
 
+  // ── Onboarding gate ───────────────────────────────────────────────────────
+  // Accounts made since onboarding launched finish it before using the app;
+  // older accounts are never sent there and fill it in under Settings > Job
+  // setup. Checked once per tab session: after a pass it is remembered, so
+  // moving between pages does not ask again. If the check itself fails the
+  // app opens rather than locking anyone out.
+  const [onboardingOk, setOnboardingOk] = useState(false);
+  useEffect(() => {
+    if (onboardingOk || !authResolved || !currentUser?.id) return;
+    if (PUBLIC_ROUTES.some(r => pathname.startsWith(r)) || ONBOARDING_EXEMPT.some(r => pathname.startsWith(r))) return;
+    const key = `prc_onb_ok:${currentUser.id}`;
+    try { if (sessionStorage.getItem(key)) { setOnboardingOk(true); return; } } catch { /* storage blocked */ }
+    let live = true;
+    fetch('/api/onboarding', { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : null))
+      .then((o: { completed?: boolean; isNew?: boolean } | null) => {
+        if (!live) return;
+        if (o && o.isNew && !o.completed) { router.replace('/onboarding'); return; }
+        try { sessionStorage.setItem(key, '1'); } catch { /* storage blocked */ }
+        setOnboardingOk(true);
+      })
+      .catch(() => { if (live) setOnboardingOk(true); });
+    return () => { live = false; };
+  }, [onboardingOk, authResolved, currentUser?.id, pathname, router]);
+
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -757,6 +788,9 @@ function LayoutContent({ children, user }: LayoutClientProps) {
   }
   if (userIsEmpty && !isPublicRoute) {
     return <AnimatedLoader isVisible={true} loadingText="Redirecting" showNavigation={false} tone="focused" />;
+  }
+  if (!onboardingOk && !isPublicRoute && !ONBOARDING_EXEMPT.some(r => pathname.startsWith(r))) {
+    return <AnimatedLoader isVisible={true} loadingText="Loading" showNavigation={false} tone="focused" />;
   }
 
   const safeUser     = user || {};

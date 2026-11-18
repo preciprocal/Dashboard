@@ -4,12 +4,12 @@
 // First run, about two minutes: what roles the student wants, their work
 // authorization, their resume, and the details read from it. Each step saves
 // as they go (app/api/onboarding), into the same profile Jobs, Auto-apply and
-// the extension use, so they never type the same thing twice. Every step can
-// be skipped. Once it is finished, preferences are edited from Jobs
-// (components/jobs/JobPreferencesDialog), so a return here goes there.
+// the extension use, so they never type the same thing twice. Questions can be
+// skipped, but new accounts must reach the end before using the app
+// (components/LayoutClient gates it). Once finished, or for accounts made
+// before onboarding existed, everything here is edited in Settings > Job setup.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import AutoTextarea from '@/components/ui/auto-textarea';
-import Link from 'next/link';
 import NextImage from 'next/image';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -22,7 +22,7 @@ import { DEFAULT_PREFERENCES, FAMILY_OPTIONS, LEVEL_OPTIONS, STATUS_OPTIONS, typ
 interface Education { school: string; degree: string; field: string; gpa: string; year: string; current: boolean }
 interface Details { name: string; phone: string; city: string; state: string; linkedIn: string; github: string; website: string; headline: string; skills: string; education: Education[] }
 interface Loaded {
-  preferences: JobPreferences; completed: boolean;
+  preferences: JobPreferences; completed: boolean; isNew: boolean;
   profile: Details & { workAuthorization: string | boolean | null; requireSponsorship: string | boolean | null; visaType: string; desiredSalary: string };
   resume: { fileName: string } | null;
 }
@@ -33,6 +33,9 @@ const STEPS = [
   { key: 'resume', label: 'Resume', title: <>Add your <b className="text-white">resume</b></>, sub: 'It becomes your default resume: tailored for each job and uploaded for you.' },
   { key: 'details', label: 'Details', title: <>Check your <b className="text-white">details</b></>, sub: 'Read from your resume. Fix anything that is off; nothing is filled in that your resume does not say.' },
 ] as const;
+
+/** The step reached, so a reload or a return carries on from there. */
+const STEP_KEY = 'prc_onb_step';
 
 const EMPTY_DETAILS: Details = { name: '', phone: '', city: '', state: '', linkedIn: '', github: '', website: '', headline: '', skills: '', education: [] };
 
@@ -55,6 +58,12 @@ export default function Onboarding() {
   const [salary, setSalary] = useState('');
   const [parsed, setParsed] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    if (!loaded || done) return;
+    try { localStorage.setItem(STEP_KEY, String(step)); } catch { /* storage blocked */ }
+  }, [step, loaded, done]);
 
   useEffect(() => {
     // Only the latest load counts: a slow earlier answer must not reset what
@@ -62,8 +71,12 @@ export default function Onboarding() {
     let alive = true;
     fetch('/api/onboarding').then(r => (r.ok ? r.json() : Promise.reject(r.status))).then((j: Loaded) => {
       if (!alive) return;
-      if (j.completed) { router.replace('/jobs?prefs=1'); return; }
+      if (j.completed || !j.isNew) { router.replace('/settings?section=job-setup'); return; }
       setLoaded(j);
+      try {
+        const saved = Number(localStorage.getItem(STEP_KEY));
+        if (saved > 0 && saved < STEPS.length) setStep(saved);
+      } catch { /* storage blocked */ }
       setPrefs(j.preferences);
       setAnywhere(!j.preferences.location);
       if (j.profile.workAuthorization === 'Yes' || j.profile.workAuthorization === 'No') setAuthorized(j.profile.workAuthorization);
@@ -75,7 +88,7 @@ export default function Onboarding() {
     }).catch(code => {
       if (!alive) return;
       if (code === 401) router.replace('/sign-in?redirect=/onboarding');
-      else toast.error('Could not load your profile. Please refresh.');
+      else setLoadError(true);
     });
     return () => { alive = false; };
   }, [router]);
@@ -98,9 +111,11 @@ export default function Onboarding() {
         });
         if (step === 3) await save({ details });
       }
+      // Leaving the details step for the resume reads the details again.
       if (step === 2 && resume && !parsed) void readResume();
       if (step === STEPS.length - 1) {
         await save({ complete: true });
+        try { localStorage.removeItem(STEP_KEY); } catch { /* storage blocked */ }
         setDone(true);
       } else {
         setStep(step + 1);
@@ -134,6 +149,8 @@ export default function Onboarding() {
         education: prev.education.length ? prev.education : d.education,
       }));
       setParsed(true);
+    } catch {
+      toast.message('Could not read your resume. You can fill in the details yourself.');
     } finally {
       setParsing(false);
     }
@@ -157,6 +174,26 @@ export default function Onboarding() {
     }
   };
 
+  const signOut = async () => {
+    const { supabase } = await import('@/supabase/client');
+    await supabase.auth.signOut().catch(() => {});
+    const { signOut: serverSignOut } = await import('@/lib/actions/auth.action');
+    await serverSignOut().catch(() => {});
+    window.location.replace('/sign-in');
+  };
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-[var(--bg-base,#070a14)]">
+        <div className="glass-card p-8 max-w-sm w-full text-center">
+          <p className="text-slate-200 font-semibold mb-1">We could not load your setup</p>
+          <p className="text-slate-400 text-sm mb-6">Check your connection and try again.</p>
+          <button onClick={() => window.location.reload()} className="btn-primary h-10 w-full justify-center">Try again</button>
+          <button onClick={signOut} className="mt-3 text-[13px] text-slate-400 hover:text-white">Sign out</button>
+        </div>
+      </div>
+    );
+  }
   if (!loaded) {
     return <div className="min-h-screen flex items-center justify-center bg-[var(--bg-base,#070a14)]"><Loader2 className="w-6 h-6 text-slate-500 animate-spin" /></div>;
   }
@@ -195,7 +232,7 @@ export default function Onboarding() {
       {/* Right: the step */}
       <main className="px-5 sm:px-10 lg:px-16 py-8 lg:py-12 flex flex-col min-w-0">
         <div className="flex justify-end">
-          {!done && <Link href="/" className="text-[13px] text-slate-400 hover:text-white transition-colors">Finish later</Link>}
+          {!done && <button onClick={signOut} className="text-[13px] text-slate-400 hover:text-white transition-colors">Sign out</button>}
         </div>
         <div className="w-full max-w-[640px] mx-auto flex-1 flex flex-col justify-center py-6">
           {/* Progress bar on small screens */}
@@ -403,7 +440,7 @@ function Finished({ prefs, resume, authorized, onGo }: { prefs: JobPreferences; 
   const areas = FAMILY_OPTIONS.filter(f => prefs.families.includes(f.id)).map(f => f.label).join(', ') || 'All areas';
   const items = [
     { ok: true, text: `Jobs: ${levels} in ${areas}${prefs.location ? `, ${prefs.location}` : ', anywhere in the US'}${prefs.remote ? ', open to remote' : ''}${prefs.everifyOnly ? ', E-Verified only' : ''}` },
-    { ok: !!resume, text: resume ? `Default resume: ${resume.fileName}` : 'No resume yet. Add one in Settings to auto-apply' },
+    { ok: !!resume, text: resume ? `Default resume: ${resume.fileName}` : 'No resume yet. Add one in Settings, Job setup, to auto-apply' },
     { ok: !!authorized, text: authorized ? 'Work authorization answers saved for application forms' : 'Work authorization not answered. The extension will leave it for you' },
   ];
   return (

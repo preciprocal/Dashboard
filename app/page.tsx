@@ -74,10 +74,10 @@ export default function Overview() {
       getJson<{ data: TrackedApp[] }>("/api/job-tracker").then(j => setApps(j?.data ?? []));
       getJson<{ schedules: Schedule[] }>("/api/job-tracker/schedule").then(j => setSchedules(j?.schedules ?? []));
       getJson<{ due: number; setupRequired?: boolean }>(`/api/contacts/due?tz=${new Date().getTimezoneOffset()}`).then(j => setFollowUps(j && !j.setupRequired ? j.due : null));
-      // New accounts start with onboarding; others get a card to set it up.
+      // New accounts finish onboarding first (components/LayoutClient); older
+      // ones get a card to set it up in Settings.
       // New jobs follow the saved preferences when there are some.
       getJson<{ completed: boolean; isNew: boolean; preferences: unknown }>("/api/onboarding").then(o => {
-        if (o && o.isNew && !o.completed) { router.replace("/onboarding"); return; }
         const p = o?.completed ? readPreferences(o.preferences) : null;
         setPrefs(p);
         const q = p ? feedQuery(p, { days: "7" }) : "days=7&levels=intern,early";
@@ -158,7 +158,7 @@ export default function Overview() {
             <p className="text-[14px] font-semibold text-white">Set up your job search in 2 minutes</p>
             <p className="text-[12.5px] text-slate-400 mt-0.5">Tell us the roles you want and your work status, add your resume, and we fill in your application details and show matching jobs first.</p>
           </div>
-          <Link href="/onboarding" className="btn-primary h-10 flex-shrink-0 justify-center">Get started <ArrowRight className="w-4 h-4" /></Link>
+          <Link href="/settings?section=job-setup" className="btn-primary h-10 flex-shrink-0 justify-center">Set it up <ArrowRight className="w-4 h-4" /></Link>
         </section>
       )}
 
