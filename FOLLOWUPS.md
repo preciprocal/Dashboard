@@ -1383,7 +1383,7 @@ What the owner needs to do:
    editor (new `microsoft_calendar_connections` table, and a
    `microsoft_event_id` column on `interview_schedules`). Additive; Google
    rows are untouched.
-7. **Privacy policy**: add that Outlook calendar access is optional, used only
+7. **Privacy policy**: DONE 2026-11-18 (Calendar Connections in the policy). Was: add that Outlook calendar access is optional, used only
    to create, update, delete and read back the interview events the user adds,
    that tokens are encrypted, and that disconnecting deletes them (Microsoft
    has no per-app revoke call; users can remove the app from their Microsoft
@@ -1402,3 +1402,35 @@ connect Google and confirm Outlook shows as not connected.
 
 `npx tsx --tsconfig tsconfig.json scripts/verify-microsoft-calendar.ts` runs
 the offline checks (authorize URL, token requests, event payload, read-back).
+
+## 41. OPEN - after the Chrome Web Store approves the new extension
+
+The store serves 1.12.0 (the first 1.12.0 build: new toast and fonts). 1.13.0
+is in review; 1.15.0 goes up once 1.13.0 is approved. The live server still
+works with 1.12.0 (autofill and submit tracking checked against production on
+2026-11-18), so nothing in the app waits on this. Once 1.15.0 is live:
+
+1. Send the "what's new" email to users. The draft (LinkedIn fit, E-Verify and
+   H-1B on cards, Applied/Saved tags, Job setup, Approve all, Find Contacts,
+   unlimited tracking and journal, group packs, sending credits) went out once
+   as a test to the owner on 2026-11-18. Leave calendar sync out until #40 and
+   the Google keys are live.
+2. Saves made with 1.12.0 or 1.13.0 are stored as Applied (the Save fix is in
+   1.15.0); tell users who saved jobs to move them back to Wishlist.
+3. Bump the version only for major changes, and zip with
+   `C:/Windows/System32/tar.exe -a -cf`, never PowerShell Compress-Archive.
+
+## 42. OPEN - gaps the privacy policy review found (2026-11-18)
+
+The policy and terms now only promise what the code does. These would let them
+promise more:
+
+1. No way to delete a mock interview (transcript and feedback) in the app; the
+   policy says to email support. Add a delete action.
+2. Account deletion (DELETE /api/profile) removes the profile, files, usage and
+   subscription, but not the Supabase Auth user or other tables (interviews,
+   resumes, job tracker, contacts...). Complete it.
+3. Landing site: `web_analytics_prune` exists but is not scheduled, so old
+   analytics are never deleted. Schedule it, then the policy can state a period.
+4. Terms: price increases promise 30 days' notice in one place and 14 days in
+   another. Pick one.
