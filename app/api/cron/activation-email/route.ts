@@ -1,5 +1,5 @@
 // app/api/cron/activation-email/route.ts
-// Sends the Monday "next step" email (lib/email/activation.ts) to accounts
+// Sends the Tuesday "next step" email (lib/email/activation.ts) to accounts
 // that signed up and went quiet. Triggered by the Vercel cron in vercel.json,
 // an hour after the weekly digest. On the Hobby plan a cron fires anywhere
 // inside its hour, so a full hour apart is what guarantees the digest went
@@ -17,8 +17,9 @@
 //   - at least one core feature untried, otherwise there is nothing to suggest
 //   - fewer than 3 sent, at most one a week, and not opted out (all three
 //     enforced again by claim_activation_email in migration 0043)
-//   - did not get the weekly digest this morning: two emails from us in one
-//     inbox on one Monday is the fastest way to lose both
+//   - did not get the weekly digest in the last day and a half: it goes out
+//     on Monday mornings and this on Tuesday, and two emails from us on
+//     consecutive mornings is the fastest way to lose both
 import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
 import { supabaseAdmin } from '@/supabase/admin';
@@ -143,7 +144,7 @@ export async function GET(req: NextRequest) {
   const quietSince = iso(now - QUIET_DAYS * DAY_MS);
   // Six days, not seven, absorbs a cron that fires a few hours early or late.
   const notSince = iso(now - 6 * DAY_MS);
-  const digestToday = iso(now - 12 * 60 * 60 * 1000);
+  const digestToday = iso(now - 36 * 60 * 60 * 1000);
 
   let considered = 0, sent = 0, skippedActive = 0, skippedDone = 0, skippedDigest = 0, failed = 0;
 

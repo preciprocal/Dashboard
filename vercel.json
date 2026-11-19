@@ -8,19 +8,23 @@
   "crons": [
     {
       "path": "/api/cron/weekly-digest",
-      "schedule": "0 8 * * 1"
+      "schedule": "0 14 * * 1"
     },
     {
       "path": "/api/cron/activation-email",
-      "schedule": "0 9 * * 1"
+      "schedule": "0 15 * * 2"
     },
     {
       "path": "/api/cron/application-coaching",
-      "schedule": "0 9 * * *"
+      "schedule": "0 15 * * *"
     },
     {
-      "path": "/api/cron/job-alerts",
-      "schedule": "0 14 * * 1,4"
+      "path": "/api/cron/job-alerts?slot=sunday",
+      "schedule": "0 0 * * 1"
+    },
+    {
+      "path": "/api/cron/job-alerts?slot=wednesday",
+      "schedule": "0 16 * * 3"
     }
   ]
 }

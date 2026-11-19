@@ -1,6 +1,9 @@
 // app/api/cron/job-alerts/route.ts
 // New jobs that match each student's job setup (lib/email/job-alerts.ts).
-// Triggered by the Vercel cron entry in vercel.json, twice a week.
+// Triggered by two Vercel cron entries in vercel.json: Sunday 7pm and
+// Wednesday 11am US Eastern. Sunday evening is when job searching picks up
+// for the week ahead; Wednesday catches the postings that go up Monday to
+// Wednesday, which is most of them.
 //
 // Off until JOB_ALERTS_ENABLED=1: a full run emails every student with a
 // finished job setup, so it is switched on deliberately. ?user=<uuid> runs for

@@ -1,5 +1,5 @@
 // lib/email/activation.ts
-// The Monday "next step" email for accounts that signed up and went quiet.
+// The Tuesday "next step" email for accounts that signed up and went quiet.
 // Sent by app/api/cron/activation-email; capped at three by the claim in
 // supabase/migrations/0043_activation_email.sql.
 //

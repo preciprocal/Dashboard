@@ -566,9 +566,9 @@ export default function SettingsPage() {
                 [
                   { key: 'supportReplies' as const, label: 'Support replies',  desc: 'Email me when the support team answers one of my tickets. Replies always appear in the app regardless.' },
                   { key: 'weeklyDigest'   as const, label: 'Weekly digest',    desc: 'A Monday summary of your applications, interviews and progress.' },
-                  { key: 'jobAlerts'      as const, label: 'New job matches', desc: 'Twice a week, new postings that match your job setup. Only sent when there are new ones.' },
+                  { key: 'jobAlerts'      as const, label: 'New job matches', desc: 'Sunday evenings and Wednesday mornings, new postings that match your job setup. Only sent when there are new ones.' },
                   { key: 'coaching'       as const, label: 'Application coaching', desc: 'When an application in your tracker changes stage, an email the next morning on what to do next. One a day at most.' },
-                  { key: 'activation'     as const, label: 'Next-step suggestions', desc: 'Up to three Monday emails after you sign up, each suggesting one feature you have not tried yet.' },
+                  { key: 'activation'     as const, label: 'Next-step suggestions', desc: 'Up to three Tuesday emails after you sign up, each suggesting one feature you have not tried yet.' },
                   { key: 'productUpdates' as const, label: 'Product updates',  desc: 'Occasional announcements of new features. Off by default. Personal emails from our team have their own unsubscribe link.' },
                 ] satisfies { key: keyof NotificationSettings; label: string; desc: string }[]
               ).map(item => {
