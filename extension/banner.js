@@ -242,6 +242,121 @@ class LabelInjector {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// Company facts on each job card in LinkedIn's list
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * E-Verify and H-1B chips under the company name on every job card, from our
+ * USCIS copies (app/api/extension/companies). Names are batched as cards
+ * appear and remembered for the page, so scrolling asks only for new ones.
+ */
+class CardFacts {
+  static cache = new Map();   // company -> { ev, h1b } | 'pending'
+  static started = false;
+
+  static start(banner) {
+    CardFacts.auth = banner;
+    if (CardFacts.started) return;
+    CardFacts.started = true;
+    CardFacts._injectStyles();
+    let timer = null;
+    const run = () => { timer = null; CardFacts.pass(); };
+    new MutationObserver(() => { if (!timer) timer = setTimeout(run, 500); }).observe(document.body, { childList: true, subtree: true });
+    CardFacts.pass();
+  }
+
+  /** Each list card: the element, and the company named on it. */
+  static cards() {
+    const seen = new Set(), out = [];
+    for (const a of document.querySelectorAll('a[href*="currentJobId="], a[href*="/jobs/view/"]')) {
+      if (a.closest('#preciprocal-inline-banner, #prc-sidebar')) continue;
+      const card = a.closest('li') || a.closest('[role="listitem"]') || a.closest('[data-occludable-job-id]');
+      if (!card || seen.has(card)) continue;
+      seen.add(card);
+      const company = CardFacts.companyOf(card, a);
+      if (company) out.push({ card, company });
+    }
+    return out;
+  }
+
+  /** The line after the title, which LinkedIn's cards use for the employer. */
+  static companyOf(card, link) {
+    const known = card.querySelector('.artdeco-entity-lockup__subtitle, .job-card-container__primary-description, [class*="company-name"]');
+    if (known?.innerText?.trim()) return known.innerText.trim().split('\n')[0].trim();
+    const title = (link.innerText || '').split('\n')[0].trim();
+    const lines = (card.innerText || '').split('\n').map(l => l.trim()).filter(Boolean);
+    const i = lines.findIndex(l => l === title || l.startsWith(title));
+    for (let j = Math.max(0, i) + 1; j < Math.min(lines.length, i + 4); j++) {
+      const l = lines[j];
+      if (l === title || l.startsWith(title) || /verification|^promoted$|^viewed$|^applied$|^saved$/i.test(l) || l.length > 80) continue;
+      return l;
+    }
+    return '';
+  }
+
+  static async pass() {
+    const list = CardFacts.cards();
+    const ask = [...new Set(list.map(c => c.company))].filter(n => !CardFacts.cache.has(n)).slice(0, 30);
+    if (ask.length) {
+      ask.forEach(n => CardFacts.cache.set(n, 'pending'));
+      const a = CardFacts.auth;
+      try {
+        const resp = await chrome.runtime.sendMessage({ type: 'API_FETCH_COMPANIES', token: a.authToken, userId: a.authUserId || '', email: a.authEmail || '', baseUrl: PRECIPROCAL_URL, payload: { companies: ask } });
+        const d = resp?.success && resp.data?.success ? resp.data : null;
+        for (const n of ask) CardFacts.cache.set(n, d ? { ev: d.everify ? (d.everify[n] ?? 'not-found') : undefined, h1b: d.h1b ? d.h1b[n] : undefined } : null);
+      } catch { ask.forEach(n => CardFacts.cache.delete(n)); }
+    }
+    for (const { card, company } of CardFacts.cards()) CardFacts.paint(card, company);
+  }
+
+  static paint(card, company) {
+    const f = CardFacts.cache.get(company);
+    if (!f || f === 'pending') return;
+    const key = company + '|' + JSON.stringify(f);
+    const old = card.querySelector('.prc-card-facts');
+    if (old?.dataset.key === key) return;
+    old?.remove();
+    const chips = [];
+    const ev = { enrolled: ['good', 'E-Verified', 'Enrolled in E-Verify (needed for a STEM OPT extension)'], ending: ['warn', 'E-Verify ending', 'Its E-Verify enrolment is set to end'], ended: ['bad', 'E-Verify ended', 'Its E-Verify enrolment has ended'], 'not-found': ['muted', 'No E-Verify', 'Not found in the E-Verify list. It may be listed under another name'] }[f.ev];
+    if (ev) chips.push([ev[0], ev[1], ev[2] + '. From the USCIS E-Verify list, via Preciprocal.']);
+    if (f.h1b && f.h1b.approvals > 0) chips.push(['good', `H-1B ${f.h1b.approvals}`, `${f.h1b.approvals} H-1B approvals in ${f.h1b.year}. From USCIS data, via Preciprocal.`]);
+    else if (f.h1b === null) chips.push(['muted', 'No H-1B record', 'No match in the USCIS H-1B data. It may be listed under another name.']);
+    if (!chips.length) return;
+    const row = document.createElement('div');
+    row.className = 'prc-card-facts';
+    row.dataset.key = key;
+    for (const [tone, text, tip] of chips) {
+      const c = document.createElement('span');
+      c.className = `prc-cf prc-cf-${tone}`;
+      c.title = tip;
+      c.textContent = text;
+      row.appendChild(c);
+    }
+    // Under the company line when it can be found, else at the card's end.
+    const line = [...card.querySelectorAll('div, span')].find(el => el.childElementCount === 0 && (el.innerText || '').trim() === company);
+    const anchor = line?.closest('div') || null;
+    if (anchor && card.contains(anchor)) anchor.insertAdjacentElement('afterend', row); else card.appendChild(row);
+  }
+
+  static _injectStyles() {
+    if (document.getElementById('prc-card-facts-styles')) return;
+    const s = document.createElement('style');
+    s.id = 'prc-card-facts-styles';
+    // Mid tones that read on LinkedIn's light and dark themes alike.
+    s.textContent = `
+      .prc-card-facts { display:flex !important; flex-wrap:wrap !important; gap:4px !important; margin:4px 0 2px !important; font-family:PrcInter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; }
+      .prc-cf { display:inline-flex !important; align-items:center !important; gap:4px !important; height:18px !important; padding:0 6px !important; border-radius:999px !important; font-size:11px !important; font-weight:600 !important; line-height:1 !important; cursor:help !important; border:1px solid !important; }
+      .prc-cf::before { content:'' !important; width:5px !important; height:5px !important; border-radius:999px !important; background:currentColor !important; }
+      .prc-cf-good { color:#22a35a !important; border-color:rgba(34,163,90,0.4) !important; background:rgba(34,163,90,0.08) !important; }
+      .prc-cf-warn { color:#d97706 !important; border-color:rgba(217,119,6,0.4) !important; background:rgba(217,119,6,0.08) !important; }
+      .prc-cf-bad { color:#dc2626 !important; border-color:rgba(220,38,38,0.4) !important; background:rgba(220,38,38,0.08) !important; }
+      .prc-cf-muted { color:#8a8f98 !important; border-color:rgba(138,143,152,0.35) !important; background:transparent !important; }
+    `;
+    document.head.appendChild(s);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
 // Job data extractor
 // ─────────────────────────────────────────────────────────────────
 
@@ -807,6 +922,7 @@ class PreciprocalBanner {
       console.log(`[PRC] Init: "${this.jobData.title}" | jobId: ${this.currentJobId}`);
       await this._delay(400);
       LabelInjector.watch();
+      if (this.isAuthenticated) CardFacts.start(this);
       if (this.isAuthenticated) await this._syncTrackedJobsFromDB();
       this.appliedHere = (await LabelInjector.getLabelForJob(this.currentJobId)) === 'applied';
       this.injectBanner();
@@ -956,6 +1072,7 @@ class PreciprocalBanner {
     if (!ins) return;
     this.banner = this.createBannerElement();
     ins.element.insertAdjacentElement(ins.position, this.banner);
+    this._clearApplyRow();
     this._applyTheme();
     if (this.trackState === 'done') {
       const btn = this.banner.querySelector('[data-action="track-job"]');
@@ -963,6 +1080,38 @@ class PreciprocalBanner {
     }
     this.attachEventListeners();
     this.injectStyles();
+  }
+
+  // LinkedIn's top card can be a fixed-height box, so a banner placed in it
+  // spills over the Apply and Save buttons. When it lands on them, it moves
+  // out one container at a time until it sits below. Checked again once the
+  // fit section fills in and the banner grows.
+  _clearApplyRow() {
+    const fix = () => {
+      if (!this.banner?.isConnected) return;
+      const apply = prcFindApplyControl() || document.querySelector('.jobs-apply-button');
+      if (!apply) return;
+      for (let i = 0; i < 8; i++) {
+        const host = this.banner.parentElement;
+        if (!host || host === document.body) return;
+        const a = apply.getBoundingClientRect(), b = this.banner.getBoundingClientRect(), h = host.getBoundingClientRect();
+        // In a box that does not grow with it: move out of that box.
+        const spills = b.bottom > h.bottom + 1 || b.top < h.top - 1;
+        if (spills) { host.insertAdjacentElement('afterend', this.banner); continue; }
+        // Under buttons that spill out of their own row: push down to clear them.
+        const onApply = b.top < a.bottom + 4 && b.bottom > a.top && b.left < a.right && b.right > a.left;
+        if (onApply) {
+          const now = parseFloat(this.banner.style.marginTop) || 16;
+          this.banner.style.setProperty('margin-top', `${Math.ceil(now + (a.bottom - b.top) + 12)}px`, 'important');
+        }
+        return;
+      }
+    };
+    fix();
+    requestAnimationFrame(fix);
+    setTimeout(fix, 150);
+    setTimeout(fix, 600);
+    setTimeout(fix, 2000);
   }
 
   // Light or dark from the colour actually behind the banner (the first
@@ -1234,7 +1383,7 @@ class PreciprocalBanner {
         payload: { company, title, location, description: (description || '').slice(0, 20000) },
       });
       if (this.currentJobId !== jobId) return;
-      if (resp?.success && resp.data?.success) this.renderFit(resp.data);
+      if (resp?.success && resp.data?.success) { this.renderFit(resp.data); this._clearApplyRow(); }
       else this.banner?.querySelector('.prc-fit-slot')?.remove();
     } catch { this.banner?.querySelector('.prc-fit-slot')?.remove(); }
   }

@@ -595,6 +595,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Ghost-job risk and reply odds for the posting on screen (banner.js).
   // How the job on screen fits the default resume, plus E-Verify and H-1B
   // (app/api/extension/job-fit). Same maths as the Jobs page, no model.
+  // E-Verify and H-1B for the employers on LinkedIn's job list
+  // (app/api/extension/companies), for the chips on each card.
+  if (message.type === 'API_FETCH_COMPANIES') {
+    const { token, userId, email, baseUrl, payload } = message;
+    fetch(`${baseUrl}/api/extension/companies`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-extension-token': token || '', 'x-user-id': userId || '', 'x-user-email': email || '' },
+      body: JSON.stringify(payload || {}),
+    })
+      .then(r => r.json())
+      .then(data => sendResponse({ success: true, data }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
   if (message.type === 'API_FETCH_JOB_FIT') {
     const { token, userId, email, baseUrl, payload } = message;
     apiFetch(`${baseUrl}/api/extension/job-fit`, {
