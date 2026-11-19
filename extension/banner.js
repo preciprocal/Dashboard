@@ -73,12 +73,14 @@ class LabelInjector {
     // Full inline style fallback - survives LinkedIn style resets
     const base = 'display:inline-flex!important;align-items:center!important;flex-shrink:0!important;gap:3px!important;padding:1px 6px!important;border-radius:4px!important;font-size:9px!important;font-weight:700!important;font-family:PrcInter, -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;white-space:nowrap!important;line-height:1.6!important;letter-spacing:0.06em!important;text-transform:uppercase!important;pointer-events:none!important;user-select:none!important;vertical-align:middle!important;';
     if (type === 'applied') {
-      span.style.cssText = base + 'background:rgba(99,102,241,0.15)!important;color:#a5b4fc!important;border:1px solid rgba(99,102,241,0.4)!important;';
+      // Mid tones that read on LinkedIn's light and dark themes alike.
+      span.style.cssText = base + 'background:rgba(91,110,245,0.14)!important;color:#6b7bf7!important;border:1px solid rgba(91,110,245,0.45)!important;';
       span.textContent = 'Applied';
     } else {
-      span.style.cssText = base + 'background:rgba(16,185,129,0.15)!important;color:#34d399!important;border:1px solid rgba(16,185,129,0.4)!important;';
+      span.style.cssText = base + 'background:rgba(22,163,74,0.12)!important;color:#22a35a!important;border:1px solid rgba(22,163,74,0.4)!important;';
       span.textContent = 'Saved';
     }
+    span.title = type === 'applied' ? 'You applied to this job (Preciprocal)' : 'In your Preciprocal tracker';
     return span;
   }
 
@@ -92,6 +94,9 @@ class LabelInjector {
     if (el3) return el3.closest('li') || el3.closest('[class*="job-card"]') || el3.parentElement;
     const el4 = document.querySelector(`[data-entity-urn*="${jobId}"]`);
     if (el4) return el4.closest('li') || el4;
+    // Current layout: list items link with ?currentJobId=<id>.
+    const el5 = document.querySelector(`a[href*="currentJobId=${jobId}"], a[href*="/jobs/view/${jobId}/"], [componentkey*="${jobId}"]`);
+    if (el5) return el5.closest('li') || el5.closest('[role="listitem"]') || el5.parentElement;
     return null;
   }
 
@@ -155,7 +160,31 @@ class LabelInjector {
     LabelInjector._persistLabel(jobId, type);
   }
 
+  /** Every known label, kept in memory so new cards can be tagged at once. */
+  static _labels = {};
+
+  /**
+   * LinkedIn adds list cards as the student scrolls and swaps them on each
+   * search, so a one-off pass misses most of them. This tags any card that
+   * appears without its chip, at most a few times a second.
+   */
+  static watch() {
+    if (LabelInjector._watching) return;
+    LabelInjector._watching = true;
+    let timer = null;
+    const pass = () => {
+      timer = null;
+      for (const [id, type] of Object.entries(LabelInjector._labels)) {
+        const card = LabelInjector._findCard(id);
+        if (card && !card.querySelector(`[data-prc-chip="${type}"]`)) LabelInjector.inject(id, type);
+      }
+    };
+    new MutationObserver(() => { if (!timer) timer = setTimeout(pass, 400); }).observe(document.body, { childList: true, subtree: true });
+    chrome.storage.local.get([LabelInjector.STORAGE_KEY]).then(r => { LabelInjector._labels = { ...(r[LabelInjector.STORAGE_KEY] || {}), ...LabelInjector._labels }; pass(); }).catch(() => {});
+  }
+
   static async _persistLabel(jobId, type) {
+    LabelInjector._labels[jobId] = type;
     try {
       const result = await chrome.storage.local.get([LabelInjector.STORAGE_KEY]);
       const labels = result[LabelInjector.STORAGE_KEY] || {};
@@ -181,6 +210,8 @@ class LabelInjector {
       const existing = result[LabelInjector.STORAGE_KEY] || {};
       await chrome.storage.local.set({ [LabelInjector.STORAGE_KEY]: { ...existing, ...jobIds } });
     } catch {}
+    Object.assign(LabelInjector._labels, jobIds);
+    LabelInjector.watch();
     for (const [jobId, type] of Object.entries(jobIds)) {
       LabelInjector._scheduleRetry(jobId, type, 0);
     }
@@ -767,7 +798,9 @@ class PreciprocalBanner {
       this.currentJobId = this.jobData.jobId;
       console.log(`[PRC] Init: "${this.jobData.title}" | jobId: ${this.currentJobId}`);
       await this._delay(400);
+      LabelInjector.watch();
       if (this.isAuthenticated) await this._syncTrackedJobsFromDB();
+      this.appliedHere = (await LabelInjector.getLabelForJob(this.currentJobId)) === 'applied';
       this.injectBanner();
       if (this.isAuthenticated) await Promise.all([this.fetchMatchScore(), this.prefetchApplyProfile(), this.fetchJobSignals(), this.fetchEverify()]);
       this.observeJobChanges();
@@ -962,8 +995,8 @@ class PreciprocalBanner {
           <div class="prc-title-row">
             ${logoUrl ? `<img src="${logoUrl}" class="prc-logo-img" alt="">` : ''}
             <div class="prc-title-text">
-              <p class="prc-brand">Preciprocal</p>
-              <h3 class="prc-title">${this.isAuthenticated ? 'Tailor your resume and fill in this application in one go.' : 'Sign in to tailor your resume and fill in this application.'}</h3>
+              <p class="prc-brand">Preciprocal<span class="prc-tag">Extension</span>${this.appliedHere ? '<span class="prc-applied-pill"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Applied</span>' : ''}</p>
+              <h3 class="prc-title">${this.appliedHere ? 'You applied to this job. It is in your tracker, where you can follow it through each round.' : this.isAuthenticated ? 'Tailor your resume and fill in this application in one go.' : 'Sign in to tailor your resume and fill in this application.'}</h3>
             </div>
           </div>
           <div class="prc-top-right">
@@ -1466,21 +1499,25 @@ class PreciprocalBanner {
       /* ── Banner, current design ──
          Neutral, in the app's type, and drawn from variables so it follows
          LinkedIn's theme (.prc-light is set from the colour behind it). */
-      #preciprocal-inline-banner { --b-bg:rgba(255,255,255,0.03); --b-border:rgba(255,255,255,0.12); --b-fg:rgba(255,255,255,0.92); --b-muted:rgba(255,255,255,0.62); --b-soft:rgba(255,255,255,0.06); --b-hover:rgba(255,255,255,0.09); --b-primary:#f3f4f6; --b-on-primary:#0b0c0d; --b-ring:rgba(255,255,255,0.12); margin:16px 0; font-family:PrcInter, -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }
-      #preciprocal-inline-banner.prc-light { --b-bg:rgba(0,0,0,0.015); --b-border:rgba(0,0,0,0.12); --b-fg:rgba(0,0,0,0.9); --b-muted:rgba(0,0,0,0.6); --b-soft:rgba(0,0,0,0.04); --b-hover:rgba(0,0,0,0.06); --b-primary:#191919; --b-on-primary:#ffffff; --b-ring:rgba(0,0,0,0.1); }
-      #preciprocal-inline-banner .preciprocal-banner-compact { background:var(--b-bg); border:1px solid var(--b-border); border-radius:12px; padding:16px 18px; box-shadow:none; }
-      #preciprocal-inline-banner .preciprocal-banner-compact:hover { border-color:var(--b-border); box-shadow:none; }
+      #preciprocal-inline-banner { --b-bg:rgba(255,255,255,0.03); --b-border:rgba(255,255,255,0.12); --b-fg:rgba(255,255,255,0.92); --b-muted:rgba(255,255,255,0.62); --b-soft:rgba(255,255,255,0.06); --b-hover:rgba(255,255,255,0.09); --b-primary:#5b6ef5; --b-on-primary:#ffffff; --b-ring:rgba(255,255,255,0.12); --b-brand:#a5b0ff; --b-tint:linear-gradient(135deg,rgba(91,110,245,0.16) 0%,rgba(124,58,237,0.07) 55%,rgba(91,110,245,0.02) 100%); --b-edge:rgba(129,140,248,0.38); --b-tag:rgba(165,176,255,0.14); margin:16px 0; font-family:PrcInter, -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }
+      #preciprocal-inline-banner.prc-light { --b-bg:rgba(0,0,0,0.015); --b-border:rgba(0,0,0,0.12); --b-fg:rgba(0,0,0,0.9); --b-muted:rgba(0,0,0,0.6); --b-soft:rgba(0,0,0,0.04); --b-hover:rgba(0,0,0,0.06); --b-primary:#4f5be8; --b-on-primary:#ffffff; --b-ring:rgba(0,0,0,0.1); --b-brand:#4338ca; --b-tint:linear-gradient(135deg,rgba(91,110,245,0.10) 0%,rgba(124,58,237,0.05) 55%,rgba(91,110,245,0.015) 100%); --b-edge:rgba(79,91,232,0.30); --b-tag:rgba(79,91,232,0.10); }
+      #preciprocal-inline-banner .preciprocal-banner-compact { background:var(--b-tint); border:1px solid var(--b-edge); border-radius:12px; padding:18px 18px 16px; box-shadow:none; overflow:hidden; }
+      #preciprocal-inline-banner .preciprocal-banner-compact::before { content:''; position:absolute; left:0; right:0; top:0; height:3px; background:linear-gradient(90deg,#5b6ef5 0%,#7c3aed 100%); }
+      #preciprocal-inline-banner .preciprocal-banner-compact:hover { border-color:var(--b-edge); box-shadow:none; }
+      #preciprocal-inline-banner .prc-applied-pill { display:inline-flex; align-items:center; gap:4px; height:18px; padding:0 7px; margin-left:6px; border-radius:999px; font-family:PrcInter, sans-serif; font-size:11px; font-weight:600; color:#16a34a; background:rgba(22,163,74,0.12); vertical-align:1px; }
+      #preciprocal-inline-banner .prc-tag { display:inline-flex; align-items:center; height:18px; padding:0 7px; margin-left:8px; border-radius:999px; font-family:PrcInter, sans-serif; font-size:11px; font-weight:600; letter-spacing:0; color:var(--b-brand); background:var(--b-tag); vertical-align:1px; }
       #preciprocal-inline-banner .prc-top-section { align-items:flex-start; margin-bottom:14px; gap:14px; }
       #preciprocal-inline-banner .prc-title-row { align-items:flex-start; gap:12px; }
-      #preciprocal-inline-banner .prc-logo-img { width:32px; height:32px; border-radius:8px; margin-top:1px; }
+      #preciprocal-inline-banner .prc-logo-img { width:34px; height:34px; border-radius:9px; margin-top:0; padding:5px; box-sizing:border-box; background:var(--b-tag); }
       #preciprocal-inline-banner .prc-title-text { min-width:0; }
-      #preciprocal-inline-banner .prc-brand { margin:0 0 2px; font-family:PrcSatoshi, PrcInter, sans-serif; font-size:14px; font-weight:700; letter-spacing:-0.01em; color:var(--b-fg); line-height:1.3; }
+      #preciprocal-inline-banner .prc-brand { margin:0 0 2px; font-family:PrcSatoshi, PrcInter, sans-serif; font-size:15px; font-weight:700; letter-spacing:-0.01em; color:var(--b-brand); line-height:1.3; }
       #preciprocal-inline-banner .prc-title { margin:0; font-size:14px; font-weight:400; color:var(--b-muted); line-height:1.45; }
       #preciprocal-inline-banner .prc-actions { gap:8px; flex-wrap:wrap; margin:0; }
       #preciprocal-inline-banner .prc-btn { height:34px; padding:0 14px; border-radius:999px; font-size:14px; font-weight:600; color:var(--b-fg); background:transparent; border:1px solid var(--b-border); backdrop-filter:none; transition:background .15s ease, border-color .15s ease, color .15s ease; }
       #preciprocal-inline-banner .prc-btn:hover { background:var(--b-hover); border-color:var(--b-border); color:var(--b-fg); }
       #preciprocal-inline-banner .prc-btn.prc-apply { background:var(--b-primary); color:var(--b-on-primary); border-color:transparent; }
-      #preciprocal-inline-banner .prc-btn.prc-apply:hover { background:var(--b-primary); opacity:.9; color:var(--b-on-primary); }
+      #preciprocal-inline-banner .prc-btn.prc-apply { background:linear-gradient(135deg,#5b6ef5 0%,#6d4ee8 100%); box-shadow:0 1px 2px rgba(0,0,0,0.2), 0 4px 14px -4px rgba(91,110,245,0.55); }
+      #preciprocal-inline-banner .prc-btn.prc-apply:hover { background:linear-gradient(135deg,#5b6ef5 0%,#6d4ee8 100%); filter:brightness(1.08); color:var(--b-on-primary); }
       #preciprocal-inline-banner .prc-btn.prc-apply.done { background:#15803d; color:#fff; }
       #preciprocal-inline-banner .prc-btn.prc-apply.error { background:#b91c1c; color:#fff; }
       #preciprocal-inline-banner .prc-btn.prc-track { color:var(--b-muted); }
