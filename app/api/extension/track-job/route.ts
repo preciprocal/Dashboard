@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/supabase/admin';
 import { checkJobTrackerCapacity } from '@/lib/ai/job-tracker-capacity';
 import { recordStatusChange } from '@/lib/applications/status-events';
 import { parsePosting } from '@/lib/jobs/posting-signals';
+import { recordExtensionEvent } from '@/lib/extension/telemetry';
 import { canonicalPostingUrl, companyFromPostingUrl, isBoardName, isConfirmationTitle, isSpecificPosting, parseApplicationTitle, stripCompanySuffix, titleFromPostingUrl } from '@/lib/jobs/posting-url';
 
 /** Statuses before applying: a submit moves these cards to Applied. */
@@ -76,13 +77,21 @@ export async function GET(request: NextRequest) {
 }
 
 // ── POST /api/extension/track-job ────────────────────────────────────────────
+// Each outcome is also one job_tracked event (lib/extension/telemetry.ts):
+// detail.result says what happened to the card, never which job it was.
 export async function POST(request: NextRequest) {
+  let trackedUserId: string | null = null;
+  let platform: string | null = null;
+  const track = (detail: Record<string, string | number | boolean | null>) =>
+    recordExtensionEvent(request, trackedUserId, 'job_tracked', { platform, detail });
   try {
     const authedUser = await getAuthedUser(request);
     if (!authedUser) {
+      track({ ok: false, error: 'unauthorized' });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const uid = authedUser.supabaseUserId;
+    trackedUserId = uid;
 
     const body = await request.json() as Record<string, unknown>;
 
@@ -113,6 +122,9 @@ export async function POST(request: NextRequest) {
     const jobBoard      = typeof body.jobBoard  === 'string' ? body.jobBoard  : 'Other';
     const source        = typeof body.source    === 'string' ? body.source    : 'chrome_extension';
     const linkedInJobId = typeof body.jobId === 'string' && body.jobId.trim() ? body.jobId.trim() : null;
+    // jobBoard is the extension's platform name ('LinkedIn', 'Greenhouse'...).
+    // 'Other' says nothing, so the host decides then.
+    if (jobBoard !== 'Other') platform = jobBoard;
 
     const rawDate     = typeof body.appliedAt === 'string' ? body.appliedAt : new Date().toISOString();
     const appliedDate = rawDate.split('T')[0];
@@ -139,6 +151,7 @@ export async function POST(request: NextRequest) {
       if (card) {
         if (!NOT_YET_APPLIED.has(card.status ?? '')) {
           console.log('[track-job] already applied:', card.id);
+          track({ ok: true, result: 'duplicate' });
           return NextResponse.json({ success: true, duplicate: true, id: card.id, company: card.company, jobTitle: card.job_title, message: 'Already tracked' });
         }
         const { error: upErr } = await supabaseAdmin.from('job_applications')
@@ -147,11 +160,13 @@ export async function POST(request: NextRequest) {
         if (upErr) throw upErr;
         await recordStatusChange(uid, card.id, card.status ?? null, 'applied');
         console.log('[track-job] moved to applied:', card.id);
+        track({ ok: true, result: 'moved_to_applied' });
         return NextResponse.json({ success: true, id: card.id, updated: true, company: card.company, jobTitle: card.job_title });
       }
     }
 
     if (!jobTitle || !company) {
+      track({ ok: false, error: 'missing_fields' });
       return NextResponse.json({ error: 'jobTitle and company are required' }, { status: 400 });
     }
 
@@ -166,6 +181,7 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
       if (existing) {
         console.log('[track-job] ⚠️ Duplicate by linkedInJobId:', linkedInJobId);
+        track({ ok: true, result: 'duplicate' });
         return NextResponse.json({ success: true, duplicate: true, company, jobTitle, message: 'Already tracked' });
       }
     }
@@ -182,6 +198,7 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
       if (recent && Date.now() - new Date(recent.created_at).getTime() < 24 * 60 * 60 * 1000) {
         console.log('[track-job] duplicate by URL within 24h:', jobUrl);
+        track({ ok: true, result: 'duplicate' });
         return NextResponse.json({ success: true, duplicate: true, company, jobTitle, message: 'Already tracked' });
       }
     }
@@ -197,6 +214,7 @@ export async function POST(request: NextRequest) {
     const capacity = await checkJobTrackerCapacity(authedUser.userId);
     if (!capacity.allowed) {
       console.log(`[track-job] tracker full for ${uid}: ${capacity.used}/${capacity.limit}`);
+      track({ ok: false, error: 'tracker_full' });
       return NextResponse.json({
         error: capacity.message,
         code: 'JOB_TRACKER_FULL',
@@ -256,11 +274,13 @@ export async function POST(request: NextRequest) {
     await recordStatusChange(uid, created.id, null, 'applied');
 
     console.log('[track-job] ✅ Saved:', created.id, '-', jobTitle, '@', company);
+    track({ ok: true, result: 'created' });
     return NextResponse.json({ success: true, id: created.id, company: baseRow.company, jobTitle: baseRow.job_title });
 
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Failed to track job application';
     console.error('[track-job] ❌', error);
+    track({ ok: false, error: 'server_error' });
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

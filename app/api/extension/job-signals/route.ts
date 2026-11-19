@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { applyRateLimit } from '@/lib/ai/rate-limit';
 import { getJobSignals } from '@/lib/jobs/job-signals';
+import { recordExtensionEvent } from '@/lib/extension/telemetry';
 
 export const runtime = 'nodejs';
 
@@ -19,13 +20,21 @@ const str = (v: unknown, max: number): string | null =>
   typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null;
 
 export async function POST(request: NextRequest) {
+  let userId: string | null = null;
   try {
     const authedUser = await getAuthedUser(request);
-    if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!authedUser) {
+      recordExtensionEvent(request, null, 'job_signals', { detail: { ok: false, error: 'unauthorized' } });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    userId = authedUser.supabaseUserId;
 
     // 'light': one call per job viewed, and people click through job lists fast.
     const limited = await applyRateLimit(request, authedUser.supabaseUserId, 'light');
-    if (limited) return limited;
+    if (limited) {
+      recordExtensionEvent(request, userId, 'job_signals', { detail: { ok: false, error: 'rate_limited' } });
+      return limited;
+    }
 
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const company = str(body.company, 200);
@@ -45,9 +54,13 @@ export async function POST(request: NextRequest) {
       str(body.jobId, 40),
     );
 
+    recordExtensionEvent(request, userId, 'job_signals', {
+      detail: { ok: true, ghost_risk: signals.ghostRisk, company_odds: !!signals.companyOdds },
+    });
     return NextResponse.json({ success: true, ...signals });
   } catch (error) {
     console.error('❌ job-signals error:', error);
+    recordExtensionEvent(request, userId, 'job_signals', { detail: { ok: false, error: 'server_error' } });
     return NextResponse.json({ error: 'Failed to load job signals' }, { status: 500 });
   }
 }

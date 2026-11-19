@@ -5,11 +5,12 @@ import { getSignedUrl } from '@/lib/storage/file-storage';
 import { resolveStoragePathUrl } from '@/lib/storage/resolve-signed-url';
 import { supabaseAdmin } from '@/supabase/admin';
 import { sensitiveValue } from '@/lib/config/sensitive-answers';
+import { recordExtensionEvent } from '@/lib/extension/telemetry';
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, x-extension-token, x-user-email, x-user-id, Authorization, Accept',
+  'Access-Control-Allow-Headers': 'Content-Type, x-extension-token, x-user-email, x-user-id, x-extension-version, x-extension-install, x-extension-host, Authorization, Accept',
   'Access-Control-Max-Age':       '86400',
 };
 
@@ -134,10 +135,15 @@ function buildApplyProfile(profile: ProfileRow, plan: string, uid: string) {
 
 export async function GET(request: NextRequest) {
   console.log('🔌 Extension auto-apply request');
+  let userId: string | null = null;
   try {
     const authedUser = await getAuthedUser(request);
-    if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: CORS });
+    if (!authedUser) {
+      recordExtensionEvent(request, null, 'job_analyzed', { detail: { ok: false, error: 'unauthorized' } });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: CORS });
+    }
     const { userId: uid, supabaseUserId } = authedUser;
+    userId = supabaseUserId;
 
     console.log('✅ uid:', uid);
     const { data: profile, error: profileError } = await supabaseAdmin
@@ -146,7 +152,10 @@ export async function GET(request: NextRequest) {
       .eq('user_id', supabaseUserId)
       .maybeSingle();
     if (profileError) throw profileError;
-    if (!profile) return NextResponse.json({ error: 'User profile not found' }, { status: 404, headers: CORS });
+    if (!profile) {
+      recordExtensionEvent(request, userId, 'job_analyzed', { detail: { ok: false, error: 'no_profile' } });
+      return NextResponse.json({ error: 'User profile not found' }, { status: 404, headers: CORS });
+    }
 
     const [{ data: sub }, transcriptData] = await Promise.all([
       supabaseAdmin.from('subscriptions').select('plan').eq('user_id', supabaseUserId).maybeSingle(),
@@ -163,6 +172,9 @@ export async function GET(request: NextRequest) {
     };
 
     console.log('📦 Final response:', { user: applyProfile.email, resumeAvail: files.resume.available, transcriptAvail: files.transcript.available });
+    recordExtensionEvent(request, userId, 'job_analyzed', {
+      detail: { ok: true, has_resume: files.resume.available, has_transcript: files.transcript.available, plan: sub?.plan || 'free' },
+    });
 
     return NextResponse.json(
       { success: true, applyProfile, files,
@@ -172,6 +184,7 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     console.error('❌ auto-apply error:', error);
+    recordExtensionEvent(request, userId, 'job_analyzed', { detail: { ok: false, error: 'server_error' } });
     return NextResponse.json({ error: 'Could not analyse this job. Please try again.' }, { status: 500, headers: CORS });
   }
 }

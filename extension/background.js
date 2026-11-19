@@ -9,6 +9,94 @@ const JOB_QUEUE_KEY = 'preciprocal_job_queue';
 // for local testing against `npm run dev`, and flip it back before packaging.
 const IS_DEV_BG    = false;
 const BASE_URL     = IS_DEV_BG ? 'http://localhost:3000' : 'https://app.preciprocal.com';
+const INSTALL_KEY  = 'preciprocal_install_id';
+const EXT_VERSION  = chrome.runtime.getManifest().version;
+
+// ─────────────────────────────────────────────────────────────────
+// Usage telemetry (Dashboard lib/extension/telemetry.ts, migration 0072).
+// A random id for this browser install, made once and kept in storage, plus
+// the version, go with every request to the Dashboard so it can tell
+// installs and versions apart. No page content is sent: the host header is
+// the hostname of the tab that asked, nothing more. None of this may ever
+// break a request: if the id cannot be read the headers are just left off.
+// ─────────────────────────────────────────────────────────────────
+let _installIdPromise = null;
+function getInstallId() {
+  if (!_installIdPromise) {
+    _installIdPromise = (async () => {
+      const stored = (await chrome.storage.local.get([INSTALL_KEY]))[INSTALL_KEY];
+      if (typeof stored === 'string' && stored) return stored;
+      const id = crypto.randomUUID();
+      await chrome.storage.local.set({ [INSTALL_KEY]: id });
+      return id;
+    })().catch(() => { _installIdPromise = null; return null; });
+  }
+  return _installIdPromise;
+}
+
+async function telemetryHeaders(sender) {
+  const headers = { 'x-extension-version': EXT_VERSION };
+  try {
+    const id = await getInstallId();
+    if (id) headers['x-extension-install'] = id;
+    const pageUrl = sender?.url || sender?.tab?.url;
+    if (pageUrl && /^https?:/i.test(pageUrl)) headers['x-extension-host'] = new URL(pageUrl).hostname;
+  } catch { /* headers are optional */ }
+  return headers;
+}
+
+/** fetch() to the Dashboard API with the telemetry headers added. */
+function apiFetch(url, init = {}, sender) {
+  return telemetryHeaders(sender).then(extra =>
+    fetch(url, { ...init, headers: { ...(init.headers || {}), ...extra } }));
+}
+
+/**
+ * installed / updated / startup / popup_opened / signed_in / signed_out
+ * (app/api/extension/lifecycle). Fire and forget. The token, when there is
+ * one, ties the install to the account; signed_out passes the one being
+ * dropped, since storage no longer has it.
+ */
+async function reportLifecycle(event, { previousVersion, token } = {}) {
+  try {
+    const auth = token === undefined ? (await chrome.storage.local.get([STORAGE_KEY]))[STORAGE_KEY] : null;
+    const authToken = token ?? auth?.token ?? '';
+    await apiFetch(`${BASE_URL}/api/extension/lifecycle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(authToken ? { 'x-extension-token': authToken } : {}) },
+      body: JSON.stringify(previousVersion ? { event, previousVersion } : { event }),
+    });
+  } catch (e) {
+    console.warn('[BG] lifecycle report failed (non-fatal):', event, e?.message);
+  }
+}
+
+chrome.runtime.onInstalled.addListener(({ reason, previousVersion }) => {
+  if (reason === 'install') reportLifecycle('installed');
+  else if (reason === 'update' && previousVersion !== EXT_VERSION) reportLifecycle('updated', { previousVersion });
+});
+
+chrome.runtime.onStartup.addListener(() => { reportLifecycle('startup'); });
+
+// Chrome opens this when the extension is removed; the Dashboard records the
+// uninstall and shows Help. Set on every worker start so it carries the
+// current version.
+getInstallId().then(id => {
+  if (!id) return;
+  const url = `${BASE_URL}/api/extension/uninstalled?i=${encodeURIComponent(id)}&v=${encodeURIComponent(EXT_VERSION)}`;
+  return chrome.runtime.setUninstallURL(url);
+}).catch(() => {});
+
+// Signing in and out, from wherever it happens (the app tab's bridge, the
+// popup, a token clearing): only a change of account counts. SAVE_AUTH also
+// fires on every silent token refresh, which keeps the same uid.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local' || !changes[STORAGE_KEY]) return;
+  const before = changes[STORAGE_KEY].oldValue;
+  const after  = changes[STORAGE_KEY].newValue;
+  if (after?.uid && after?.token && after.uid !== before?.uid) reportLifecycle('signed_in', { token: after.token });
+  else if (!after?.uid && before?.uid) reportLifecycle('signed_out', { token: before.token || '' });
+});
 
 // ─────────────────────────────────────────────────────────────────
 // DYNAMIC INJECTION — covers custom career domains not in the manifest
@@ -265,7 +353,7 @@ async function flushJobQueue(token, userId, email) {
 
     for (const jobData of queue) {
       try {
-        const res  = await fetch(`${BASE_URL}/api/extension/track-job`, {
+        const res  = await apiFetch(`${BASE_URL}/api/extension/track-job`, {
           method: 'POST',
           headers: {
             'Content-Type':      'application/json',
@@ -312,7 +400,7 @@ async function flushJobQueue(token, userId, email) {
 // FETCH_FILE — fetch Firebase Storage files on behalf of content scripts
 // (service worker has no CORS restrictions; content scripts do)
 // ─────────────────────────────────────────────────────────────────
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'FETCH_FILE') {
     fetch(message.url)
       .then(r => r.blob())
@@ -327,6 +415,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       })
       .catch(() => sendResponse(null));
     return true;
+  }
+
+  if (message.type === 'TELEMETRY_POPUP_OPENED') {
+    reportLifecycle('popup_opened');
+    sendResponse({ success: true });
+    return false;
   }
 
   if (message.type === 'CHECK_AUTH') {
@@ -404,8 +498,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   // ── API PROXY ────────────────────────────────────────────────────────────────
 
   if (message.type === 'API_FETCH_AUTO_APPLY') {
-    const { token, userId, email, baseUrl } = message;
-    fetch(`${baseUrl}/api/extension/auto-apply`, {
+    const { token, userId, email, baseUrl, prefetch } = message;
+    // prefetch: the banner loading the profile before anyone asked for an
+    // autofill. Told to the server so it does not count as one.
+    apiFetch(`${baseUrl}/api/extension/auto-apply${prefetch ? '?prefetch=1' : ''}`, {
       method: 'GET',
       headers: {
         'Content-Type':      'application/json',
@@ -413,7 +509,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         'x-user-id':         userId  || '',
         'x-user-email':      email   || '',
       },
-    })
+    }, sender)
       .then(r => r.json())
       .then(data => sendResponse({ success: true, data }))
       .catch(err => sendResponse({ success: false, error: err.message }));
@@ -425,7 +521,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   // script never has to handle them.
   if (message.type === 'API_POST_UPSELL_EVENT') {
     const { token, userId, email, baseUrl, payload } = message;
-    fetch(`${baseUrl}/api/extension/upsell-event`, {
+    apiFetch(`${baseUrl}/api/extension/upsell-event`, {
       method: 'POST',
       headers: {
         'Content-Type':      'application/json',
@@ -434,7 +530,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         'x-user-email':      email   || '',
       },
       body: JSON.stringify(payload || {}),
-    })
+    }, sender)
       .then(r => r.json())
       .then(data => sendResponse({ success: true, data }))
       .catch(err => sendResponse({ success: false, error: err.message }));
@@ -443,7 +539,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === 'API_FETCH_TRACK_JOB') {
     const { token, userId, email, baseUrl, jobData } = message;
-    fetch(`${baseUrl}/api/extension/track-job`, {
+    apiFetch(`${baseUrl}/api/extension/track-job`, {
       method: 'POST',
       headers: {
         'Content-Type':      'application/json',
@@ -452,7 +548,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         'x-user-email':      email   || '',
       },
       body: JSON.stringify(jobData),
-    })
+    }, sender)
       .then(r => r.json())
       .then(data => sendResponse({ success: true, data }))
       .catch(err => sendResponse({ success: false, error: err.message }));
@@ -463,7 +559,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   // Returns { success: true, jobIds: { "12345": "saved", "67890": "applied" } }
   if (message.type === 'API_FETCH_TRACKED_JOBS') {
     const { token, userId, email, baseUrl } = message;
-    fetch(`${baseUrl}/api/extension/track-job`, {
+    apiFetch(`${baseUrl}/api/extension/track-job`, {
       method: 'GET',
       headers: {
         'Content-Type':      'application/json',
@@ -471,7 +567,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         'x-user-id':         userId || '',
         'x-user-email':      email  || '',
       },
-    })
+    }, sender)
       .then(r => r.json())
       .then(data => sendResponse({ success: true, data }))
       .catch(err => sendResponse({ success: false, error: err.message }));
@@ -480,7 +576,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === 'API_FETCH_ANALYZE_JOB') {
     const { token, userId, email, baseUrl, jobData } = message;
-    fetch(`${baseUrl}/api/extension/analyze-job`, {
+    apiFetch(`${baseUrl}/api/extension/analyze-job`, {
       method: 'POST',
       headers: {
         'Content-Type':      'application/json',
@@ -489,7 +585,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         'x-user-email':      email   || '',
       },
       body: JSON.stringify(jobData),
-    })
+    }, sender)
       .then(r => r.json())
       .then(data => sendResponse({ success: true, data }))
       .catch(err => sendResponse({ success: false, error: err.message }));
@@ -501,11 +597,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   // (app/api/extension/job-fit). Same maths as the Jobs page, no model.
   if (message.type === 'API_FETCH_JOB_FIT') {
     const { token, userId, email, baseUrl, payload } = message;
-    fetch(`${baseUrl}/api/extension/job-fit`, {
+    apiFetch(`${baseUrl}/api/extension/job-fit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-extension-token': token || '', 'x-user-id': userId || '', 'x-user-email': email || '' },
       body: JSON.stringify(payload || {}),
-    })
+    }, sender)
       .then(r => r.json())
       .then(data => sendResponse({ success: true, data }))
       .catch(err => sendResponse({ success: false, error: err.message }));
@@ -514,7 +610,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === 'API_FETCH_JOB_SIGNALS') {
     const { token, userId, email, baseUrl, payload } = message;
-    fetch(`${baseUrl}/api/extension/job-signals`, {
+    apiFetch(`${baseUrl}/api/extension/job-signals`, {
       method: 'POST',
       headers: {
         'Content-Type':      'application/json',
@@ -523,7 +619,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         'x-user-email':      email   || '',
       },
       body: JSON.stringify(payload || {}),
-    })
+    }, sender)
       .then(r => r.json())
       .then(data => sendResponse({ success: true, data }))
       .catch(err => sendResponse({ success: false, error: err.message }));
@@ -534,7 +630,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   // external-apply.js on application portals).
   if (message.type === 'API_FETCH_EVERIFY') {
     const { token, userId, email, baseUrl, payload } = message;
-    fetch(`${baseUrl}/api/extension/everify`, {
+    apiFetch(`${baseUrl}/api/extension/everify`, {
       method: 'POST',
       headers: {
         'Content-Type':      'application/json',
@@ -543,7 +639,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         'x-user-email':      email   || '',
       },
       body: JSON.stringify(payload || {}),
-    })
+    }, sender)
       .then(r => r.json())
       .then(data => sendResponse({ success: true, data }))
       .catch(err => sendResponse({ success: false, error: err.message }));
@@ -568,7 +664,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return;
       }
 
-      fetch(`${BASE_URL}/api/extension/track-job`, {
+      apiFetch(`${BASE_URL}/api/extension/track-job`, {
         method: 'POST',
         headers: {
           'Content-Type':      'application/json',
@@ -577,7 +673,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           'x-user-email':      auth.email || '',
         },
         body: JSON.stringify(jobData),
-      })
+      }, sender)
         .then(r => r.json())
         .then(data => {
           if (data.success || data.duplicate) {

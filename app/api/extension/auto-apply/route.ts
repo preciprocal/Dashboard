@@ -9,11 +9,12 @@ import { getSignedUrl } from '@/lib/storage/file-storage';
 import { resolveStoragePathUrl } from '@/lib/storage/resolve-signed-url';
 import { supabaseAdmin } from '@/supabase/admin';
 import { sensitiveValue } from '@/lib/config/sensitive-answers';
+import { recordExtensionEvent } from '@/lib/extension/telemetry';
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, x-extension-token, x-user-email, x-user-id, Authorization, Accept',
+  'Access-Control-Allow-Headers': 'Content-Type, x-extension-token, x-user-email, x-user-id, x-extension-version, x-extension-install, x-extension-host, Authorization, Accept',
   'Access-Control-Max-Age':       '86400',
 };
 
@@ -181,10 +182,24 @@ function buildApplyProfile(profile: ProfileRow, plan: string, uid: string) {
 
 export async function GET(request: NextRequest) {
   console.log('🔌 Extension auto-apply request');
+  // The LinkedIn banner fetches the profile ahead of time on every job it
+  // shows (?prefetch=1 from extension 1.14.0). That is not an autofill, so it
+  // is not recorded as one; the fetch when the user presses Auto Apply is.
+  // Older builds do not send it, so their prefetches still count.
+  const params = new URL(request.url).searchParams;
+  const record = params.get('prefetch') !== '1';
+  let trackedUserId: string | null = null;
+  const track = (detail: Record<string, string | number | boolean | null>) => {
+    if (record) recordExtensionEvent(request, trackedUserId, 'autofill', { detail: { ...detail, from_apply_flow: !!params.get('applicationId') } });
+  };
   try {
     const authedUser = await getAuthedUser(request);
-    if (!authedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: CORS });
+    if (!authedUser) {
+      track({ ok: false, error: 'unauthorized' });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: CORS });
+    }
     const { userId: uid, supabaseUserId } = authedUser;
+    trackedUserId = supabaseUserId;
 
     console.log('✅ uid:', uid);
     const { data: profile, error: profileError } = await supabaseAdmin
@@ -193,7 +208,10 @@ export async function GET(request: NextRequest) {
       .eq('user_id', supabaseUserId)
       .maybeSingle();
     if (profileError) throw profileError;
-    if (!profile) return NextResponse.json({ error: 'User profile not found' }, { status: 404, headers: CORS });
+    if (!profile) {
+      track({ ok: false, error: 'no_profile' });
+      return NextResponse.json({ error: 'User profile not found' }, { status: 404, headers: CORS });
+    }
 
     const [{ data: sub }, resumeData, transcriptData, aiCtx] = await Promise.all([
       supabaseAdmin.from('subscriptions').select('plan').eq('user_id', supabaseUserId).maybeSingle(),
@@ -219,7 +237,7 @@ export async function GET(request: NextRequest) {
     // the saved one, and the cover letter written for this job replaces the
     // profile's generic one, as text for cover letter boxes and as a PDF for
     // upload fields.
-    const applicationId = new URL(request.url).searchParams.get('applicationId');
+    const applicationId = params.get('applicationId');
     let job: { applicationId: string; company: string; title: string; url: string | null } | null = null;
     let coverLetterFile: { available: boolean; url: string | null; fileName: string | null; text: string | null } =
       { available: false, url: null, fileName: null, text: null };
@@ -250,6 +268,16 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('📦 Final response:', { user: applyProfile.email, resumeAvail: files.resume.available, resumeTextLen: resumeText?.length || 0, transcriptAvail: files.transcript.available });
+    // How many fields get filled is only known in the page, after this
+    // returns; what the fill had to work with is known here.
+    track({
+      ok: true,
+      has_resume: files.resume.available,
+      has_transcript: files.transcript.available,
+      cover_letter: coverLetterFile.available || !!applyProfile.coverLetterBody,
+      tailored: !!job,
+      plan: sub?.plan || 'free',
+    });
 
     return NextResponse.json(
       { success: true, applyProfile, files: { ...files, coverLetter: coverLetterFile }, job,
@@ -259,6 +287,7 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     console.error('❌ auto-apply error:', error);
+    track({ ok: false, error: 'server_error' });
     return NextResponse.json({ error: 'Could not fill this application. Please try again.' }, { status: 500, headers: CORS });
   }
 }

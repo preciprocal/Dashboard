@@ -12,6 +12,9 @@ export interface DeviceDescription {
   /** "Chrome on macOS", or "Unknown device". */
   label: string;
   kind: DeviceKind;
+  /** The two halves of the label, null when not recognised (extension_installs keeps them apart). */
+  browser: string | null;
+  os: string | null;
 }
 
 export function describeDevice(userAgent: string | null | undefined): DeviceDescription {
@@ -44,5 +47,5 @@ export function describeDevice(userAgent: string | null | undefined): DeviceDesc
     : 'desktop';
 
   const label = browser && os ? `${browser} on ${os}` : browser ?? os ?? 'Unknown device';
-  return { label, kind };
+  return { label, kind, browser, os };
 }

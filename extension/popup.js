@@ -12,6 +12,9 @@ const ICON_URL = chrome.runtime.getURL('icons/icon48.png');
 let authState = { authenticated: false, user: null, loading: true };
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Usage telemetry (background.js reportLifecycle). Never awaited: the popup
+  // must open the same whether or not this lands.
+  try { chrome.runtime.sendMessage({ type: 'TELEMETRY_POPUP_OPENED' }).catch(() => {}); } catch { /* non-fatal */ }
   await checkAuthStatus();
   render();
 });

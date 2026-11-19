@@ -10,6 +10,7 @@ import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { getUpsellConfig } from '@/lib/config/extension-upsell';
 import { z } from 'zod';
+import { recordExtensionEvent } from '@/lib/extension/telemetry';
 
 export const runtime = 'nodejs';
 
@@ -35,6 +36,18 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid request', config }, { status: 400 });
     }
+
+    // Also into extension_events, so the prompt sits in the same timeline as
+    // everything else the extension did. extension_upsell_events stays the
+    // source for the prompt's own analysis.
+    const applyCount = parsed.data.context?.applyCount;
+    recordExtensionEvent(req, authedUser.supabaseUserId, `upsell_${parsed.data.event}`, {
+      detail: {
+        ok: true,
+        variant: parsed.data.variant ?? 'auto_apply_cover_letter',
+        apply_count: typeof applyCount === 'number' ? applyCount : undefined,
+      },
+    });
 
     const { error } = await supabaseAdmin.from('extension_upsell_events').insert({
       user_id: authedUser.supabaseUserId,

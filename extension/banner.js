@@ -914,7 +914,7 @@ class PreciprocalBanner {
   async prefetchApplyProfile() {
     if (!this.authToken) return;
     try {
-      const resp = await chrome.runtime.sendMessage({ type: 'API_FETCH_AUTO_APPLY', token: this.authToken, userId: this.authUserId || '', email: this.authEmail || '', baseUrl: PRECIPROCAL_URL });
+      const resp = await chrome.runtime.sendMessage({ type: 'API_FETCH_AUTO_APPLY', token: this.authToken, userId: this.authUserId || '', email: this.authEmail || '', baseUrl: PRECIPROCAL_URL, prefetch: true });
       if (resp?.success && resp.data) {
         this.applyProfile = resp.data.applyProfile || null;
         this.applyFiles = { resume: { available: false, url: null, fileName: null }, transcript: { available: false, url: null, fileName: null } };

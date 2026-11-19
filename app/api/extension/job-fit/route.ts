@@ -20,6 +20,7 @@ import { jobFit } from '@/lib/jobs/fit';
 import { postingFacts } from '@/lib/jobs/posting-facts';
 import { lookupEverify } from '@/lib/jobs/everify';
 import { lookupH1b } from '@/lib/jobs/h1b';
+import { recordExtensionEvent } from '@/lib/extension/telemetry';
 
 export const runtime = 'nodejs';
 export const maxDuration = 20;
@@ -27,12 +28,20 @@ export const maxDuration = 20;
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
 export async function POST(request: NextRequest) {
+  let userId: string | null = null;
   try {
     const user = await getAuthedUser(request);
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!user) {
+      recordExtensionEvent(request, null, 'job_fit', { detail: { ok: false, error: 'unauthorized' } });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    userId = user.supabaseUserId;
     // One call per job viewed, and students click through lists fast.
     const limited = await applyRateLimit(request, user.supabaseUserId, 'light');
-    if (limited) return limited;
+    if (limited) {
+      recordExtensionEvent(request, userId, 'job_fit', { detail: { ok: false, error: 'rate_limited' } });
+      return limited;
+    }
 
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const company = str(body.company, 200);
@@ -46,17 +55,22 @@ export async function POST(request: NextRequest) {
       known ? lookupH1b([company]).catch(() => null) : Promise.resolve(null),
     ]);
     const resumeText = raw ? cleanResumeText(raw) : null;
+    const fit = jobFit(description, resumeText);
 
+    recordExtensionEvent(request, userId, 'job_fit', {
+      detail: { ok: true, has_resume: !!resumeText, fit_score: fit.score, skills_named: fit.skills.length, flags: fit.flags.length },
+    });
     return NextResponse.json({
       success: true,
       resume: !!resumeText,
-      fit: jobFit(description, resumeText),
+      fit,
       facts: postingFacts(str(body.title, 300), str(body.location, 200), description),
       everify: ev?.available ? { status: ev.statuses[company] ?? null, syncedAt: ev.syncedAt } : null,
       h1b: h1b?.pointer ? { history: h1b.histories[company] ?? null, years: h1b.pointer.years, dataThrough: h1b.pointer.dataThrough } : null,
     });
   } catch (error) {
     console.error('❌ extension job-fit:', error);
+    recordExtensionEvent(request, userId, 'job_fit', { detail: { ok: false, error: 'server_error' } });
     return NextResponse.json({ error: 'Could not read this job right now' }, { status: 500 });
   }
 }
