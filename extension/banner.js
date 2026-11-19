@@ -43,7 +43,7 @@ class LabelInjector {
         border-radius: 4px !important;
         font-size: 10px !important;
         font-weight: 700 !important;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+        font-family: PrcInter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
         white-space: nowrap !important;
         line-height: 1.5 !important;
         letter-spacing: 0.05em !important;
@@ -71,7 +71,7 @@ class LabelInjector {
     span.className = `prc-card-chip ${type === 'applied' ? 'prc-chip-applied' : 'prc-chip-saved'}`;
     span.setAttribute('data-prc-chip', type);
     // Full inline style fallback - survives LinkedIn style resets
-    const base = 'display:inline-flex!important;align-items:center!important;flex-shrink:0!important;gap:3px!important;padding:1px 6px!important;border-radius:4px!important;font-size:9px!important;font-weight:700!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;white-space:nowrap!important;line-height:1.6!important;letter-spacing:0.06em!important;text-transform:uppercase!important;pointer-events:none!important;user-select:none!important;vertical-align:middle!important;';
+    const base = 'display:inline-flex!important;align-items:center!important;flex-shrink:0!important;gap:3px!important;padding:1px 6px!important;border-radius:4px!important;font-size:9px!important;font-weight:700!important;font-family:PrcInter, -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;white-space:nowrap!important;line-height:1.6!important;letter-spacing:0.06em!important;text-transform:uppercase!important;pointer-events:none!important;user-select:none!important;vertical-align:middle!important;';
     if (type === 'applied') {
       span.style.cssText = base + 'background:rgba(99,102,241,0.15)!important;color:#a5b4fc!important;border:1px solid rgba(99,102,241,0.4)!important;';
       span.textContent = 'Applied';
@@ -741,7 +741,7 @@ class PreciprocalBanner {
     overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);';
 
     const card = document.createElement('div');
-    card.style.cssText = 'background:#0f172a;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:28px 32px;max-width:400px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.7);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;';
+    card.style.cssText = 'background:#0f172a;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:28px 32px;max-width:400px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.7);font-family:PrcInter, -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;';
 
     const title = jobData?.title ? `<strong style="color:#e2e8f0">${jobData.title}</strong>` : 'this role';
     const company = jobData?.company ? ` at <strong style="color:#e2e8f0">${jobData.company}</strong>` : '';
@@ -1295,7 +1295,7 @@ class PreciprocalBanner {
          Bottom-left, so it never overlaps the toasts top-right or LinkedIn's
          own bottom-right messaging widget. Non-blocking by construction:
          fixed, narrow, and it never covers the apply controls. */
-      .preciprocal-upsell { position:fixed; left:20px; bottom:20px; z-index:9998; width:300px; opacity:0; transform:translateY(12px); transition:opacity .25s ease, transform .25s ease; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }
+      .preciprocal-upsell { position:fixed; left:20px; bottom:20px; z-index:9998; width:300px; opacity:0; transform:translateY(12px); transition:opacity .25s ease, transform .25s ease; font-family:PrcInter, -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }
       .preciprocal-upsell.show { opacity:1; transform:translateY(0); }
       .prc-upsell-inner { position:relative; display:flex; gap:8px; background:linear-gradient(135deg,#1e1b4b 0%,#1e293b 100%); border:1px solid rgba(99,102,241,0.28); border-radius:12px; padding:14px 14px 12px; box-shadow:0 8px 28px rgba(0,0,0,0.35); }
       .prc-upsell-title { font-size:13px; font-weight:700; color:#f5f5f5; margin-bottom:4px; }
@@ -1309,7 +1309,7 @@ class PreciprocalBanner {
       .prc-upsell-close:hover { color:#cbd5e1; }
 
       /* ── Banner container ── */
-      .preciprocal-inline-container { margin:16px 0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }
+      .preciprocal-inline-container { margin:16px 0; font-family:PrcInter, -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }
 
       /* ── Card ── */
       .preciprocal-banner-compact { background:linear-gradient(135deg,#1e1b4b 0%,#1e293b 100%); border:1px solid rgba(148,163,184,0.2); border-radius:8px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,0.2); transition:all 0.2s ease; position:relative; }
@@ -1350,7 +1350,7 @@ class PreciprocalBanner {
       .prc-logo-img { width:20px; height:20px; border-radius:5px; flex-shrink:0; object-fit:contain; }
 
       /* ── Tooltip (JS-rendered, appended to body) ── */
-      .prc-tooltip { position:fixed; z-index:2147483647; background:rgba(10,14,30,0.97); color:#f1f5f9; padding:7px 11px; border-radius:7px; font-size:12px; font-weight:500; line-height:1.45; white-space:normal; max-width:240px; text-align:center; pointer-events:none; box-shadow:0 4px 16px rgba(0,0,0,0.5); border:1px solid rgba(99,102,241,0.25); opacity:0; transform:translateY(3px); transition:opacity 0.15s ease, transform 0.15s ease; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+      .prc-tooltip { position:fixed; z-index:2147483647; background:rgba(10,14,30,0.97); color:#f1f5f9; padding:7px 11px; border-radius:7px; font-size:12px; font-weight:500; line-height:1.45; white-space:normal; max-width:240px; text-align:center; pointer-events:none; box-shadow:0 4px 16px rgba(0,0,0,0.5); border:1px solid rgba(99,102,241,0.25); opacity:0; transform:translateY(3px); transition:opacity 0.15s ease, transform 0.15s ease; font-family:PrcInter, -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
       .prc-tooltip.prc-tooltip-show { opacity:1; transform:translateY(0); }
 
       /* ── Spinner ── */
@@ -1394,7 +1394,7 @@ class PreciprocalBanner {
       .preciprocal-inline-container.prc-light .prc-btn.prc-track.done { border-color:#059669; color:#059669; background:rgba(5,150,105,0.06); }
 
       /* ── Modal banner ── */
-      .preciprocal-banner { display:flex; align-items:center; gap:8px; padding:10px 16px; margin:0 0 4px 0; border-bottom:1px solid rgba(139,92,246,0.25); background:linear-gradient(135deg,rgba(15,10,35,0.97) 0%,rgba(30,18,60,0.97) 100%); font-size:13px; color:#c4b5fd; position:sticky; top:0; z-index:9999; border-radius:8px 8px 0 0; backdrop-filter:blur(12px); font-family:-apple-system,sans-serif; }
+      .preciprocal-banner { display:flex; align-items:center; gap:8px; padding:10px 16px; margin:0 0 4px 0; border-bottom:1px solid rgba(139,92,246,0.25); background:linear-gradient(135deg,rgba(15,10,35,0.97) 0%,rgba(30,18,60,0.97) 100%); font-size:13px; color:#c4b5fd; position:sticky; top:0; z-index:9999; border-radius:8px 8px 0 0; backdrop-filter:blur(12px); font-family:PrcInter, -apple-system,sans-serif; }
       .preciprocal-banner[data-state="filling"] { color:#93c5fd; }
       .preciprocal-banner[data-state="ready"] { color:#86efac; border-bottom-color:rgba(134,239,172,0.2); }
       .pr-icon { font-size:14px; flex-shrink:0; }
@@ -1405,7 +1405,7 @@ class PreciprocalBanner {
       .pr-spinner { width:13px; height:13px; border:2px solid rgba(147,197,253,0.3); border-top-color:#93c5fd; border-radius:50%; animation:prc-spin 0.7s linear infinite; flex-shrink:0; }
 
       /* ── Toast notifications ── */
-      .preciprocal-notification { position:fixed; bottom:24px; right:24px; z-index:999999; opacity:0; transform:translateY(8px) scale(0.96); transition:opacity 0.22s cubic-bezier(0.16,1,0.3,1),transform 0.22s cubic-bezier(0.16,1,0.3,1); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; pointer-events:none; }
+      .preciprocal-notification { position:fixed; bottom:24px; right:24px; z-index:999999; opacity:0; transform:translateY(8px) scale(0.96); transition:opacity 0.22s cubic-bezier(0.16,1,0.3,1),transform 0.22s cubic-bezier(0.16,1,0.3,1); font-family:PrcInter, -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; pointer-events:none; }
       .preciprocal-notification.show { opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
       .prc-toast-inner { display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:12px; background:#0f172a; border:1px solid rgba(148,163,184,0.12); box-shadow:0 4px 24px rgba(0,0,0,0.5); backdrop-filter:blur(16px); min-width:240px; max-width:340px; }
       .prc-toast-icon { width:18px; height:18px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }

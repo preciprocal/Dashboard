@@ -5,6 +5,13 @@ import { supabaseAdmin } from '@/supabase/admin';
 import { checkJobTrackerCapacity } from '@/lib/ai/job-tracker-capacity';
 import { recordStatusChange } from '@/lib/applications/status-events';
 import { parsePosting } from '@/lib/jobs/posting-signals';
+import { canonicalPostingUrl, companyFromPostingUrl, isBoardName, isConfirmationTitle, isSpecificPosting, parseApplicationTitle, stripCompanySuffix, titleFromPostingUrl } from '@/lib/jobs/posting-url';
+
+/** Statuses before applying: a submit moves these cards to Applied. */
+const NOT_YET_APPLIED = new Set(['wishlist', 'saved', '']);
+
+/** Escapes LIKE wildcards so a URL matches only itself as a prefix. */
+const likePrefix = (s: string) => s.replace(/[\\%_]/g, m => '\\' + m) + '%';
 
 export const runtime = 'nodejs';
 
@@ -79,16 +86,28 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json() as Record<string, unknown>;
 
-    const jobTitle = (
+    const rawTitle = (
       (typeof body.jobTitle === 'string' && body.jobTitle.trim()) ||
       (typeof body.title    === 'string' && body.title.trim())    ||
       ''
     );
-    const company = typeof body.company === 'string' ? body.company.trim() : '';
-    const jobUrl  = (
+    const rawCompany = typeof body.company === 'string' ? body.company.trim() : '';
+    const rawUrl  = (
       (typeof body.jobUrl === 'string' && body.jobUrl) ||
       (typeof body.url    === 'string' && body.url)    ||
       null
+    );
+    // After submitting, the extension is often on the board's thank-you page:
+    // its title is "Thank you for applying" and its host is the board, not the
+    // employer. The posting's own address and the employer in it are used
+    // instead (lib/jobs/posting-url).
+    const jobUrl   = canonicalPostingUrl(rawUrl);
+    const specific = isSpecificPosting(rawUrl);
+    const fromTitle = parseApplicationTitle(rawTitle);
+    const company  = isBoardName(rawCompany) ? (companyFromPostingUrl(rawUrl) || fromTitle?.company || rawCompany) : rawCompany;
+    const jobTitle = stripCompanySuffix(
+      fromTitle?.role || (isConfirmationTitle(rawTitle) ? (titleFromPostingUrl(rawUrl) || 'Job application') : rawTitle),
+      company,
     );
     const location      = typeof body.location === 'string' ? body.location.trim() || null : null;
     const jobBoard      = typeof body.jobBoard  === 'string' ? body.jobBoard  : 'Other';
@@ -99,6 +118,38 @@ export async function POST(request: NextRequest) {
     const appliedDate = rawDate.split('T')[0];
 
     console.log('[track-job] Saving:', jobTitle, '@', company, '| linkedInJobId:', linkedInJobId, '| uid:', uid);
+
+    // ── The card the student already has for this posting ────────────────────
+    // Saved from Jobs or the Apply flow before they went to the employer's
+    // site. Submitting moves that card to Applied instead of adding another.
+    // Only for an address that names one posting: a shared apply page is the
+    // same for every role at that employer.
+    if (jobUrl && specific) {
+      const { data: matches } = await supabaseAdmin
+        .from('job_applications')
+        .select('id, status, job_url, company, job_title, created_at')
+        .eq('user_id', uid)
+        .ilike('job_url', likePrefix(jobUrl))
+        .order('created_at', { ascending: false })
+        .limit(20);
+      // The prefix query only narrows: the same posting must come out of it
+      // (so /jobs/12 never matches a save for /jobs/1).
+      const same = (matches ?? []).filter(m => canonicalPostingUrl(m.job_url)?.toLowerCase() === jobUrl.toLowerCase());
+      const card = same.find(m => NOT_YET_APPLIED.has(m.status ?? '')) ?? same[0];
+      if (card) {
+        if (!NOT_YET_APPLIED.has(card.status ?? '')) {
+          console.log('[track-job] already applied:', card.id);
+          return NextResponse.json({ success: true, duplicate: true, id: card.id, company: card.company, jobTitle: card.job_title, message: 'Already tracked' });
+        }
+        const { error: upErr } = await supabaseAdmin.from('job_applications')
+          .update({ status: 'applied', applied_date: appliedDate, updated_at: new Date().toISOString() })
+          .eq('id', card.id).eq('user_id', uid);
+        if (upErr) throw upErr;
+        await recordStatusChange(uid, card.id, card.status ?? null, 'applied');
+        console.log('[track-job] moved to applied:', card.id);
+        return NextResponse.json({ success: true, id: card.id, updated: true, company: card.company, jobTitle: card.job_title });
+      }
+    }
 
     if (!jobTitle || !company) {
       return NextResponse.json({ error: 'jobTitle and company are required' }, { status: 400 });
@@ -115,12 +166,12 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
       if (existing) {
         console.log('[track-job] ⚠️ Duplicate by linkedInJobId:', linkedInJobId);
-        return NextResponse.json({ success: true, duplicate: true, message: 'Already tracked' });
+        return NextResponse.json({ success: true, duplicate: true, company, jobTitle, message: 'Already tracked' });
       }
     }
 
-    // ── Fallback deduplicate by URL within 24h ────────────────────────────────
-    if (!linkedInJobId && jobUrl) {
+    // ── A shared apply page: the same address within 24h is a double save ────
+    if (!linkedInJobId && jobUrl && !specific) {
       const { data: recent } = await supabaseAdmin
         .from('job_applications')
         .select('created_at')
@@ -129,14 +180,12 @@ export async function POST(request: NextRequest) {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (recent) {
-        const savedAt = new Date(recent.created_at).getTime();
-        if (Date.now() - savedAt < 24 * 60 * 60 * 1000) {
-          console.log('[track-job] ⚠️ Duplicate by URL within 24h:', jobUrl);
-          return NextResponse.json({ success: true, duplicate: true, message: 'Already tracked' });
-        }
+      if (recent && Date.now() - new Date(recent.created_at).getTime() < 24 * 60 * 60 * 1000) {
+        console.log('[track-job] duplicate by URL within 24h:', jobUrl);
+        return NextResponse.json({ success: true, duplicate: true, company, jobTitle, message: 'Already tracked' });
       }
     }
+
 
     // After both duplicate checks: a re-save of something already tracked
     // consumes no slot, so it must not be refused for being at capacity.
@@ -207,7 +256,7 @@ export async function POST(request: NextRequest) {
     await recordStatusChange(uid, created.id, null, 'applied');
 
     console.log('[track-job] ✅ Saved:', created.id, '-', jobTitle, '@', company);
-    return NextResponse.json({ success: true, id: created.id });
+    return NextResponse.json({ success: true, id: created.id, company: baseRow.company, jobTitle: baseRow.job_title });
 
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Failed to track job application';

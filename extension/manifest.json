@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Preciprocal",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "description": "Autofill job applications without guessing sensitive answers. Ghost-job warnings, reply odds and a job tracker.",
   "permissions": [
     "storage",
@@ -30,6 +30,7 @@
         "https://www.linkedin.com/*"
       ],
       "js": [
+        "fonts.js",
         "sensitive-answers.js",
         "everify-badge.js",
         "upsell.js",
@@ -93,6 +94,7 @@
         "https://*.jobs/*"
       ],
       "js": [
+        "fonts.js",
         "sensitive-answers.js",
         "everify-badge.js",
         "upsell.js",
@@ -137,7 +139,10 @@
         "icons/icon128.png",
         "external-apply.js",
         "content.css",
-        "localhost-bridge.js"
+        "localhost-bridge.js",
+        "fonts/Inter-Variable.woff2",
+        "fonts/Satoshi-500.woff2",
+        "fonts/Satoshi-700.woff2"
       ],
       "matches": [
         "<all_urls>"

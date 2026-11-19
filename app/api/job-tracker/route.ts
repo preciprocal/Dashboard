@@ -86,7 +86,13 @@ function sanitize(body: Record<string, unknown>): Partial<AppFields> {
   // Not validated as a real resume here: the FK does that, and an id belonging
   // to someone else fails the constraint rather than silently attributing one
   // user's outcomes to another's resume.
-  if ('resumeId' in body) out.resumeId = str(body.resumeId);
+  // Anything that is not a resume row id, such as 'default' for the resume in
+  // Settings (lib/resume/default-client), is stored as none: the column is a
+  // uuid, and sending the word failed the whole save ("I've submitted it").
+  if ('resumeId' in body) {
+    const v = str(body.resumeId);
+    out.resumeId = v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v) ? v : null;
+  }
 
   return out;
 }

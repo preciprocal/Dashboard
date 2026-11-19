@@ -271,8 +271,27 @@ function extractJobInfoFromPage() {
   // name read off the page is used for the E-Verify lookup: a guess like
   // "Jobs" or "Careers" would show some other employer's status.
   const companyFromPage = !!company;
+  // Hosted boards name the employer in the address, not the host:
+  // job-boards.greenhouse.io/<org>/..., jobs.ashbyhq.com/<org>/...,
+  // jobs.lever.co/<org>/..., <org>.breezy.hr. The host's first word
+  // ("job-boards", "jobs") is the board, never the employer.
+  if (!company) {
+    const host = window.location.hostname.toLowerCase();
+    const seg = window.location.pathname.split('/').filter(Boolean)[0] || '';
+    let slug = '';
+    if (/(^|\.)greenhouse\.io$|(^|\.)ashbyhq\.com$|(^|\.)lever\.co$|^apply\.workable\.com$|^jobs\.smartrecruiters\.com$/.test(host)) {
+      slug = new URLSearchParams(window.location.search).get('for') || (/^(embed|jobs?|j|p)$/i.test(seg) ? '' : seg);
+    } else if (/\.breezy\.hr$/.test(host)) slug = host.split('.')[0];
+    if (slug) {
+      company = decodeURIComponent(slug).replace(/[-_]+/g, ' ').trim().split(/\s+/)
+        .map(w => (w.length <= 4 && !/[aeiouy]/i.test(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
+        .join(' ');
+    }
+  }
+  const BOARD_WORDS = /^(job[\s-]?boards?|jobs?|boards?|apply|careers?|www)$/i;
   if (!company) {
     const host = window.location.hostname; const parts = host.split('.');
+    if (BOARD_WORDS.test(parts[0])) parts.shift();
     const atsPlatforms = ['greenhouse','lever','workday','indeed','ashby','icims','jobvite','smartrecruiters','taleo','bamboohr','recruitee','wellfound','angel','myworkdayjobs'];
     if (parts.length >= 3 && atsPlatforms.some(p => parts[1].includes(p))) company = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
     else if (parts.length >= 2) { const domain = parts[parts.length-2]; if (!atsPlatforms.includes(domain)) company = domain.charAt(0).toUpperCase() + domain.slice(1); }
@@ -352,7 +371,7 @@ async function trackJobApplication(platform) {
     chrome.runtime.sendMessage({ type:'JOB_APPLICATION_SUBMITTED', data:jobData }, (response) => {
       if (chrome.runtime.lastError) { console.warn('⚠️ Job tracker:', chrome.runtime.lastError.message); return; }
       if (response?.success) {
-        if (!response.queued) { console.log('✅ Job application saved to tracker'); showTrackingToast(jobInfo.jobTitle, jobInfo.company); }
+        if (!response.queued) { console.log('✅ Job application saved to tracker'); showTrackingToast(response.jobTitle || jobInfo.jobTitle, response.company || jobInfo.company, response.duplicate ? 'duplicate' : 'saved'); }
         else console.log('📥 Job queued locally (will sync when signed in)');
       }
     });
@@ -416,22 +435,34 @@ async function maybeShowUpsell() {
   } catch { /* never let telemetry break an apply */ }
 }
 
-function showTrackingToast(jobTitle, company) {
+/**
+ * The confirmation after an application is tracked: what was saved and where.
+ * Neutral and small, so it reads as part of the page rather than an ad.
+ */
+function showTrackingToast(jobTitle, company, kind = 'saved') {
   if (document.getElementById('prc-tracker-toast')) return;
   if (!document.getElementById('prc-toast-styles')) {
     const style = document.createElement('style');
     style.id = 'prc-toast-styles';
     style.textContent = `
-      @keyframes prcToastIn  { from{transform:translateY(40px);opacity:0} to{transform:translateY(0);opacity:1} }
-      @keyframes prcToastOut { from{transform:translateY(0);opacity:1}    to{transform:translateY(20px);opacity:0} }
+      @keyframes prcToastIn  { from{transform:translateY(12px);opacity:0} to{transform:translateY(0);opacity:1} }
+      @keyframes prcToastOut { from{transform:translateY(0);opacity:1}    to{transform:translateY(8px);opacity:0} }
     `;
     (document.head||document.documentElement).appendChild(style);
   }
   const toast = document.createElement('div');
   toast.id = 'prc-tracker-toast';
-  toast.style.cssText = `position:fixed;bottom:24px;left:24px;background:#ffffff;border:1px solid #e5e7eb;color:#111827;padding:12px 16px;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.12);z-index:2147483646;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px;display:flex;align-items:flex-start;gap:10px;max-width:280px;animation:prcToastIn 0.35s cubic-bezier(0.175,0.885,0.32,1.275)`;
+  toast.setAttribute('role', 'status');
+  toast.style.cssText = `position:fixed;bottom:24px;left:24px;background:#ffffff;border:1px solid rgba(17,24,39,0.08);color:#111827;padding:14px 16px;border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,0.04),0 12px 32px -8px rgba(0,0,0,0.18);z-index:2147483646;font-family:PrcInter,Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;align-items:flex-start;gap:12px;width:320px;max-width:calc(100vw - 48px);box-sizing:border-box;animation:prcToastIn 0.25s ease-out`;
   const _esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  toast.innerHTML = `<span style="font-size:18px;line-height:1;">✅</span><div><div style="font-weight:700;font-size:12px;color:#7c3aed;margin-bottom:2px;">Added to Job Tracker</div><div style="color:#6b7280;font-size:11px;line-height:1.4;">${_esc(jobTitle)}<br>@ ${_esc(company)}</div></div>`;
+  const heading = kind === 'duplicate' ? 'Already in your tracker' : 'Saved to your job tracker';
+  const role = _esc(jobTitle);
+  const at = _esc(company);
+  const check = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+  toast.innerHTML = `<span style="flex-shrink:0;width:22px;height:22px;border-radius:999px;background:#16a34a;display:flex;align-items:center;justify-content:center;margin-top:1px;">${check}</span>` +
+    `<div style="min-width:0;flex:1;"><div style="font-weight:600;font-size:13px;line-height:1.35;color:#111827;">${heading}</div>` +
+    `<div style="font-size:12.5px;line-height:1.4;color:#4b5563;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${role}${at ? ` <span style="color:#9ca3af;">at</span> ${at}` : ''}</div>` +
+    `<div style="font-size:11.5px;color:#9ca3af;margin-top:4px;">Marked as applied in Preciprocal</div></div>`;
   document.body.appendChild(toast);
   setTimeout(() => { toast.style.animation = 'prcToastOut 0.3s ease forwards'; setTimeout(() => toast.remove(), 300); }, 4500);
 }
@@ -3769,8 +3800,7 @@ class PreciprocalSidebar {
     const s = document.createElement('style');
     s.id = 'prc-sidebar-styles';
     s.textContent = `
-      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
-      #prc-sidebar *{box-sizing:border-box!important;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif!important;-webkit-font-smoothing:antialiased!important;text-transform:none!important;letter-spacing:normal!important;line-height:normal!important;}
+      #prc-sidebar *{box-sizing:border-box!important;font-family:PrcInter,Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif!important;-webkit-font-smoothing:antialiased!important;text-transform:none!important;letter-spacing:normal!important;line-height:normal!important;}
       #prc-sidebar button{margin:0!important;padding:0!important;outline:none!important;text-decoration:none!important;text-transform:none!important;letter-spacing:normal!important;cursor:pointer!important;font-family:inherit!important;}
 
       /* ── Layout ── */
@@ -3782,7 +3812,7 @@ class PreciprocalSidebar {
       #prc-sidebar .prc-hdr:active{cursor:grabbing!important;}
       #prc-sidebar .prc-hdr-brand{display:flex!important;align-items:center!important;gap:9px!important;flex:1!important;min-width:0!important;}
       #prc-sidebar .prc-hdr-logo{width:36px!important;height:36px!important;background:transparent!important;border:none!important;border-radius:8px!important;display:flex!important;align-items:center!important;justify-content:center!important;flex-shrink:0!important;}
-      #prc-sidebar .prc-hdr-name{font-size:17px!important;font-weight:700!important;font-family:'Space Grotesk',sans-serif!important;color:#4f46e5!important;letter-spacing:-0.5px!important;line-height:1!important;margin:0!important;padding:0!important;white-space:nowrap!important;}
+      #prc-sidebar .prc-hdr-name{font-size:17px!important;font-weight:700!important;font-family:PrcSatoshi,PrcInter,sans-serif!important;color:#4f46e5!important;letter-spacing:-0.5px!important;line-height:1!important;margin:0!important;padding:0!important;white-space:nowrap!important;}
       #prc-sidebar .prc-x-btn{width:28px!important;height:28px!important;background:#f1f5f9!important;border:1px solid #e2e8f0!important;border-radius:8px!important;color:#64748b!important;display:flex!important;align-items:center!important;justify-content:center!important;transition:background 0.12s,color 0.12s!important;flex-shrink:0!important;padding:0!important;}
       #prc-sidebar .prc-x-btn:hover{background:#e2e8f0!important;color:#0f172a!important;}
 
@@ -3807,7 +3837,7 @@ class PreciprocalSidebar {
       #prc-sidebar .prc-signin-wrap{display:flex!important;flex-direction:column!important;align-items:center!important;text-align:center!important;gap:12px!important;padding:10px 4px 4px!important;}
       #prc-sidebar .prc-signin-logo-wrap{display:flex!important;align-items:center!important;justify-content:center!important;}
       #prc-sidebar .prc-signin-icon{width:56px!important;height:56px!important;background:#eef2ff!important;border-radius:16px!important;display:flex!important;align-items:center!important;justify-content:center!important;}
-      #prc-sidebar .prc-signin-title{font-size:15px!important;font-weight:700!important;font-family:'Space Grotesk',sans-serif!important;color:#0f172a!important;margin:0!important;letter-spacing:-0.3px!important;line-height:1.35!important;}
+      #prc-sidebar .prc-signin-title{font-size:15px!important;font-weight:700!important;font-family:PrcSatoshi,PrcInter,sans-serif!important;color:#0f172a!important;margin:0!important;letter-spacing:-0.3px!important;line-height:1.35!important;}
       #prc-sidebar .prc-signin-sub{font-size:12px!important;color:#94a3b8!important;margin:0!important;line-height:1.6!important;font-weight:400!important;max-width:220px!important;}
 
       /* ── Progress card ── */

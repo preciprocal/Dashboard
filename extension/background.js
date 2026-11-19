@@ -566,8 +566,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         .then(r => r.json())
         .then(data => {
           if (data.success || data.duplicate) {
-            // job tracked
-            sendResponse({ success: true, queued: false });
+            // job tracked. The server's names win: it reads the employer and
+            // role from the posting, where the page may only say "Thank you".
+            sendResponse({
+              success: true, queued: false,
+              company: data.company || null, jobTitle: data.jobTitle || null,
+              updated: !!data.updated, duplicate: !!data.duplicate,
+            });
             flushJobQueue(auth.token, auth.uid, auth.email);
           } else {
             // track-job error, queuing
