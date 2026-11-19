@@ -23,6 +23,8 @@
 //                   read by app/api/cron/activation-email
 //   coaching        profiles.application_email_opt_out (inverted)
 //                   read by app/api/cron/application-coaching
+//   jobAlerts       user_settings.settings.notifications.jobAlerts
+//                   read by app/api/cron/job-alerts
 //   productUpdates  newsletter_subscribers.subscribed, keyed by email
 //
 // Deliberately NOT gated, and there is no toggle for them: password reset,
@@ -38,6 +40,7 @@ export interface NotificationPrefs {
   weeklyDigest: boolean;
   activation: boolean;
   coaching: boolean;
+  jobAlerts: boolean;
   productUpdates: boolean;
 }
 
@@ -47,6 +50,7 @@ export const DEFAULT_PREFS: NotificationPrefs = {
   weeklyDigest: true,
   activation: true,
   coaching: true,
+  jobAlerts: true,
   productUpdates: false, // opt-IN, unlike the other two
 };
 
@@ -105,7 +109,7 @@ export async function canSend(
       .eq("user_id", supabaseUserId)
       .maybeSingle();
     const prefs = (data?.settings as { notifications?: Partial<NotificationPrefs> } | null)?.notifications;
-    return prefs?.supportReplies !== false;
+    return prefs?.[channel] !== false;
   } catch (err) {
     console.error(`⚠️ notification preference check failed (${channel}):`, err);
     return channel !== "productUpdates";

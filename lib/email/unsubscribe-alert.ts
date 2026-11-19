@@ -23,6 +23,7 @@ const SCOPE_NAME: Record<UnsubscribeScope, string> = {
   supportReplies: 'Emailed support replies',
   activation: 'Next-step suggestions',
   coaching: 'Application coaching',
+  jobAlerts: 'New job matches',
   all: 'All optional emails',
 };
 

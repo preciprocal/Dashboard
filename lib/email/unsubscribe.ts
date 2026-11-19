@@ -32,9 +32,9 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { supabaseAdmin } from '@/supabase/admin';
 import { emailAppUrl } from '@/lib/email/app-url';
 
-export type UnsubscribeScope = 'weeklyDigest' | 'supportReplies' | 'activation' | 'coaching' | 'all';
+export type UnsubscribeScope = 'weeklyDigest' | 'supportReplies' | 'activation' | 'coaching' | 'jobAlerts' | 'all';
 
-export const UNSUBSCRIBE_SCOPES: readonly UnsubscribeScope[] = ['weeklyDigest', 'supportReplies', 'activation', 'coaching', 'all'];
+export const UNSUBSCRIBE_SCOPES: readonly UnsubscribeScope[] = ['weeklyDigest', 'supportReplies', 'activation', 'coaching', 'jobAlerts', 'all'];
 
 export function isUnsubscribeScope(value: string | null): value is UnsubscribeScope {
   return value !== null && (UNSUBSCRIBE_SCOPES as readonly string[]).includes(value);
@@ -58,9 +58,13 @@ export const SCOPE_COPY: Record<UnsubscribeScope, { link: string; done: string }
     link: 'Stop application coaching emails',
     done: "You won't get coaching emails when your applications change stage any more. Your tracker works exactly as before.",
   },
+  jobAlerts: {
+    link: 'Stop new job match emails',
+    done: "You won't get emails about new jobs that match your search any more. The Jobs page still shows them first.",
+  },
   all: {
     link: 'Unsubscribe from all optional emails',
-    done: "You won't get weekly summaries, next-step suggestions, application coaching, product updates or emailed support replies any more. Support replies still appear in the app, and security and account emails, such as new sign-in alerts, will still reach you.",
+    done: "You won't get weekly summaries, next-step suggestions, application coaching, new job matches, product updates or emailed support replies any more. Support replies still appear in the app, and security and account emails, such as new sign-in alerts, will still reach you.",
   },
 };
 
@@ -154,13 +158,22 @@ async function optOutOfCoaching(userId: string): Promise<boolean> {
  * its defaults.
  */
 async function optOutOfSupportReplies(userId: string): Promise<boolean> {
+  return optOutOfSettingsFlag(userId, 'supportReplies');
+}
+
+/** New job match emails (app/api/cron/job-alerts) read the same settings blob. */
+async function optOutOfJobAlerts(userId: string): Promise<boolean> {
+  return optOutOfSettingsFlag(userId, 'jobAlerts');
+}
+
+async function optOutOfSettingsFlag(userId: string, key: 'supportReplies' | 'jobAlerts'): Promise<boolean> {
   const { data, error: readErr } = await supabaseAdmin
     .from('user_settings')
     .select('settings')
     .eq('user_id', userId)
     .maybeSingle();
   if (readErr) {
-    console.error('❌ unsubscribe (supportReplies) read failed:', readErr.message);
+    console.error(`❌ unsubscribe (${key}) read failed:`, readErr.message);
     return false;
   }
 
@@ -171,10 +184,10 @@ async function optOutOfSupportReplies(userId: string): Promise<boolean> {
     .from('user_settings')
     .upsert({
       user_id: userId,
-      settings: { ...settings, notifications: { ...notifications, supportReplies: false } },
+      settings: { ...settings, notifications: { ...notifications, [key]: false } },
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' });
-  if (error) console.error('❌ unsubscribe (supportReplies) failed:', error.message);
+  if (error) console.error(`❌ unsubscribe (${key}) failed:`, error.message);
   return !error;
 }
 
@@ -199,12 +212,14 @@ export async function applyUnsubscribe(userId: string, scope: UnsubscribeScope):
   else if (scope === 'supportReplies') results = [await optOutOfSupportReplies(userId)];
   else if (scope === 'activation') results = [await optOutOfActivation(userId)];
   else if (scope === 'coaching') results = [await optOutOfCoaching(userId)];
+  else if (scope === 'jobAlerts') results = [await optOutOfJobAlerts(userId)];
   else {
     results = await Promise.all([
       optOutOfDigest(userId),
       optOutOfSupportReplies(userId),
       optOutOfActivation(userId),
       optOutOfCoaching(userId),
+      optOutOfJobAlerts(userId),
       optOutOfProductUpdates(userId),
     ]);
   }

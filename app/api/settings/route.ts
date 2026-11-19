@@ -17,6 +17,8 @@ interface AppSettings {
     activation: boolean;
     /** Mirrored to profiles.application_email_opt_out, which the coaching cron reads. */
     coaching: boolean;
+    /** Read from here by app/api/cron/job-alerts. */
+    jobAlerts: boolean;
     /** Mirrored to newsletter_subscribers.subscribed. Opt-in. */
     productUpdates: boolean;
   };
@@ -28,6 +30,7 @@ const defaultSettings: AppSettings = {
     weeklyDigest: true,
     activation: true,
     coaching: true,
+    jobAlerts: true,
     productUpdates: false,
   },
 };
@@ -83,6 +86,7 @@ export async function GET(request: NextRequest) {
         weeklyDigest:   profileRow?.weekly_digest_opt_out !== true,
         activation:     profileRow?.activation_email_opt_out !== true,
         coaching:       profileRow?.application_email_opt_out !== true,
+        jobAlerts:      base.notifications?.jobAlerts ?? defaultSettings.notifications.jobAlerts,
         productUpdates,
       },
     };
@@ -128,6 +132,7 @@ export async function POST(request: NextRequest) {
         weeklyDigest:   settings.notifications?.weeklyDigest   ?? defaultSettings.notifications.weeklyDigest,
         activation:     settings.notifications?.activation     ?? defaultSettings.notifications.activation,
         coaching:       settings.notifications?.coaching       ?? defaultSettings.notifications.coaching,
+        jobAlerts:      settings.notifications?.jobAlerts      ?? defaultSettings.notifications.jobAlerts,
         productUpdates: settings.notifications?.productUpdates ?? defaultSettings.notifications.productUpdates,
       },
     };
@@ -187,6 +192,7 @@ export async function POST(request: NextRequest) {
     if (!beforeFlags?.activation_email_opt_out && !n.activation) turnedOff.push('activation');
     if (!beforeFlags?.application_email_opt_out && !n.coaching) turnedOff.push('coaching');
     if (prevNotif.supportReplies !== false && n.supportReplies === false) turnedOff.push('supportReplies');
+    if (prevNotif.jobAlerts !== false && n.jobAlerts === false) turnedOff.push('jobAlerts');
     for (const scope of turnedOff) await recordUnsubscribe(authedUser.supabaseUserId, scope, 'settings');
 
     return NextResponse.json({
