@@ -265,29 +265,46 @@ class CardFacts {
     CardFacts.pass();
   }
 
-  /** Each list card: the element, and the company named on it. */
+  /** The job id a link points at: ?currentJobId=<id> or /jobs/view/<id>. */
+  static jobIdOf(a) {
+    try {
+      const u = new URL(a.href, location.href);
+      const v = u.pathname.match(/\/jobs\/view\/(\d+)/);
+      return v ? v[1] : (u.searchParams.get('currentJobId') || null);
+    } catch { return null; }
+  }
+
+  /**
+   * Each list card: the element, its job id, and the company named on it.
+   * A card is the largest box around one job's link holding no other job's
+   * link, and is never the open job's panel (the one with Apply).
+   */
   static cards() {
+    const apply = prcFindApplyControl();
+    const pane = apply ? prcJobPane(apply) : null;
     const seen = new Set(), out = [];
     for (const a of document.querySelectorAll('a[href*="currentJobId="], a[href*="/jobs/view/"]')) {
-      if (a.closest('#preciprocal-inline-banner, #prc-sidebar')) continue;
-      const card = a.closest('li') || a.closest('[role="listitem"]') || a.closest('[data-occludable-job-id]') || CardFacts.cardRoot(a);
+      if (a.closest('#preciprocal-inline-banner, #prc-sidebar, .prc-card-facts')) continue;
+      if (pane && pane.contains(a)) continue;
+      const id = CardFacts.jobIdOf(a);
+      if (!id) continue;
+      const card = a.closest('[data-occludable-job-id], [data-job-id]') || CardFacts.cardRoot(a, id);
       if (!card || seen.has(card)) continue;
+      if (pane && card.contains(pane)) continue;
+      const r = card.getBoundingClientRect();
+      if (r.height > 420 || r.width > 760) continue;   // a whole column, not a card
       seen.add(card);
       const company = CardFacts.companyOf(card, a);
-      if (company) out.push({ card, company });
+      if (company) out.push({ card, id, company });
     }
     return out;
   }
 
-  /** The largest box around a job link that holds no other job's link: the card. */
-  static cardRoot(a) {
-    const id = (a.href.match(/currentJobId=(\d+)|\/jobs\/view\/(\d+)/) || []).slice(1).find(Boolean);
-    if (!id) return null;
+  static cardRoot(a, id) {
     let el = a, best = null;
-    for (let i = 0; el && i < 10; i++, el = el.parentElement) {
-      if (el.closest('#preciprocal-inline-banner')) return null;
-      const others = [...el.querySelectorAll('a[href*="currentJobId="], a[href*="/jobs/view/"]')].some(x => !x.href.includes(id));
-      if (others) break;
+    for (let i = 0; el && el !== document.body && i < 10; i++, el = el.parentElement) {
+      const ids = new Set([...el.querySelectorAll('a[href*="currentJobId="], a[href*="/jobs/view/"]')].map(x => CardFacts.jobIdOf(x)).filter(Boolean));
+      if (ids.size > 1 || (ids.size === 1 && !ids.has(id))) break;
       best = el;
     }
     return best && best !== a ? best : null;
@@ -298,11 +315,13 @@ class CardFacts {
     const known = card.querySelector('.artdeco-entity-lockup__subtitle, .job-card-container__primary-description, [class*="company-name"]');
     if (known?.innerText?.trim()) return known.innerText.trim().split('\n')[0].trim();
     const title = (link.innerText || '').split('\n')[0].trim();
+    if (!title) return '';
     const lines = (card.innerText || '').split('\n').map(l => l.trim()).filter(Boolean);
     const i = lines.findIndex(l => l === title || l.startsWith(title));
-    for (let j = Math.max(0, i) + 1; j < Math.min(lines.length, i + 4); j++) {
+    if (i < 0) return '';
+    for (let j = i + 1; j < Math.min(lines.length, i + 4); j++) {
       const l = lines[j];
-      if (l === title || l.startsWith(title) || /verification|^promoted$|^viewed$|^applied$|^saved$/i.test(l) || l.length > 80) continue;
+      if (l === title || l.startsWith(title) || /verification|^promoted|^viewed|^applied|^saved|^be an early|alumni|connection|benefit|\$|·/i.test(l) || l.length > 70) continue;
       return l;
     }
     return '';
@@ -320,16 +339,20 @@ class CardFacts {
         for (const n of ask) CardFacts.cache.set(n, d ? { ev: d.everify ? (d.everify[n] ?? 'not-found') : undefined, h1b: d.h1b ? d.h1b[n] : undefined } : null);
       } catch { ask.forEach(n => CardFacts.cache.delete(n)); }
     }
-    for (const { card, company } of CardFacts.cards()) CardFacts.paint(card, company);
+    const live = CardFacts.cards();
+    const keep = new Set(live.map(c => c.card));
+    document.querySelectorAll('.prc-card-facts').forEach(r => { const c = r.closest('[data-prc-card]'); if (!c || !keep.has(c)) r.remove(); });
+    for (const { card, id, company } of live) CardFacts.paint(card, id, company);
   }
 
-  static paint(card, company) {
+  static paint(card, id, company) {
     const f = CardFacts.cache.get(company);
     if (!f || f === 'pending') return;
-    const key = company + '|' + JSON.stringify(f);
-    const old = card.querySelector('.prc-card-facts');
-    if (old?.dataset.key === key) return;
-    old?.remove();
+    const key = id + '|' + company + '|' + JSON.stringify(f);
+    card.setAttribute('data-prc-card', id);
+    const mine = card.querySelectorAll('.prc-card-facts');
+    if (mine.length === 1 && mine[0].dataset.key === key) return;
+    mine.forEach(r => r.remove());
     const chips = [];
     const ev = { enrolled: ['good', 'E-Verified', 'Enrolled in E-Verify (needed for a STEM OPT extension)'], ending: ['warn', 'E-Verify ending', 'Its E-Verify enrolment is set to end'], ended: ['bad', 'E-Verify ended', 'Its E-Verify enrolment has ended'], 'not-found': ['muted', 'No E-Verify', 'Not found in the E-Verify list. It may be listed under another name'] }[f.ev];
     if (ev) chips.push([ev[0], ev[1], ev[2] + '. From the USCIS E-Verify list, via Preciprocal.']);
@@ -346,10 +369,11 @@ class CardFacts {
       c.textContent = text;
       row.appendChild(c);
     }
-    // Under the company line when it can be found, else at the card's end.
-    const line = [...card.querySelectorAll('div, span')].find(el => el.childElementCount === 0 && (el.innerText || '').trim() === company);
-    const anchor = line?.closest('div') || null;
-    if (anchor && card.contains(anchor)) anchor.insertAdjacentElement('afterend', row); else card.appendChild(row);
+    // Right under the company line, always inside the card.
+    const line = [...card.querySelectorAll('div, span, p')].find(el => el.childElementCount === 0 && (el.innerText || '').trim() === company);
+    let at = line;
+    while (at && at.parentElement && at.parentElement !== card && (at.parentElement.innerText || '').trim() === company) at = at.parentElement;
+    if (at && at !== card && card.contains(at)) at.insertAdjacentElement('afterend', row); else card.appendChild(row);
   }
 
   static _injectStyles() {
