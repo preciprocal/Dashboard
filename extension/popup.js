@@ -241,9 +241,9 @@ function renderDisconnected() {
     ${header(false)}
     <div class="body">
       <h2 class="h1">Apply with a resume <span class="grad-text">made for each job</span></h2>
-      <p class="sub">Sign in once and the extension works on the job pages you already use.</p>
+      <p class="sub">Works on the job pages you already use.</p>
       <div class="feats">
-        <div class="feat"><span class="ico ico-a">${ICONS.fill}</span><div><b>Fills application forms</b><span>On LinkedIn, Greenhouse, Lever, Workday and more. You check every answer before you submit.</span></div></div>
+        <div class="feat"><span class="ico ico-a">${ICONS.fill}</span><div><b>Fills application forms</b><span>LinkedIn, Greenhouse, Workday and more. You review before you submit.</span></div></div>
         <div class="feat"><span class="ico ico-b">${ICONS.fit}</span><div><b>Shows how you fit</b><span>Skills from your resume, plus E-Verify and H‑1B records, on each job.</span></div></div>
         <div class="feat"><span class="ico ico-c">${ICONS.track}</span><div><b>Tracks what you apply to</b><span>Each application lands in your job tracker as you submit it.</span></div></div>
       </div>
@@ -256,7 +256,7 @@ function renderDisconnected() {
         <div class="step"><em>2</em>Come back here; it connects on its own</div>
       </div>
       <details class="token">
-        <summary>Not connecting? Paste a token instead</summary>
+        <summary><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2 20 3M17 6l3 3M15 8l2 2"/></svg>Not connecting? Paste a token<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
         <div class="token-row">
           <input id="tokenInput" class="token-input" type="password" placeholder="Token from Settings, Extension" autocomplete="off" spellcheck="false" />
           <button id="btnPasteToken" class="btn-token">Connect</button>

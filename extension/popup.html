@@ -47,14 +47,18 @@
     .status.on { color: var(--t2); }
     .status.on i { background: var(--good); box-shadow: 0 0 0 3px rgba(34,197,94,0.15); }
 
-    .body { padding: 18px 16px 16px; }
+    /* Chrome caps a popup at 600px tall; it fits without scrolling, and
+       if the token box is open the overflow scrolls with no visible bar. */
+    html, body { scrollbar-width: none; }
+    html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+    .body { padding: 14px 16px 14px; }
 
     /* Signed out */
     .h1 { font-family: 'PrcSatoshi', 'PrcInter', sans-serif; font-size: 21px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; color: var(--t1); }
     .grad-text { background: linear-gradient(90deg, #a5b0ff 0%, #c4a5ff 55%, #f0abfc 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
     .sub { margin-top: 6px; font-size: 13px; line-height: 1.5; color: var(--t3); }
-    .feats { margin-top: 16px; border-radius: 12px; background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015)); box-shadow: inset 0 0 0 1px var(--line); }
-    .feat { display: flex; gap: 11px; padding: 12px 13px; }
+    .feats { margin-top: 12px; border-radius: 12px; background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015)); box-shadow: inset 0 0 0 1px var(--line); }
+    .feat { display: flex; gap: 11px; padding: 10px 12px; }
     .feat + .feat { border-top: 1px solid var(--line); }
     .ico { flex-shrink: 0; width: 30px; height: 30px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; }
     .ico svg { width: 15px; height: 15px; }
@@ -69,17 +73,22 @@
     .btn-primary:hover { filter: brightness(1.08); }
     .btn-ghost { background: transparent; color: var(--t3); height: 34px; font-weight: 500; }
     .btn-ghost:hover { color: var(--t1); background: var(--soft); }
-    .cta { margin-top: 16px; }
+    .cta { margin-top: 12px; }
     .note { margin-top: 8px; text-align: center; font-size: 11.5px; color: var(--t4); }
 
-    .steps { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+    .steps { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
     .step { display: flex; align-items: center; gap: 9px; font-size: 12px; color: var(--t3); }
     .step em { background: linear-gradient(135deg, rgba(91,110,245,0.5), rgba(124,58,237,0.4)) !important; color: #fff !important; font-style: normal; width: 18px; height: 18px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 600; color: var(--t2); background: var(--soft-2); flex-shrink: 0; }
 
-    details.token { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
-    details.token summary { list-style: none; cursor: pointer; font-size: 12px; color: var(--t3); }
+    details.token { margin-top: 12px; }
+    details.token summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border-radius: 10px; font-size: 12.5px; font-weight: 500; color: var(--t2); background: var(--soft); box-shadow: inset 0 0 0 1px var(--line-2); transition: background .15s, color .15s; }
+    details.token summary svg { width: 14px; height: 14px; color: var(--brand); flex-shrink: 0; }
+    details.token summary .chev { margin-left: auto; color: var(--t4); transition: transform .15s; }
+    details.token[open] summary .chev { transform: rotate(180deg); }
+    details.token summary:hover { background: var(--soft-2); }
     details.token summary::-webkit-details-marker { display: none; }
     details.token summary:hover { color: var(--t1); }
+    .foot { padding: 9px 16px 10px !important; }
     .token-row { display: flex; gap: 6px; margin-top: 9px; }
     .token-input { flex: 1; min-width: 0; height: 34px; padding: 0 10px; border-radius: 8px; border: 0; outline: none; background: var(--soft); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--t1); font-size: 12px; font-family: inherit; }
     .token-input::placeholder { color: var(--t4); }
