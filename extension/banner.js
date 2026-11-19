@@ -74,12 +74,13 @@ class LabelInjector {
     const base = 'display:inline-flex!important;align-items:center!important;flex-shrink:0!important;gap:3px!important;padding:1px 6px!important;border-radius:4px!important;font-size:9px!important;font-weight:700!important;font-family:PrcInter, -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;white-space:nowrap!important;line-height:1.6!important;letter-spacing:0.06em!important;text-transform:uppercase!important;pointer-events:none!important;user-select:none!important;vertical-align:middle!important;';
     if (type === 'applied') {
       // Mid tones that read on LinkedIn's light and dark themes alike.
-      span.style.cssText = base + 'background:rgba(91,110,245,0.14)!important;color:#6b7bf7!important;border:1px solid rgba(91,110,245,0.45)!important;';
-      span.textContent = 'Applied';
+      span.style.cssText = base + 'background:linear-gradient(135deg,#5b6ef5,#7c3aed)!important;color:#fff!important;border:0!important;box-shadow:0 2px 8px -2px rgba(91,110,245,0.6)!important;';
+      span.textContent = '✓ Applied';
     } else {
-      span.style.cssText = base + 'background:rgba(22,163,74,0.12)!important;color:#22a35a!important;border:1px solid rgba(22,163,74,0.4)!important;';
+      span.style.cssText = base + 'background:#16a34a!important;color:#fff!important;border:0!important;box-shadow:0 2px 8px -2px rgba(22,163,74,0.55)!important;';
       span.textContent = 'Saved';
     }
+    span.style.cssText += 'font-size:10.5px!important;padding:3px 9px!important;border-radius:999px!important;letter-spacing:0.04em!important;';
     span.title = type === 'applied' ? 'You applied to this job (Preciprocal)' : 'In your Preciprocal tracker';
     return span;
   }
@@ -142,20 +143,11 @@ class LabelInjector {
 
     const chip = LabelInjector._chipEl(type);
 
-    // Target: the job title element — chip sits inline right after the title text
-    const titleEl = LabelInjector._findTitleEl(card);
-    if (titleEl) {
-      const titleParent = titleEl.parentElement;
-      titleParent.style.cssText += ';display:flex!important;align-items:center!important;flex-wrap:wrap!important;gap:6px!important;';
-      titleEl.after(chip);
-      console.log(`[PRC] ✅ Chip "${type}" injected after title for jobId: ${jobId}`);
-    } else {
-      // Fallback: absolute position top-left of card (away from action buttons)
-      card.style.setProperty('position', 'relative', 'important');
-      chip.style.cssText += ';position:absolute!important;top:10px!important;left:10px!important;z-index:9999!important;';
-      card.appendChild(chip);
-      console.log(`[PRC] ✅ Chip "${type}" injected absolute top-left for jobId: ${jobId}`);
-    }
+    // Bottom-right corner of the card: clear of the logo, the title and
+    // LinkedIn's dismiss button at the top right.
+    if (getComputedStyle(card).position === 'static') card.style.setProperty('position', 'relative', 'important');
+    chip.style.cssText += 'position:absolute!important;right:12px!important;bottom:12px!important;z-index:5!important;';
+    card.appendChild(chip);
 
     LabelInjector._persistLabel(jobId, type);
   }
@@ -1334,7 +1326,7 @@ class PreciprocalBanner {
     this._replaceButtonIcon(btn, 'spinner');
     try {
       if (!this.authToken) throw new Error('Not logged in');
-      const resp = await chrome.runtime.sendMessage({ type: 'API_FETCH_TRACK_JOB', token: this.authToken, userId: this.authUserId || '', email: this.authEmail || '', baseUrl: PRECIPROCAL_URL, jobData: this.jobData });
+      const resp = await chrome.runtime.sendMessage({ type: 'API_FETCH_TRACK_JOB', token: this.authToken, userId: this.authUserId || '', email: this.authEmail || '', baseUrl: PRECIPROCAL_URL, jobData: { ...this.jobData, status: 'saved' } });
       if (!resp?.success) throw new Error(resp?.error || 'Failed to track job');
       this.trackState = 'done';
       if (btn) { btn.classList.remove('loading'); btn.classList.add('done'); }

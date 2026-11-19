@@ -110,6 +110,9 @@ export async function POST(request: NextRequest) {
     // its title is "Thank you for applying" and its host is the board, not the
     // employer. The posting's own address and the employer in it are used
     // instead (lib/jobs/posting-url).
+    // The banner's Save sends status 'saved': kept as Wishlist, never as
+    // Applied. Everything else here is a submitted application.
+    const saveOnly = body.status === 'saved' || body.status === 'wishlist';
     const jobUrl   = canonicalPostingUrl(rawUrl);
     const specific = isSpecificPosting(rawUrl);
     const fromTitle = parseApplicationTitle(rawTitle);
@@ -148,6 +151,9 @@ export async function POST(request: NextRequest) {
       // (so /jobs/12 never matches a save for /jobs/1).
       const same = (matches ?? []).filter(m => canonicalPostingUrl(m.job_url)?.toLowerCase() === jobUrl.toLowerCase());
       const card = same.find(m => NOT_YET_APPLIED.has(m.status ?? '')) ?? same[0];
+      if (card && saveOnly) {
+        return NextResponse.json({ success: true, duplicate: true, id: card.id, company: card.company, jobTitle: card.job_title, message: 'Already tracked' });
+      }
       if (card) {
         if (!NOT_YET_APPLIED.has(card.status ?? '')) {
           console.log('[track-job] already applied:', card.id);
@@ -234,7 +240,7 @@ export async function POST(request: NextRequest) {
       work_type:       'onsite',
       source:          jobBoard !== 'Other' ? jobBoard : source,
       notes:           null,
-      status:          'applied',
+      status:          saveOnly ? 'wishlist' : 'applied',
       applied_date:    appliedDate,
     };
 
@@ -271,7 +277,7 @@ export async function POST(request: NextRequest) {
     if (error) throw error;
     if (!created) throw new Error('Insert returned no row');
 
-    await recordStatusChange(uid, created.id, null, 'applied');
+    await recordStatusChange(uid, created.id, null, saveOnly ? 'wishlist' : 'applied');
 
     console.log('[track-job] ✅ Saved:', created.id, '-', jobTitle, '@', company);
     track({ ok: true, result: 'created' });
