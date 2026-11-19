@@ -240,12 +240,12 @@ function renderDisconnected() {
   return `
     ${header(false)}
     <div class="body">
-      <h2 class="h1">Apply with a resume made for each job</h2>
+      <h2 class="h1">Apply with a resume <span class="grad-text">made for each job</span></h2>
       <p class="sub">Sign in once and the extension works on the job pages you already use.</p>
       <div class="feats">
-        <div class="feat">${ICONS.fill}<div><b>Fills application forms</b><span>On LinkedIn, Greenhouse, Lever, Workday and more. You check every answer before you submit.</span></div></div>
-        <div class="feat">${ICONS.fit}<div><b>Shows how you fit</b><span>Skills from your resume, plus E-Verify and H-1B records, on each job.</span></div></div>
-        <div class="feat">${ICONS.track}<div><b>Tracks what you apply to</b><span>Each application lands in your job tracker as you submit it.</span></div></div>
+        <div class="feat"><span class="ico ico-a">${ICONS.fill}</span><div><b>Fills application forms</b><span>On LinkedIn, Greenhouse, Lever, Workday and more. You check every answer before you submit.</span></div></div>
+        <div class="feat"><span class="ico ico-b">${ICONS.fit}</span><div><b>Shows how you fit</b><span>Skills from your resume, plus E-Verify and H‑1B records, on each job.</span></div></div>
+        <div class="feat"><span class="ico ico-c">${ICONS.track}</span><div><b>Tracks what you apply to</b><span>Each application lands in your job tracker as you submit it.</span></div></div>
       </div>
       <div class="cta">
         <button id="btnLogin" class="btn btn-primary">Sign in to connect</button>
