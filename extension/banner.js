@@ -263,8 +263,16 @@ class JobExtractor {
         const el = document.querySelector(sel); if (el?.textContent?.trim()) { location = el.textContent.trim(); break; }
       }
       const descEl = document.querySelector('.jobs-description__content, .jobs-box__html-content, article.jobs-description');
+      let description = descEl?.textContent?.trim() || '';
+      // Current layout: the section under an "About the job" heading.
+      if (!description) {
+        const h = [...document.querySelectorAll('h2, h3')].find(x => /^about the job$/i.test((x.innerText || '').trim()));
+        let box = h?.parentElement;
+        for (let i = 0; box && i < 4 && (box.innerText || '').length < 200; i++) box = box.parentElement;
+        description = (box?.innerText || '').replace(/^\s*about the job\s*/i, '').trim();
+      }
       const posting = this.extractPostingMeta();
-      return { title: jobTitle, company: companyName, location, description: descEl?.textContent?.trim() || '', url: window.location.href, jobId: this.extractJobId(), ...posting };
+      return { title: jobTitle, company: companyName, location, description, url: window.location.href, jobId: this.extractJobId(), ...posting };
     } catch (err) { console.error('[PRC] extractJobData error:', err); return null; }
   }
 
@@ -1283,7 +1291,7 @@ class PreciprocalBanner {
     if (fit.years) facts.push(`<span class="prc-fact prc-fact-muted" data-tip="${esc('The posting says: ' + fit.years.quote)}"><i></i>${fit.years.min}+ years asked</span>`);
     const pay = d.facts?.pay;
     if (pay) {
-      const k = (n) => (pay.unit === 'hour' ? `${n}` : `${Math.round(n / 1000)}K`);
+      const k = (n) => '$' + (pay.unit === 'hour' ? String(n) : `${Math.round(n / 1000)}K`);
       facts.push(`<span class="prc-fact prc-fact-muted" data-tip="${esc('The posting says: ' + pay.quote)}"><i></i>${k(pay.min)}${pay.max ? ' to ' + k(pay.max) : ''}${pay.unit === 'hour' ? '/hr' : '/yr'}</span>`);
     }
 
