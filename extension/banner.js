@@ -1510,10 +1510,10 @@ class PreciprocalBanner {
       head = `${fit.matched.length} of ${fit.skills.length} skills this job names are on your resume`;
       if (score === null) sub = 'Too few skills named to give a score.';
     }
-    const chips = d.resume ? [
-      ...fit.matched.slice(0, 8).map(s => `<span class="prc-skill prc-skill-on">${esc(s)}</span>`),
-      ...fit.missing.slice(0, 6).map(s => `<span class="prc-skill" data-tip="Named in the posting, not found on your resume">${esc(s)}</span>`),
-    ].join('') : '';
+    // Two labelled rows, so missing skills read as gaps to close, not leftovers.
+    const skillRow = (label, list, cls, tip) => list.length ? `<div class="prc-skill-row"><span class="prc-skill-lbl">${label}</span><div class="prc-skills">${list.map(s => `<span class="prc-skill${cls}"${tip ? ` data-tip="${tip}"` : ''}>${esc(s)}</span>`).join('')}</div></div>` : '';
+    const chips = d.resume ? skillRow('On your resume', fit.matched.slice(0, 8), ' prc-skill-on', '')
+      + skillRow('Missing', fit.missing.slice(0, 6), '', 'Named in the posting, not found on your resume') : '';
 
     // What the posting and the public records say.
     const facts = [];
@@ -1538,7 +1538,7 @@ class PreciprocalBanner {
       facts.push(`<span class="prc-fact prc-fact-muted" data-tip="${esc('The posting says: ' + pay.quote)}"><i></i>${k(pay.min)}${pay.max ? ' to ' + k(pay.max) : ''}${pay.unit === 'hour' ? '/hr' : '/yr'}</span>`);
     }
 
-    slot.innerHTML = `<div class="prc-fit">${ring}<div class="prc-fit-body"><p class="prc-fit-head">${esc(head)}</p>${sub ? `<p class="prc-fit-sub">${sub}</p>` : ''}${chips ? `<div class="prc-skills">${chips}</div>` : ''}</div></div>${facts.length ? `<div class="prc-facts">${facts.join('')}</div>` : ''}`;
+    slot.innerHTML = `<div class="prc-fit">${ring}<div class="prc-fit-body"><p class="prc-fit-head">${esc(head)}</p>${sub ? `<p class="prc-fit-sub">${sub}</p>` : ''}${chips ? `<div class="prc-skill-rows">${chips}</div>` : ''}</div></div>${facts.length ? `<div class="prc-facts">${facts.join('')}</div>` : ''}`;
     this._attachTooltips(slot);
   }
 
@@ -1844,7 +1844,10 @@ class PreciprocalBanner {
       #preciprocal-inline-banner .prc-fit-sub { margin:2px 0 0; font-size:12.5px; color:var(--b-muted); }
       #preciprocal-inline-banner .prc-link { color:var(--b-brand); font-weight:600; text-decoration:none; }
       #preciprocal-inline-banner .prc-link:hover { text-decoration:underline; }
-      #preciprocal-inline-banner .prc-skills { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+      #preciprocal-inline-banner .prc-skill-rows { display:flex; flex-direction:column; gap:6px; margin-top:10px; }
+      #preciprocal-inline-banner .prc-skill-row { display:flex; align-items:flex-start; gap:10px; }
+      #preciprocal-inline-banner .prc-skill-lbl { flex:0 0 96px; font-size:11.5px; font-weight:500; color:var(--b-muted); line-height:22px; }
+      #preciprocal-inline-banner .prc-skills { display:flex; flex-wrap:wrap; gap:5px; min-width:0; }
       #preciprocal-inline-banner .prc-skill { display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:6px; font-size:12px; font-weight:500; color:var(--b-muted); border:1px dashed var(--b-border); cursor:default; }
       #preciprocal-inline-banner .prc-skill-on { color:#16a34a; border:1px solid rgba(22,163,74,0.35); background:rgba(22,163,74,0.08); }
       #preciprocal-inline-banner .prc-facts { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
