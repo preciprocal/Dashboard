@@ -508,6 +508,18 @@ h1, h2, .page-title, .font-display {
   animation: scaleIn 0.18s ease-out both;
 }
 
+/* Side sheets, rendered through a portal (see the note above). */
+.animate-slide-in-right {
+  animation: slideInRight 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes slideInRight {
+  from { transform: translateX(24px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-in-right { animation: fadeIn 0.18s ease-out both; }
+}
+
 .animate-shimmer {
   animation: shimmer 1.8s infinite linear;
   background: linear-gradient(

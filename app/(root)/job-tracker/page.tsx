@@ -9,9 +9,9 @@ import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import {
   Plus, Loader2, Briefcase, Building2, MapPin, Calendar, ExternalLink,
   Edit3, Trash2, X, Save, Search, Filter, ChevronDown,
-  CheckCircle2, AlertTriangle, DollarSign, Globe, Laptop, Landmark,
-  SlidersHorizontal, CalendarPlus, Sparkles, Mail, UserSearch, Copy,
-  Check, RefreshCw, Linkedin, Shield, ArrowRight, Mic, ShieldCheck, Send,
+  CheckCircle2, DollarSign, Globe, Laptop, Landmark,
+  SlidersHorizontal, CalendarPlus, Sparkles, UserSearch,
+  Check, Shield, ArrowRight, Mic, ShieldCheck, Send,
 } from 'lucide-react';
 import Link from 'next/link';
 import { CompanyLogo, useCompanyLogos } from '@/components/jobs/CompanyLogo';
@@ -26,7 +26,7 @@ import { SeeExampleButton } from '@/components/ServiceModal';
 import NextStepPrompt from '@/components/NextStepPrompt'; // ← ADDED
 import FunnelDoctor from '@/components/outcomes/FunnelDoctor';
 import InboundEmailPanel from '@/components/outcomes/InboundEmailPanel';
-import SaveToContactsButton from '@/components/contacts/SaveToContactsButton';
+import FindContactsSheet from '@/components/job-tracker/FindContactsSheet';
 import InterviewScheduleModal from '@/components/calendar/InterviewScheduleModal';
 import InterviewScheduleRow from '@/components/calendar/InterviewScheduleRow';
 import UpcomingInterviews from '@/components/calendar/UpcomingInterviews';
@@ -59,28 +59,6 @@ interface Application {
 }
 
 type AppForm = Omit<Application, 'id' | 'userId' | 'createdAt' | 'updatedAt'>;
-
-interface Contact {
-  email: string; firstName: string; lastName: string; fullName: string;
-  position: string; department: string; confidence: number;
-  linkedin: string | null; generatedEmail: string | null; tier?: number;
-}
-
-// ─── Role badge ───────────────────────────────────────────────────────────────
-
-function RoleBadge({ position }: { position: string; tier?: number }) {
-  const pos = position.toLowerCase();
-  let label = '';
-  if (/recruiter|talent|hr|people/.test(pos))                                                                     { label = 'Recruiter';   }
-  else if (/ceo|founder|president|chief exec/.test(pos))                                                          { label = 'CEO/Founder'; }
-  else if (/cto|chief tech|vp of eng|vp eng/.test(pos))                                                          { label = 'CTO/VP Eng'; }
-  else if (/cpo|chief product/.test(pos))                                                                         { label = 'CPO';         }
-  else if (/director|vp /.test(pos))                                                                              { label = 'Director/VP'; }
-  else if (/team lead|tech lead|lead data|lead ml|lead ai|lead software|lead engineer|technical lead/.test(pos)) { label = 'Team Lead';   }
-  else if (/manager|principal|staff/.test(pos))                                                                   { label = 'Manager';     }
-  else                                                                                                            { label = 'Contact';     }
-  return <span className="inline-flex items-center h-5 px-1.5 rounded-md text-[11px] font-medium text-[var(--text-2)] bg-white/[0.04] ring-1 ring-inset ring-white/[0.08]">{label}</span>;
-}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -388,168 +366,6 @@ function AppCard({ app, logoDomain, everify, everifySyncedAt, h1b, h1bYears, sch
   );
 }
 
-// ─── Contacts modal helpers ───────────────────────────────────────────────────
-
-function CopyBtn({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  return <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.05] transition-all flex-shrink-0" title="Copy">{copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}</button>;
-}
-
-function ConfidenceDot({ score }: { score: number }) {
-  const color = score >= 80 ? 'bg-emerald-400' : score >= 60 ? 'bg-amber-400' : 'bg-red-400';
-  return <div className="flex items-center gap-1.5" title={`${score}% email verified`}><div className={`w-1.5 h-1.5 rounded-full ${color}`} /><span className="text-xs text-slate-400">{score}% verified</span></div>;
-}
-
-function buildSubject(jobTitle: string, company: string): string { return `${jobTitle} Role at ${company} - Reaching Out`; }
-function openInGmail(to: string, subject: string, body: string) { const url = new URL('https://mail.google.com/mail/'); url.searchParams.set('view', 'cm'); url.searchParams.set('to', to); url.searchParams.set('su', subject); url.searchParams.set('body', body); window.open(url.toString(), '_blank', 'noopener,noreferrer'); }
-function openInOutlook(to: string, subject: string, body: string) { window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`; }
-
-function SendEmailButtons({ recipientEmail, emailBody, jobTitle, company }: { recipientEmail: string; emailBody: string; jobTitle: string; company: string }) {
-  const subject = buildSubject(jobTitle, company);
-  return (
-    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/[0.06]">
-      <span className="text-xs text-slate-500 flex-shrink-0">Send via</span>
-      <button onClick={() => openInGmail(recipientEmail, subject, emailBody)} className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all border border-red-500/20 bg-red-500/[0.07] text-red-400 hover:bg-red-500/15 hover:border-red-500/35 hover:text-red-300">
-        <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 6.5A2.5 2.5 0 0 1 4.5 4h15A2.5 2.5 0 0 1 22 6.5v11A2.5 2.5 0 0 1 19.5 20h-15A2.5 2.5 0 0 1 2 17.5v-11Z" stroke="currentColor" strokeWidth="1.5"/><path d="M2 7l10 7 10-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-        Gmail <ExternalLink className="w-3 h-3 opacity-50" />
-      </button>
-      <button onClick={() => openInOutlook(recipientEmail, subject, emailBody)} className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all border border-blue-500/20 bg-blue-500/[0.07] text-blue-400 hover:bg-blue-500/15 hover:border-blue-500/35 hover:text-blue-300">
-        <Mail className="w-3.5 h-3.5 flex-shrink-0" /> Outlook <ExternalLink className="w-3 h-3 opacity-50" />
-      </button>
-    </div>
-  );
-}
-
-// ─── Contacts modal ───────────────────────────────────────────────────────────
-
-function ContactsModal({ app, onClose, onContactsFound }: { app: Application; onClose: () => void; onContactsFound?: () => Promise<void> }) {
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [domain, setDomain] = useState('');
-  const [foundDomain, setFoundDomain] = useState('');
-  const [showDomainOverride, setShowDomainOverride] = useState(false);
-  const [activeIdx, setActiveIdx] = useState<number | null>(null);
-  const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
-
-  const fetchContacts = async (overrideDomain?: string) => {
-    setLoading(true); setError(''); setContacts([]); setActiveIdx(null);
-    try {
-      const res = await fetch('/api/job-tracker/find-contacts', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ company: app.company, jobTitle: app.jobTitle, jobDescription: app.notes || '', domain: overrideDomain || domain || undefined, jobUrl: app.jobUrl || undefined }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to fetch contacts');
-      setContacts(data.contacts || []);
-      setFoundDomain(data.domain || '');
-      if (data.contacts?.length > 0) {
-        setActiveIdx(0);
-        if (onContactsFound) await onContactsFound();
-      }
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to fetch contacts'); }
-    finally { setLoading(false); }
-  };
-
-  const copyEmail = (email: string) => { navigator.clipboard.writeText(email); setCopiedEmail(email); setTimeout(() => setCopiedEmail(null), 2000); toast.success('Email copied'); };
-  const activeContact = activeIdx !== null ? contacts[activeIdx] : null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-[var(--bg-raised)] border border-white/[0.09] rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-[0_32px_64px_rgba(0,0,0,0.6)] overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]"><UserSearch className="w-4 h-4 text-[var(--text-2)]" /></div>
-            <div><h2 className="text-sm font-bold text-white">Find Contacts</h2><p className="text-xs text-slate-400">{app.company} · {app.jobTitle}{app.jobUrl && <span className="ml-2 text-slate-500">· {(() => { try { return new URL(app.jobUrl).hostname.replace(/^www\./, ''); } catch { return ''; } })()}</span>}</p></div>
-          </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition-all"><X className="w-4 h-4" /></button>
-        </div>
-
-        {((contacts.length > 0 && foundDomain) || showDomainOverride) && (
-          <div className="px-6 py-3 border-b border-white/[0.05] flex-shrink-0">
-            {contacts.length > 0 && foundDomain && !showDomainOverride ? (
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-slate-400">Found <span className="text-white font-semibold">{contacts.length}</span> contacts at <span className="text-[#a9b0f7] font-semibold">{foundDomain}</span></p>
-                <button onClick={() => { setContacts([]); setFoundDomain(''); setError(''); setShowDomainOverride(true); }} className="text-xs text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Wrong company?</button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className="flex-1 relative"><Globe className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" /><input type="text" value={domain} onChange={e => setDomain(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchContacts()} placeholder="Enter domain manually (e.g. stripe.com)" autoFocus className={`${inp} pl-9`} /></div>
-                <button onClick={() => fetchContacts()} disabled={loading || !domain.trim()} className="w-9 h-10 flex items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.08] hover:border-[var(--accent-border)] hover:bg-[var(--accent-subtle)] text-slate-400 hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0">{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserSearch className="w-4 h-4" />}</button>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="flex-1 overflow-hidden flex min-h-0">
-          {error && (
-            <div className="flex-1 flex items-center justify-center p-8"><div className="text-center max-w-xs">
-              <div className="w-12 h-12 bg-red-500/[0.08] border border-red-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4"><AlertTriangle className="w-5 h-5 text-red-400" /></div>
-              <p className="text-sm font-bold text-white mb-2">Couldn&apos;t find contacts</p><p className="text-xs text-slate-400 mb-5 leading-relaxed">{error}</p>
-              <button onClick={() => { setShowDomainOverride(true); setError(''); }} className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/[0.08] hover:border-[var(--accent-border)] hover:bg-[var(--accent-subtle)] rounded-xl text-xs font-semibold text-slate-300 hover:text-white transition-all flex items-center justify-center gap-2"><Globe className="w-3.5 h-3.5" /> Enter domain manually</button>
-              <button onClick={() => fetchContacts()} className="mt-3 text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1 mx-auto transition-colors"><RefreshCw className="w-3 h-3" /> Retry</button>
-            </div></div>
-          )}
-          {!loading && !error && contacts.length === 0 && (
-            <div className="flex-1 flex items-center justify-center p-8"><div className="text-center">
-              <div className="w-12 h-12 bg-white/[0.03] border border-white/[0.07] rounded-2xl flex items-center justify-center mx-auto mb-4"><UserSearch className="w-5 h-5 text-slate-500" /></div>
-              <p className="text-base font-bold text-white mb-2">Stop cold-applying. Start warm outreach.</p>
-              <p className="text-xs text-slate-400 max-w-xs leading-relaxed mb-6">Find the recruiter, hiring manager, and decision-makers at <span className="text-slate-300 font-semibold">{app.company}</span> and get a personalised email ready to send.</p>
-              <button onClick={() => fetchContacts()} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--on-primary)] text-sm font-semibold  transition-all duration-200"><UserSearch className="w-4 h-4" /> Find Contacts at {app.company}</button>
-              <button onClick={() => setShowDomainOverride(true)} className="mt-3 text-xs text-slate-500 hover:text-slate-400 transition-colors flex items-center gap-1 mx-auto"><Globe className="w-3 h-3" /> Enter domain manually</button>
-            </div></div>
-          )}
-          {loading && (
-            <div className="flex-1 flex items-center justify-center p-8"><div className="text-center">
-              <div className="relative w-10 h-10 mx-auto mb-4"><Loader2 className="w-10 h-10 text-[#a9b0f7] animate-spin" /><UserSearch className="w-4 h-4 text-[#a9b0f7] absolute inset-0 m-auto" /></div>
-              <p className="text-sm font-semibold text-white mb-1">Finding contacts…</p><p className="text-xs text-slate-400">Searching and writing personalised emails…</p>
-            </div></div>
-          )}
-          {!loading && contacts.length > 0 && (
-            <div className="flex flex-1 min-h-0">
-              <div className="w-52 flex-shrink-0 border-r border-white/[0.05] overflow-y-auto glass-scrollbar">
-                {contacts.map((c, i) => (
-                  <button key={c.email} onClick={() => setActiveIdx(i)} className={`w-full text-left px-4 py-3 border-b border-white/[0.04] transition-colors ${activeIdx === i ? 'bg-white/[0.05] border-l-2 border-l-white/60' : 'hover:bg-white/[0.03]'}`}>
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-7 h-7 bg-white/[0.07] rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5">{(c.firstName?.[0] || c.fullName?.[0] || '?').toUpperCase()}</div>
-                      <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-white truncate">{c.fullName}</p><p className="text-[11px] text-slate-400 truncate mb-1">{c.position}</p><RoleBadge position={c.position} tier={c.tier} /></div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-              {activeContact && (
-                <div className="flex-1 overflow-y-auto glass-scrollbar p-5 space-y-4">
-                  <div className="glass-card p-4">
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="flex-1 min-w-0"><div className="flex items-center gap-2 flex-wrap mb-1"><h3 className="text-sm font-bold text-white">{activeContact.fullName}</h3><RoleBadge position={activeContact.position} tier={activeContact.tier} /></div><p className="text-xs text-slate-400">{activeContact.position}</p>{activeContact.department && <p className="text-xs text-slate-500">{activeContact.department}</p>}</div>
-                      <ConfidenceDot score={activeContact.confidence} />
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <div className="flex items-center gap-2 px-3 py-2 bg-white/[0.04] border border-white/[0.07] rounded-xl flex-1 min-w-0">
-                        <Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" /><span className="text-sm text-white truncate font-medium">{activeContact.email}</span>
-                        <button onClick={() => copyEmail(activeContact.email)} className="flex-shrink-0 text-slate-500 hover:text-white transition-colors">{copiedEmail === activeContact.email ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}</button>
-                      </div>
-                      {activeContact.linkedin && <a href={activeContact.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-2 bg-blue-500/[0.08] border border-blue-500/20 rounded-xl text-blue-400 text-xs font-semibold hover:bg-blue-500/15 transition-colors flex-shrink-0"><Linkedin className="w-3.5 h-3.5" /> LinkedIn</a>}
-                      <SaveToContactsButton key={activeContact.email} person={activeContact} company={app.company} applicationId={app.id} />
-                    </div>
-                  </div>
-                  {activeContact.generatedEmail ? (
-                    <div className="glass-card overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]"><div className="flex items-center gap-2"><Sparkles className="w-3.5 h-3.5 text-[#a9b0f7]" /><span className="text-xs font-bold text-white">AI-Written Outreach</span></div><CopyBtn text={activeContact.generatedEmail} /></div>
-                      <div className="p-4"><p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{activeContact.generatedEmail}</p><SendEmailButtons recipientEmail={activeContact.email} emailBody={activeContact.generatedEmail} jobTitle={app.jobTitle} company={app.company} /></div>
-                    </div>
-                  ) : <div className="glass-card p-6 text-center"><p className="text-xs text-slate-500">Could not generate email for this contact - try again</p></div>}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Create plan modal ────────────────────────────────────────────────────────
 
 const PLAN_PRESETS = [{ days: 3, label: '3 days' }, { days: 7, label: '1 week' }, { days: 14, label: '2 weeks' }, { days: 21, label: '3 weeks' }, { days: 30, label: '1 month' }];
@@ -612,7 +428,7 @@ export default function JobTrackerPage() {
   const router = useRouter();
   const { confirm, ConfirmDialog } = useConfirm();
 
-  const { canUseFeature, getLimit, refetch: refetchUsage, loading: loadingUsage } = useUsageTracking();
+  const { canUseFeature, getLimit, getRemainingCount, refetch: refetchUsage, loading: loadingUsage } = useUsageTracking();
 
   const [apps, setApps] = useState<Application[]>([]);
   const [everify, setEverify] = useState<{ statuses: Record<string, EverifyStatus>; syncedAt: string | null }>({ statuses: {}, syncedAt: null });
@@ -791,7 +607,7 @@ export default function JobTrackerPage() {
     <>
       <ConfirmDialog />
       {showForm && <FormModal form={form} setForm={setForm} onSave={handleSave} onCancel={() => { setShowForm(false); setEditingId(null); setForm({ ...EMPTY_FORM }); }} saving={saving} isEdit={!!editingId} resumes={resumes} />}
-      {contactsModal && <ContactsModal app={contactsModal} onClose={() => setContactsModal(null)} onContactsFound={async () => { await refetchUsage(); }} />}
+      {contactsModal && <FindContactsSheet app={contactsModal} logoDomain={logos[contactsModal.company]} searchesLeft={isUnlimited(contactsLimit) ? null : getRemainingCount('findContacts')} onClose={() => setContactsModal(null)} onSearched={async () => { await refetchUsage(); }} />}
       {scheduleApp && (
         <InterviewScheduleModal app={scheduleApp} existing={interviews.schedules[scheduleApp.id] ?? null} calendar={interviews.calendar} schemaReady={interviews.schemaReady}
           onClose={() => setScheduleFor(null)} onSaved={interviews.setOne} onRemoved={interviews.removeOne} />
