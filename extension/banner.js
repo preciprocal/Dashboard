@@ -220,11 +220,13 @@ class JobExtractor {
       const titleEl = document.querySelector(
         'h1.job-details-jobs-unified-top-card__job-title, h1.t-24, h1.jobs-unified-top-card__job-title'
       );
-      const jobTitle = titleEl?.textContent?.trim() || 'Unknown Position';
+      const pane = titleEl ? null : prcJobPane(prcFindApplyControl());
+      const jobTitle = titleEl?.textContent?.trim() || prcPaneTitle(pane) || 'Unknown Position';
       let companyName = 'Unknown Company';
       for (const sel of ['a.job-details-jobs-unified-top-card__company-name','.jobs-unified-top-card__company-name a','.jobs-unified-top-card__company-name','.job-details-jobs-unified-top-card__company-name','a[data-tracking-control-name="public_jobs_topcard-org-name"]','.topcard__org-name-link','.jobs-company__name']) {
         const el = document.querySelector(sel); if (el?.textContent?.trim()) { companyName = el.textContent.trim(); break; }
       }
+      if (companyName === 'Unknown Company' && pane) companyName = prcPaneCompany(pane) || companyName;
       let location = '';
       for (const sel of ['.job-details-jobs-unified-top-card__bullet','.jobs-unified-top-card__bullet','.job-details-jobs-unified-top-card__primary-description','span.jobs-unified-top-card__subtitle-primary-grouping span:last-child','.topcard__flavor--bullet']) {
         const el = document.querySelector(sel); if (el?.textContent?.trim()) { location = el.textContent.trim(); break; }
@@ -681,10 +683,61 @@ class EasyApplyEngine {
   _delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 }
 
+// LinkedIn's 2026 job page uses generated class names, so the selectors
+// above find nothing there. These read the page by what it shows instead:
+// the visible Apply / Easy Apply control, the section holding it and the
+// title, and the company link in that section.
+function prcFindApplyControl() {
+  for (const el of document.querySelectorAll('button, a')) {
+    if (el.closest('#preciprocal-inline-banner, #prc-sidebar')) continue;
+    if (!el.getClientRects().length) continue;
+    const t = (el.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const a = (el.getAttribute('aria-label') || '').toLowerCase();
+    if (/^(easy apply|apply|apply now)$/.test(t) || /^(easy apply to|apply to|apply on|apply for)\b/.test(a)) return el;
+  }
+  return null;
+}
+function prcJobPane(from) {
+  let el = from;
+  for (let i = 0; el && i < 14; i++, el = el.parentElement) {
+    const h = el.querySelector('h1, h2');
+    if (h && (h.innerText || '').trim().length > 4) return el;
+  }
+  return null;
+}
+function prcPaneTitle(pane) {
+  const h = pane?.querySelector('h1') || pane?.querySelector('h2');
+  return (h?.innerText || '').replace(/\s+/g, ' ').trim();
+}
+function prcPaneCompany(pane) {
+  for (const a of pane?.querySelectorAll('a[href*="/company/"]') || []) {
+    const t = (a.innerText || '').trim();
+    if (t && t.length < 100) return t;
+  }
+  return '';
+}
+/** Where the banner goes: under the row holding Apply and Save. */
+function prcInsertionAfterApply() {
+  const apply = prcFindApplyControl();
+  if (!apply) return null;
+  const pane = prcJobPane(apply) || document.body;
+  const save = [...pane.querySelectorAll('button')].find(b => /^(save|saved)$/i.test((b.innerText || '').trim()) && !b.closest('#preciprocal-inline-banner'));
+  let row = apply.parentElement;
+  if (save) { row = apply; while (row && !row.contains(save)) row = row.parentElement; }
+  if (!row || row === pane) row = apply.parentElement;
+  return row ? { element: row, position: 'afterend' } : null;
+}
+
 function getApplyButtonInfo() {
   for (const sel of ['button.jobs-apply-button[aria-label*="Easy Apply"]','button.jobs-apply-button']) { const btn = document.querySelector(sel); if (btn && btn.textContent?.toLowerCase().includes('easy apply')) return { type: 'easy', button: btn }; }
   const ext = document.querySelector('button.jobs-apply-button, a.jobs-apply-button, [data-control-name="jobdetails_topcard_inapply"]');
   if (ext) { const link = document.querySelector('a[href*="apply"], a[data-tracking-control-name*="apply"], .jobs-apply-button a'); return { type: 'external', button: ext, url: link?.href || null }; }
+  const found = prcFindApplyControl();
+  if (found) {
+    const t = ((found.innerText || '') + ' ' + (found.getAttribute('aria-label') || '')).toLowerCase();
+    if (t.includes('easy apply')) return { type: 'easy', button: found };
+    return { type: 'external', button: found, url: found.tagName === 'A' ? found.href : null };
+  }
   return { type: 'none', button: null, url: null };
 }
 
@@ -784,8 +837,9 @@ class PreciprocalBanner {
   waitForJobPanel(timeout = 10000) {
     const sels = ['.job-details-jobs-unified-top-card__container--two-pane','.jobs-unified-top-card','.jobs-details__main-content','.jobs-search__job-details--container','.job-details-jobs-unified-top-card__job-title'];
     return new Promise((resolve, reject) => {
-      for (const s of sels) { const el = document.querySelector(s); if (el) return resolve(el); }
-      const obs = new MutationObserver(() => { for (const s of sels) { const el = document.querySelector(s); if (el) { obs.disconnect(); resolve(el); return; } } });
+      const find = () => { for (const s of sels) { const el = document.querySelector(s); if (el) return el; } return prcFindApplyControl(); };
+      const now = find(); if (now) return resolve(now);
+      const obs = new MutationObserver(() => { const el = find(); if (el) { obs.disconnect(); resolve(el); } });
       obs.observe(document.body, { childList: true, subtree: true });
       setTimeout(() => { obs.disconnect(); reject(new Error('Job panel not found')); }, timeout);
     });
@@ -848,6 +902,7 @@ class PreciprocalBanner {
       () => { const el = document.querySelector('.jobs-apply-button, .jobs-apply-button--top-card'); if (el) return { element: el.closest('div[class*="container"]') || el.parentElement, position: 'afterend' }; },
       () => { const el = document.querySelector('.job-details-jobs-unified-top-card__job-insight'); if (el) return { element: el, position: 'beforebegin' }; },
       () => { const el = document.querySelector('.jobs-unified-top-card, .job-details-jobs-unified-top-card'); if (el) return { element: el, position: 'afterend' }; },
+      () => prcInsertionAfterApply(),
     ];
     for (const s of strats) { try { const r = s(); if (r) return r; } catch {} }
     return null;
@@ -869,11 +924,23 @@ class PreciprocalBanner {
     this.injectStyles();
   }
 
+  // Light or dark from the colour actually behind the banner (the first
+  // opaque ancestor), so it matches LinkedIn's theme, whatever LinkedIn calls
+  // it. Re-checked when LinkedIn switches theme.
   _applyTheme() {
     if (!this.banner) return;
-    const bg = getComputedStyle(document.body).backgroundColor;
-    const m = bg.match(/\d+/g);
-    this.banner.classList.toggle('prc-light', !!(m && +m[0] > 200 && +m[1] > 200 && +m[2] > 200));
+    let el = this.banner.parentElement, rgb = null;
+    for (; el; el = el.parentElement) {
+      const m = getComputedStyle(el).backgroundColor.match(/[\d.]+/g);
+      if (m && (m.length < 4 || +m[3] > 0.5)) { rgb = m.slice(0, 3).map(Number); break; }
+    }
+    const lum = rgb ? (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) : (matchMedia('(prefers-color-scheme: dark)').matches ? 0 : 255);
+    this.banner.classList.toggle('prc-light', lum > 140);
+    if (!this._themeWatch) {
+      this._themeWatch = new MutationObserver(() => this._applyTheme());
+      for (const t of [document.documentElement, document.body]) this._themeWatch.observe(t, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] });
+      matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => this._applyTheme());
+    }
   }
 
   _getApplyButtonLabel() {
@@ -893,8 +960,11 @@ class PreciprocalBanner {
       <div class="preciprocal-banner-compact">
         <div class="prc-top-section">
           <div class="prc-title-row">
-            ${logoUrl ? `<img src="${logoUrl}" class="prc-logo-img" alt="Preciprocal">` : ''}
-            <h3 class="prc-title">Tired of tailoring for Jobs? Let us do it for you!</h3>
+            ${logoUrl ? `<img src="${logoUrl}" class="prc-logo-img" alt="">` : ''}
+            <div class="prc-title-text">
+              <p class="prc-brand">Preciprocal</p>
+              <h3 class="prc-title">${this.isAuthenticated ? 'Tailor your resume and fill in this application in one go.' : 'Sign in to tailor your resume and fill in this application.'}</h3>
+            </div>
           </div>
           <div class="prc-top-right">
             ${this.isAuthenticated ? `
@@ -908,13 +978,13 @@ class PreciprocalBanner {
           </div>
         </div>
         <div class="prc-actions">
-          <button class="prc-btn prc-primary" data-action="cover-letter" data-tip="✨ AI writes your cover letter tailored to this role in 30 seconds">
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-            Cover Letter
-          </button>
           <button class="prc-btn prc-apply" data-action="auto-apply" data-tip="${am.tip}">
             <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             <span class="apply-label">${am.label}</span>
+          </button>
+          <button class="prc-btn prc-primary" data-action="cover-letter" data-tip="A cover letter written for this role from your resume">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            Cover letter
           </button>
           <button class="prc-btn prc-track prc-icon-only" data-action="track-job" data-tip="Save this job to your tracker">
             <svg class="track-icon" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
@@ -1392,6 +1462,37 @@ class PreciprocalBanner {
       .preciprocal-inline-container.prc-light .score-val .num { color:#4f46e5; }
       .preciprocal-inline-container.prc-light .prc-btn.prc-track { border-color:rgba(0,0,0,0.1); color:#9ca3af; }
       .preciprocal-inline-container.prc-light .prc-btn.prc-track.done { border-color:#059669; color:#059669; background:rgba(5,150,105,0.06); }
+
+      /* ── Banner, current design ──
+         Neutral, in the app's type, and drawn from variables so it follows
+         LinkedIn's theme (.prc-light is set from the colour behind it). */
+      #preciprocal-inline-banner { --b-bg:rgba(255,255,255,0.03); --b-border:rgba(255,255,255,0.12); --b-fg:rgba(255,255,255,0.92); --b-muted:rgba(255,255,255,0.62); --b-soft:rgba(255,255,255,0.06); --b-hover:rgba(255,255,255,0.09); --b-primary:#f3f4f6; --b-on-primary:#0b0c0d; --b-ring:rgba(255,255,255,0.12); margin:16px 0; font-family:PrcInter, -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }
+      #preciprocal-inline-banner.prc-light { --b-bg:rgba(0,0,0,0.015); --b-border:rgba(0,0,0,0.12); --b-fg:rgba(0,0,0,0.9); --b-muted:rgba(0,0,0,0.6); --b-soft:rgba(0,0,0,0.04); --b-hover:rgba(0,0,0,0.06); --b-primary:#191919; --b-on-primary:#ffffff; --b-ring:rgba(0,0,0,0.1); }
+      #preciprocal-inline-banner .preciprocal-banner-compact { background:var(--b-bg); border:1px solid var(--b-border); border-radius:12px; padding:16px 18px; box-shadow:none; }
+      #preciprocal-inline-banner .preciprocal-banner-compact:hover { border-color:var(--b-border); box-shadow:none; }
+      #preciprocal-inline-banner .prc-top-section { align-items:flex-start; margin-bottom:14px; gap:14px; }
+      #preciprocal-inline-banner .prc-title-row { align-items:flex-start; gap:12px; }
+      #preciprocal-inline-banner .prc-logo-img { width:32px; height:32px; border-radius:8px; margin-top:1px; }
+      #preciprocal-inline-banner .prc-title-text { min-width:0; }
+      #preciprocal-inline-banner .prc-brand { margin:0 0 2px; font-family:PrcSatoshi, PrcInter, sans-serif; font-size:14px; font-weight:700; letter-spacing:-0.01em; color:var(--b-fg); line-height:1.3; }
+      #preciprocal-inline-banner .prc-title { margin:0; font-size:14px; font-weight:400; color:var(--b-muted); line-height:1.45; }
+      #preciprocal-inline-banner .prc-actions { gap:8px; flex-wrap:wrap; margin:0; }
+      #preciprocal-inline-banner .prc-btn { height:34px; padding:0 14px; border-radius:999px; font-size:14px; font-weight:600; color:var(--b-fg); background:transparent; border:1px solid var(--b-border); backdrop-filter:none; transition:background .15s ease, border-color .15s ease, color .15s ease; }
+      #preciprocal-inline-banner .prc-btn:hover { background:var(--b-hover); border-color:var(--b-border); color:var(--b-fg); }
+      #preciprocal-inline-banner .prc-btn.prc-apply { background:var(--b-primary); color:var(--b-on-primary); border-color:transparent; }
+      #preciprocal-inline-banner .prc-btn.prc-apply:hover { background:var(--b-primary); opacity:.9; color:var(--b-on-primary); }
+      #preciprocal-inline-banner .prc-btn.prc-apply.done { background:#15803d; color:#fff; }
+      #preciprocal-inline-banner .prc-btn.prc-apply.error { background:#b91c1c; color:#fff; }
+      #preciprocal-inline-banner .prc-btn.prc-track { color:var(--b-muted); }
+      #preciprocal-inline-banner .prc-btn.prc-track:hover { color:var(--b-fg); }
+      #preciprocal-inline-banner .prc-btn.prc-track.done { color:#16a34a; border-color:rgba(22,163,74,0.45); background:rgba(22,163,74,0.08); }
+      #preciprocal-inline-banner .prc-btn { flex:0 0 auto; min-width:0; }
+      #preciprocal-inline-banner .prc-btn.prc-icon-only { width:34px; padding:0; }
+      #preciprocal-inline-banner .ring-bg { stroke:var(--b-ring); }
+      #preciprocal-inline-banner .score-val .num { font-size:13px; color:var(--b-fg); }
+      #preciprocal-inline-banner .prc-spinner { border-color:var(--b-ring); border-top-color:var(--b-fg); }
+      #preciprocal-inline-banner .prc-signals { border-top-color:var(--b-border); margin-top:14px; padding-top:12px; }
+      #preciprocal-inline-banner .prc-odds, #preciprocal-inline-banner .prc-sig { color:var(--b-muted); }
 
       /* ── Modal banner ── */
       .preciprocal-banner { display:flex; align-items:center; gap:8px; padding:10px 16px; margin:0 0 4px 0; border-bottom:1px solid rgba(139,92,246,0.25); background:linear-gradient(135deg,rgba(15,10,35,0.97) 0%,rgba(30,18,60,0.97) 100%); font-size:13px; color:#c4b5fd; position:sticky; top:0; z-index:9999; border-radius:8px 8px 0 0; backdrop-filter:blur(12px); font-family:PrcInter, -apple-system,sans-serif; }
