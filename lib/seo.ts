@@ -25,9 +25,9 @@ export const SITE = {
     "Preciprocal is the AI career prep platform for students and new grads: realistic AI mock interviews, ATS resume optimization, and auto-filled job applications, all in one place.",
 
   twitterHandle: "@preciprocal",
-  // 1200×630 in /public. Same image as the marketing site's og-image-v2.png;
+  // 1200×630 in /public, in the current design (neutral, Satoshi and Inter);
   // a new filename so platforms drop their cached copy of the old one.
-  ogImage: "/og-image-v2.png",
+  ogImage: "/og-image-v3.png",
 } as const;
 
 interface PageMetaInput {
