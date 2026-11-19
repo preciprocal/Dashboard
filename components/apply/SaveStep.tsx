@@ -41,7 +41,7 @@ function Step({ n, done, title, children, last = false }: { n: number; done: boo
   );
 }
 
-export default function SaveStep({ application, pack, update, goTo }: ApplyStepProps) {
+export default function SaveStep({ application, pack, update, goTo, autoRunning = false }: ApplyStepProps) {
   const ext = useExtensionStatus();
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [profileError, setProfileError] = useState(false);
@@ -221,7 +221,7 @@ export default function SaveStep({ application, pack, update, goTo }: ApplyStepP
                 <input className="field w-full pl-10" placeholder="Link to the job posting" value={jobUrl} onChange={e => setJobUrl(e.target.value)} />
               </label>
             )}
-            <button onClick={open} disabled={opening} className="btn-primary w-full sm:w-auto justify-center disabled:opacity-60">
+            <button onClick={open} disabled={opening || saving || autoRunning} className="btn-primary w-full sm:w-auto justify-center disabled:opacity-60">
               {opening ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
               {opening ? 'Getting the extension ready' : `Open ${company} application`}
             </button>
@@ -240,7 +240,7 @@ export default function SaveStep({ application, pack, update, goTo }: ApplyStepP
                     <li>Check every answer, then submit on their site.</li>
                   </ol>
                 )}
-                <button onClick={submitted} disabled={saving} className="btn-primary mt-4 disabled:opacity-50">
+                <button onClick={submitted} disabled={saving || opening || autoRunning} className="btn-primary mt-4 disabled:opacity-50">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} I&apos;ve submitted it
                 </button>
               </div>

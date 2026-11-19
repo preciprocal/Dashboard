@@ -29,7 +29,7 @@ const MIN_STEP_MS = 900;
 // Longer when the resume file was edited, so the changes can be looked over.
 const COUNTDOWN_WITH_FILE = 10;
 
-export default function AutoRun({ application, pack, onPack, update, goTo }: ApplyStepProps) {
+export default function AutoRun({ application, pack, onPack, update, goTo, onBusy }: ApplyStepProps & { onBusy?: (busy: boolean) => void }) {
   const company = application.company || 'the employer';
   const [status, setStatus] = useState<Record<Key, Status>>({ resume: 'pending', approve: 'pending', letter: 'pending', extension: 'pending', portal: 'pending' });
   const [detail, setDetail] = useState<Partial<Record<Key, string>>>({});
@@ -160,10 +160,16 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
     window.location.href = url;
   };
 
+  // The steps below lock their own buttons while a run is going (onBusy).
+  const start = async (first: boolean) => {
+    onBusy?.(true);
+    try { await run(first); } finally { onBusy?.(false); }
+  };
+
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    run(true);
+    void start(true);
   // Runs once, on the pack as loaded.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -181,7 +187,7 @@ export default function AutoRun({ application, pack, onPack, update, goTo }: App
     setLeaving(false);
     setStopped(false);
     setError(null);
-    run(false);
+    void start(false);
   };
 
   const stop = () => {

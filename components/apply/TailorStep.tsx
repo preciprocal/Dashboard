@@ -14,15 +14,17 @@ import { SideDiff } from '@/components/apply/WordDiff';
 import type { ApplyStepProps } from '@/components/apply/types';
 import { loadResumeOptions } from '@/lib/resume/default-client';
 import InfoTip from '@/components/ui/info-tip';
+import AutoLockNote from '@/components/apply/AutoLockNote';
 
 
-export default function TailorStep({ application, pack, onPack, update, goTo }: ApplyStepProps) {
+export default function TailorStep({ application, pack, onPack, update, goTo, autoRunning = false }: ApplyStepProps) {
   const [resumes, setResumes] = useState<ResumeOption[] | null>(null);
   const [resumeId, setResumeId] = useState(pack.resumeId || '');
   const [jd, setJd] = useState(pack.jobDescription || application.jobDescription || '');
   const [editJd, setEditJd] = useState(!(pack.jobDescription || application.jobDescription));
   const [running, setRunning] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
+  const [approvingAll, setApprovingAll] = useState(false);
 
   useEffect(() => {
     // The default resume from settings comes first and is used unless one
@@ -55,6 +57,19 @@ export default function TailorStep({ application, pack, onPack, update, goTo }: 
     }
   };
 
+  // Approves every change not decided yet. A change the student chose to
+  // keep as the original stays that way.
+  const approveRest = async () => {
+    const t = pack.tailor;
+    if (!t) return;
+    const rest = t.changes.filter(c => !t.decisions[c.id]).map(c => c.id);
+    if (!rest.length) return;
+    setApprovingAll(true);
+    const next = await update({ decisions: Object.fromEntries(rest.map(id => [id, 'approved'])) });
+    setApprovingAll(false);
+    if (!next) toast.error('Could not save that. Try again.');
+  };
+
   const decide = async (id: string, d: 'approved' | 'rejected') => {
     const current = pack.tailor?.decisions[id];
     setPending(id);
@@ -66,6 +81,9 @@ export default function TailorStep({ application, pack, onPack, update, goTo }: 
   const t = pack.tailor;
   const reviewed = t ? t.changes.filter(c => t.decisions[c.id]).length : 0;
   const approved = t ? t.changes.filter(c => t.decisions[c.id] === 'approved').length : 0;
+  const undecided = t ? t.changes.length - reviewed : 0;
+  // One thing at a time: a new proposal replaces the changes being decided.
+  const busy = autoRunning || running || approvingAll || pending !== null;
 
   const copy = async () => {
     if (!t) return;
@@ -89,9 +107,9 @@ export default function TailorStep({ application, pack, onPack, update, goTo }: 
         <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
           <label className="flex-1 min-w-0">
             <span className="block text-xs text-slate-400 mb-1.5">Resume to tailor</span>
-            <ResumePicker resumes={resumes} value={resumeId} onChange={setResumeId} />
+            <ResumePicker resumes={resumes} value={resumeId} onChange={v => { if (!busy) setResumeId(v); }} />
           </label>
-          <button onClick={propose} disabled={running || !resumeId} className="btn-primary justify-center disabled:opacity-50">
+          <button onClick={propose} disabled={busy || !resumeId} className="btn-primary justify-center disabled:opacity-50">
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {t ? 'Propose again' : 'Propose changes'}
           </button>
@@ -99,12 +117,12 @@ export default function TailorStep({ application, pack, onPack, update, goTo }: 
         {editJd ? (
           <label className="block">
             <span className="block text-xs text-slate-400 mb-1.5">Job description</span>
-            <textarea className="field w-full min-h-[180px] py-3 leading-relaxed" value={jd} onChange={e => setJd(e.target.value)} placeholder="Paste the full job description" />
+            <textarea className="field w-full min-h-[180px] py-3 leading-relaxed" value={jd} onChange={e => setJd(e.target.value)} disabled={busy} placeholder="Paste the full job description" />
           </label>
         ) : (
-          <button onClick={() => setEditJd(true)} className="text-xs text-slate-400 hover:text-white transition-colors">Job description saved ({jd.length.toLocaleString()} characters). Edit</button>
+          <button onClick={() => setEditJd(true)} disabled={busy} className="text-xs text-slate-400 hover:text-white transition-colors disabled:opacity-50">Job description saved ({jd.length.toLocaleString()} characters). Edit</button>
         )}
-        {running && <p className="text-xs text-slate-400">Reading the job and your resume. This takes about 20 seconds.</p>}
+        {autoRunning ? <AutoLockNote what="tailoring and approving these changes" /> : running && <p className="text-xs text-slate-400">Reading the job and your resume. This takes about 20 seconds.</p>}
       </section>
 
       {t && (
@@ -137,7 +155,15 @@ export default function TailorStep({ application, pack, onPack, update, goTo }: 
           <section className="glass-card p-5">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
               <h2 className="text-sm font-semibold text-white">Proposed changes</h2>
-              <span className="text-xs text-slate-400 tabular-nums">{reviewed} of {t.changes.length} reviewed, {approved} approved</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-400 tabular-nums">{reviewed} of {t.changes.length} reviewed, {approved} approved</span>
+                {undecided > 0 && (
+                  <button onClick={approveRest} disabled={busy} className="btn-secondary !h-8 !text-[12.5px] disabled:opacity-50">
+                    {approvingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    {reviewed === 0 ? 'Approve all' : `Approve the other ${undecided}`}
+                  </button>
+                )}
+              </div>
             </div>
             <p className="text-[12px] text-slate-500 mb-4 flex items-start gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
@@ -175,11 +201,11 @@ export default function TailorStep({ application, pack, onPack, update, goTo }: 
                       </div>
                       {c.reason && <p className="text-[12px] text-slate-500 mt-2">{c.reason}</p>}
                       <div className="flex gap-2 mt-3">
-                        <button onClick={() => decide(c.id, 'approved')} disabled={pending === c.id}
+                        <button onClick={() => decide(c.id, 'approved')} disabled={busy}
                           className={`h-9 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5 border transition-colors ${d === 'approved' ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'border-white/[0.08] text-slate-300 hover:bg-white/[0.04]'}`}>
                           <Check className="w-3.5 h-3.5" /> {d === 'approved' ? 'Approved' : 'Approve'}
                         </button>
-                        <button onClick={() => decide(c.id, 'rejected')} disabled={pending === c.id}
+                        <button onClick={() => decide(c.id, 'rejected')} disabled={busy}
                           className={`h-9 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5 border transition-colors ${d === 'rejected' ? 'bg-white/[0.06] border-white/[0.12] text-slate-300' : 'border-white/[0.08] text-slate-400 hover:bg-white/[0.04]'}`}>
                           <X className="w-3.5 h-3.5" /> {d === 'rejected' ? 'Kept original' : 'Keep original'}
                         </button>

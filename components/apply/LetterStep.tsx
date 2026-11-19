@@ -11,8 +11,9 @@ import { AppSelect } from '@/components/ui/select';
 import type { ApplyStepProps } from '@/components/apply/types';
 
 import type { WritingCheck } from '@/lib/ai/writing-check';
+import AutoLockNote from '@/components/apply/AutoLockNote';
 
-export default function LetterStep({ application, pack, update, goTo }: ApplyStepProps) {
+export default function LetterStep({ application, pack, update, goTo, autoRunning = false }: ApplyStepProps) {
   const [text, setText] = useState(pack.coverLetter?.content ?? '');
   const [tone, setTone] = useState('professional');
   const [running, setRunning] = useState(false);
@@ -56,6 +57,8 @@ export default function LetterStep({ application, pack, update, goTo }: ApplySte
     ...(authenticity?.aiTells ?? []).map(t => `"${t.phrase}" reads as machine-written. ${t.suggestion}`),
   ];
   const dirty = text !== (pack.coverLetter?.content ?? '');
+  // Writing, saving or Auto-apply: one at a time, so no letter is saved over another.
+  const busy = autoRunning || running || saving;
 
   return (
     <section className="glass-card p-5 space-y-4">
@@ -66,14 +69,16 @@ export default function LetterStep({ application, pack, update, goTo }: ApplySte
             {resumeText ? 'Written from the resume you approved in step 1 and the job description.' : 'Tailor your resume in step 1 first, so the letter matches it.'}
           </p>
         </div>
-        <AppSelect className="sm:w-44" value={tone} onValueChange={setTone} aria-label="Tone" options={[
+        <AppSelect className="sm:w-44" value={tone} onValueChange={v => { if (!busy) setTone(v); }} aria-label="Tone" options={[
           { value: 'professional', label: 'Professional' }, { value: 'friendly', label: 'Friendly' },
           { value: 'enthusiastic', label: 'Enthusiastic' }, { value: 'confident', label: 'Confident' },
         ]} />
-        <button onClick={generate} disabled={running || !resumeText} className="btn-primary justify-center disabled:opacity-50">
+        <button onClick={generate} disabled={busy || !resumeText} className="btn-primary justify-center disabled:opacity-50">
           {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pen className="w-4 h-4" />} {pack.coverLetter ? 'Write again' : 'Write letter'}
         </button>
       </div>
+
+      {autoRunning && <AutoLockNote what="writing this letter" />}
 
       {flags.length > 0 && (
         <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.05] p-3">
@@ -83,14 +88,14 @@ export default function LetterStep({ application, pack, update, goTo }: ApplySte
       )}
 
       {text || running ? (
-        <textarea className="field w-full min-h-[420px] py-3 leading-relaxed" value={text} onChange={e => setText(e.target.value)} disabled={running} />
+        <textarea className="field w-full min-h-[420px] py-3 leading-relaxed" value={text} onChange={e => setText(e.target.value)} disabled={busy} />
       ) : (
         <p className="text-sm text-slate-400 text-center py-10">No letter yet.</p>
       )}
 
       <div className="flex flex-wrap justify-between gap-2">
         <div className="flex gap-2">
-          <button onClick={save} disabled={!dirty || saving} className="btn-secondary disabled:opacity-40"><Save className="w-4 h-4" /> Save edits</button>
+          <button onClick={save} disabled={!dirty || busy} className="btn-secondary disabled:opacity-40"><Save className="w-4 h-4" /> Save edits</button>
           <button onClick={async () => { await navigator.clipboard.writeText(text); toast.success('Copied'); }} disabled={!text} className="btn-secondary disabled:opacity-40"><Copy className="w-4 h-4" /> Copy</button>
         </div>
         <button onClick={() => goTo('save')} className="btn-primary">Next: apply <ChevronRight className="w-4 h-4" /></button>

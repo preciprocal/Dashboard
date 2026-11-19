@@ -35,6 +35,8 @@ export default function ApplyJobPage() {
   // application. The pack records the run (autoRunAt), so coming back from the
   // employer's portal or reloading does not start it again.
   const [auto, setAuto] = useState(false);
+  // True while that run is working; the steps lock their actions meanwhile.
+  const [autoBusy, setAutoBusy] = useState(false);
   // The sliding highlight under the current step tab.
   const tabsRef = useRef<HTMLDivElement>(null);
   const [pill, setPill] = useState<{ left: number; width: number } | null>(null);
@@ -93,7 +95,7 @@ export default function ApplyJobPage() {
     { id: 'save', label: 'Apply', icon: Send, done: !!pack.savedToTrackerAt },
     { id: 'tracker', label: 'Job tracker', icon: FolderCheck, done: !!pack.savedToTrackerAt },
   ];
-  const props: ApplyStepProps = { application, pack, onPack: setPack, update, goTo: setStep };
+  const props: ApplyStepProps = { application, pack, onPack: setPack, update, goTo: setStep, autoRunning: autoBusy };
 
   return (
     <div className="space-y-4">
@@ -121,7 +123,7 @@ export default function ApplyJobPage() {
         })}
       </div>
 
-      {auto && <AutoRun {...props} />}
+      {auto && <AutoRun {...props} onBusy={setAutoBusy} />}
 
       <div key={step} className="prc-fade">
         {step === 'resume' && <TailorStep {...props} />}

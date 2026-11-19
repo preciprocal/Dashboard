@@ -11,4 +11,10 @@ export interface ApplyStepProps {
   /** PATCH the pack and adopt the result; null when the save failed. */
   update: (patch: Record<string, unknown>) => Promise<ApplyPack | null>;
   goTo: (step: ApplyStep) => void;
+  /**
+   * Auto-apply (components/apply/AutoRun) is running the steps. Each step
+   * locks its own actions meanwhile, so a click cannot race the run: two
+   * tailoring passes, or a letter saved over the one being written.
+   */
+  autoRunning?: boolean;
 }
