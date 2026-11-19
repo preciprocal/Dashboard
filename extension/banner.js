@@ -91,13 +91,16 @@ class LabelInjector {
     if (el1) return el1.closest('li') || el1;
     const el2 = document.querySelector(`[data-job-id="${jobId}"]`);
     if (el2) return el2.closest('li') || el2;
-    const el3 = document.querySelector(`a[href*="/jobs/view/${jobId}"]`);
-    if (el3) return el3.closest('li') || el3.closest('[class*="job-card"]') || el3.parentElement;
     const el4 = document.querySelector(`[data-entity-urn*="${jobId}"]`);
     if (el4) return el4.closest('li') || el4;
-    // Current layout: list items link with ?currentJobId=<id>.
-    const el5 = document.querySelector(`a[href*="currentJobId=${jobId}"], a[href*="/jobs/view/${jobId}/"], [componentkey*="${jobId}"]`);
-    if (el5) return el5.closest('li') || el5.closest('[role="listitem"]') || el5.parentElement;
+    // Current layout: the same card the company chips use, never the open job's panel.
+    for (const a of document.querySelectorAll(`a[href*="currentJobId=${jobId}"], a[href*="/jobs/view/${jobId}"]`)) {
+      if (CardFacts.jobIdOf(a) !== String(jobId) || a.closest('#preciprocal-inline-banner')) continue;
+      const apply = prcFindApplyControl(); const pane = apply ? prcJobPane(apply) : null;
+      if (pane && pane.contains(a)) continue;
+      const card = a.closest('li') || a.closest('[role="listitem"]') || CardFacts.cardRoot(a, String(jobId));
+      if (card && !(pane && card.contains(pane))) return card;
+    }
     return null;
   }
 
@@ -1186,7 +1189,7 @@ class PreciprocalBanner {
           <div class="prc-title-row">
             ${logoUrl ? `<img src="${logoUrl}" class="prc-logo-img" alt="">` : ''}
             <div class="prc-title-text">
-              <p class="prc-brand">Preciprocal<span class="prc-tag">Extension</span>${this.appliedHere ? '<span class="prc-applied-pill"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Applied</span>' : ''}</p>
+              <p class="prc-brand"><span>Preciprocal</span>${this.appliedHere ? '<span class="prc-applied-pill"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Applied</span>' : ''}</p>
               <h3 class="prc-title">${this.appliedHere ? 'You applied to this job. It is in your tracker, where you can follow it through each round.' : this.isAuthenticated ? 'Tailor your resume and fill in this application in one go.' : 'Sign in to tailor your resume and fill in this application.'}</h3>
             </div>
           </div>
@@ -1818,13 +1821,13 @@ class PreciprocalBanner {
       #preciprocal-inline-banner .prc-skel-lines span { height:10px; border-radius:4px; background:var(--b-ring); animation:prc-pulse 1.4s ease-in-out infinite; }
       #preciprocal-inline-banner .prc-skel-lines span:last-child { width:60%; }
       @keyframes prc-pulse { 50% { opacity:.45; } }
-      #preciprocal-inline-banner .prc-applied-pill { display:inline-flex; align-items:center; gap:4px; height:18px; padding:0 7px; margin-left:6px; border-radius:999px; font-family:PrcInter, sans-serif; font-size:11px; font-weight:600; color:#16a34a; background:rgba(22,163,74,0.12); vertical-align:1px; }
+      #preciprocal-inline-banner .prc-applied-pill { display:inline-flex; align-items:center; gap:4px; height:20px; padding:0 8px; margin:0; border-radius:999px; font-family:PrcInter, sans-serif; font-size:11px; font-weight:600; line-height:1; color:#fff; background:#16a34a; }
       #preciprocal-inline-banner .prc-tag { display:inline-flex; align-items:center; height:18px; padding:0 7px; margin-left:8px; border-radius:999px; font-family:PrcInter, sans-serif; font-size:11px; font-weight:600; letter-spacing:0; color:var(--b-brand); background:var(--b-tag); vertical-align:1px; }
       #preciprocal-inline-banner .prc-top-section { align-items:flex-start; margin-bottom:14px; gap:14px; }
       #preciprocal-inline-banner .prc-title-row { align-items:flex-start; gap:12px; }
       #preciprocal-inline-banner .prc-logo-img { width:34px; height:34px; border-radius:9px; margin-top:0; padding:5px; box-sizing:border-box; background:var(--b-tag); }
       #preciprocal-inline-banner .prc-title-text { min-width:0; }
-      #preciprocal-inline-banner .prc-brand { margin:0 0 2px; font-family:PrcSatoshi, PrcInter, sans-serif; font-size:15px; font-weight:700; letter-spacing:-0.01em; color:var(--b-brand); line-height:1.3; }
+      #preciprocal-inline-banner .prc-brand { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 2px; font-family:PrcSatoshi, PrcInter, sans-serif; font-size:15px; font-weight:700; letter-spacing:-0.01em; color:var(--b-brand); line-height:1.3; }
       #preciprocal-inline-banner .prc-title { margin:0; font-size:14px; font-weight:400; color:var(--b-muted); line-height:1.45; }
       #preciprocal-inline-banner .prc-actions { gap:8px; flex-wrap:wrap; margin:0; }
       #preciprocal-inline-banner .prc-btn { height:34px; padding:0 14px; border-radius:999px; font-size:14px; font-weight:600; color:var(--b-fg); background:transparent; border:1px solid var(--b-border); backdrop-filter:none; transition:background .15s ease, border-color .15s ease, color .15s ease; }
