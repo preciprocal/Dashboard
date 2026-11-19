@@ -98,22 +98,12 @@ const STARTERS = [
 // changes. Numbered badges rather than image icons - see PanelRow.icon in the
 // layout for why an image-based icon set is the wrong call in email.
 
-// ─── The subject line is "Congratulations!", and that is a deliberate hook ──
-//
-// It is the exact subject a job seeker is waiting for from an employer, which
-// is why it gets opened. It is also why the FIRST line has to own the twist
-// rather than dance around it: an email that mimics the thing someone is
-// desperate for and then pretends otherwise earns resentment, not attention.
-//
-// The preheader does the same work in the inbox, before the open. Between the
-// two, the reader is never actually misled - they are told the joke is on the
-// situation, not on them, and that recognition is the emotional hook.
-//
-// If this ever starts drawing spam complaints, the subject is the first thing
-// to change. See the note in buildWelcomeEmail.
+// ─── A plain, honest subject ────────────────────────────────────────────────
+// It used to be "Congratulations!", the subject a job seeker is waiting for
+// from an employer. That reads as bait, and a one-word celebratory subject is
+// a pattern spam filters weight against, so it says what the email is.
 const OPENING = [
-  "Almost certainly not. You have been waiting for that subject line from a company you applied to, and so far it has not arrived.",
-  "That is exactly why you are here, and exactly what Preciprocal is built to change.",
+  "Thanks for joining Preciprocal.",
   "The hardest part of a job search is not rejection. A rejection at least tells you something. It is the silence, because silence teaches you nothing at all, and you cannot fix what nobody will tell you is broken.",
   "So this is not about firing off more applications faster. It is about finally knowing what happens to the ones you send.",
 ];
@@ -134,11 +124,9 @@ const SIGNATURE = senderSignature(
 function buildHtml(name: string, unsubscribe?: string) {
   return renderEmail({
     campaign: "welcome",
-    // Carries the turn in the inbox preview, so the subject never reads as a
-    // straight bait. The reader sees both lines before deciding to open.
-    preheader: "Not the one you were hoping for. Let us change that.",
+    preheader: "Four things you can do today to start hearing back from employers.",
     eyebrow: "Welcome to Preciprocal",
-    heading: "Is this the email you have been waiting for?",
+    heading: "Welcome to Preciprocal",
     paragraphs: [
       `Hi ${escapeHtml(firstName(name))},`,
       ...OPENING.map(escapeHtml),
@@ -164,7 +152,7 @@ function buildHtml(name: string, unsubscribe?: string) {
 function buildText(name: string, unsubscribe?: string) {
   return renderText({
     campaign: "welcome",
-    heading: "Is this the email you have been waiting for?",
+    heading: "Welcome to Preciprocal",
     paragraphs: [`Hi ${firstName(name)},`, ...OPENING, "Here is where to start."],
     panel: {
       title: "Four things that change immediately",
@@ -196,16 +184,7 @@ ${unsubscribeFooterText(unsubscribe, "all")}`
  */
 export function buildWelcomeEmail(name?: string | null, unsubscribe?: string) {
   return {
-    // Deliberately the subject line every job seeker is waiting for. The
-    // heading and preheader both own the turn immediately, so the reader is
-    // never left feeling tricked.
-    //
-    // Two costs worth watching. A one-word celebratory subject with an
-    // exclamation mark is a pattern spam classifiers weight against, and a
-    // high open rate followed by immediate deletes is itself a negative
-    // reputation signal. If Resend starts reporting complaints or the open-to-
-    // click gap widens, change this before changing anything else.
-    subject: "Congratulations!",
+    subject: "Welcome to Preciprocal",
     html: buildHtml(name ?? "", unsubscribe),
     text: buildText(name ?? "", unsubscribe),
   };

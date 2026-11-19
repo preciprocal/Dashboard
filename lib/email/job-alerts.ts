@@ -99,34 +99,41 @@ export function buildJobAlertEmail(d: {
   const n = d.pick.total;
   const first = firstName(d.name);
   const summary = preferenceSummary(d.prefs);
-  const subject = n === 1 ? '1 new job that matches your search' : `${n} new jobs that match your search`;
+  // The pain this answers: sending application after application and hearing
+  // nothing, while every role also has to be one that can actually hire you.
+  // The copy names that, then makes the next step small and specific. No
+  // figures about anyone else's results: we have none we can stand behind.
+  const subject = n === 1 ? 'A new job worth your next application' : `${n} new jobs worth your next application`;
   const jobsUrl = `${emailAppUrl()}/jobs`;
   const setupUrl = `${emailAppUrl()}/settings?section=job-setup`;
+  const shown = n > d.pick.jobs.length ? `${d.pick.jobs.length} of the ${n}` : `${n === 1 ? 'the one' : `all ${n}`}`;
   const paragraphs = [
     `Hi ${first},`,
-    `${n === 1 ? 'This role was' : `These ${n > d.pick.jobs.length ? `${d.pick.jobs.length} of ${n}` : n} roles were`} posted since ${posted(d.pick.since)} and match what you told us you want: ${summary}.`,
+    'Sending application after application into silence is exhausting, and it is worse when you also have to wonder whether each employer can even hire you.',
+    `So we did the sorting for you. These roles went up since ${posted(d.pick.since)} and fit what you told us you want: ${summary}. Each one shows the employer's E-Verify status and H-1B record, so you know before you spend an evening on it.`,
+    `Here ${n === 1 ? 'it is' : `are ${shown}`}.`,
   ];
-  const closing = 'Want different jobs? Change your job setup any time and the next email follows it.';
-  const signature = senderSignature('Reply if a match looks wrong and we will look into it.');
+  const closing = 'Pick one today. Tailor your resume to it in Preciprocal, send it while the posting is still new, and your tracker will tell you when it is time to follow up.';
+  const signature = senderSignature('If a match looks wrong for you, reply and tell us. We read every reply.');
   const html = renderEmail({
-    preheader: summary,
+    preheader: `New roles that fit you: ${summary}`,
     eyebrow: 'New job matches',
-    heading: n === 1 ? 'A new job that matches your search' : 'New jobs that match your search',
+    heading: n === 1 ? 'A new job that fits you' : 'New jobs that fit you',
     paragraphs: paragraphs.map(escapeHtml),
     panel: { title: 'Picked for you', rows: d.pick.jobs.map(j => jobRow(j, d.h1bYear)) },
-    closing: `${escapeHtml(closing)} <a href="${setupUrl}">Edit job setup</a>`,
-    cta: { label: n > d.pick.jobs.length ? `See all ${n} matches` : 'See them in Preciprocal', url: jobsUrl },
+    closing: `${escapeHtml(closing)}<br><br>Not quite right? <a href="${setupUrl}">Change your job setup</a> and the next email follows it.`,
+    cta: { label: 'Tailor my resume for one', url: jobsUrl },
     signature,
-    footerNote: 'You get this because you set up your job search in Preciprocal. E-Verify and H-1B figures come from public USCIS data.',
+    footerNote: 'You get this because you set up your job search in Preciprocal. E-Verify and H-1B figures come from USCIS data.',
     footerExtraHtml: unsubscribeFooterHtml(d.unsubscribeUrl, 'jobAlerts'),
     campaign: 'job_alert',
   });
   const text = renderText({
-    heading: 'New jobs that match your search',
+    heading: n === 1 ? 'A new job that fits you' : 'New jobs that fit you',
     paragraphs,
     panel: { title: 'Picked for you', lines: d.pick.jobs.map(j => `${j.t}, ${j.c}, ${j.l}: ${j.u}`) },
-    closing: `${closing} ${setupUrl}`,
-    cta: { label: 'See them in Preciprocal', url: jobsUrl },
+    closing: `${closing}\n\nNot quite right? Change your job setup and the next email follows it: ${setupUrl}`,
+    cta: { label: 'Tailor my resume for one', url: jobsUrl },
     signature,
     footerNote: 'You get this because you set up your job search in Preciprocal.',
     campaign: 'job_alert',
