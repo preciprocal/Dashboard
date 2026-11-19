@@ -117,6 +117,10 @@ function bindEvents() {
   on('btnDash',   () => openApp('/'));
   on('btnLogout', () => logout());
   on('btnPasteToken', () => connectWithToken());
+  on('lnkJobs',    () => openApp('/jobs'));
+  on('lnkTracker', () => openApp('/job-tracker'));
+  on('lnkResume',  () => openApp('/resume'));
+  on('lnkSetup',   () => openApp('/settings?section=job-setup'));
 }
 
 async function connectWithToken() {
@@ -137,7 +141,7 @@ async function connectWithToken() {
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)) {
       throw new Error('This is an old-format token. Hard-refresh the Settings page (Ctrl+Shift+R), then Generate Token again.');
     }
-    // Token is raw JSON — parse directly
+    // Token is raw JSON; parse it directly
     const payload = JSON.parse(raw);
     if (!payload?.uid || !payload?.token) throw new Error('Invalid token format.');
 
@@ -160,7 +164,7 @@ async function connectWithToken() {
       throw new Error('Token saved but could not verify. Try again.');
     }
   } catch (e) {
-    showTokenError(errEl, e?.message || 'Invalid token. Copy from Settings → Extension.');
+    showTokenError(errEl, e?.message || 'That token did not work. Copy it again from Settings, Extension.');
     btn.textContent = 'Connect';
     btn.disabled = false;
   }
@@ -171,27 +175,34 @@ function showTokenError(el, msg) {
   el.style.display = 'block';
 }
 
+const ICONS = {
+  "fill": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M9 11l3 3L22 4\"/><path d=\"M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11\"/></svg>",
+  "fit": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M21 12a9 9 0 1 1-9-9\"/><path d=\"M12 12l6-6\"/><circle cx=\"12\" cy=\"12\" r=\"1.5\"/></svg>",
+  "track": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 7h18M3 12h18M3 17h12\"/></svg>",
+  "jobs": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"3\" y=\"7\" width=\"18\" height=\"13\" rx=\"2\"/><path d=\"M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"/></svg>",
+  "resume": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z\"/><path d=\"M14 3v6h6M8 13h8M8 17h5\"/></svg>",
+  "gear": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z\"/></svg>",
+  "check": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg>",
+  "arrow": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M7 17 17 7M7 7h10v10\"/></svg>"
+};
+
 function header(connected) {
   return `
     <div class="hdr">
-      <div class="hdr-brand">
-        <div class="hdr-ico"><img src="${ICON_URL}" alt="Preciprocal"></div>
-        <span class="hdr-name">Preciprocal</span>
-      </div>
-      ${connected
-        ? `<div class="pill on"><div class="dot pulse"></div>Connected</div>`
-        : `<div class="pill off"><div class="dot"></div>Not connected</div>`
-      }
+      <div class="brand"><img src="${ICON_URL}" alt=""><span>Preciprocal</span></div>
+      <span class="status ${connected ? 'on' : ''}"><i></i>${connected ? 'Connected' : 'Not signed in'}</span>
     </div>`;
+}
+
+function footer() {
+  const v = chrome.runtime.getManifest().version;
+  return `<div class="foot"><span>Version ${escHtml(v)}</span><span>LinkedIn and 50+ job sites</span></div>`;
 }
 
 function renderLoading() {
   return `
     ${header(false)}
-    <div class="loading">
-      <div class="spin-ring"></div>
-      <p>Connecting…</p>
-    </div>`;
+    <div class="loading"><div class="spin"></div><p>Connecting to your account</p></div>`;
 }
 
 function renderConnected() {
@@ -200,79 +211,58 @@ function renderConnected() {
   const tier = u.subscriptionTier || 'free';
   const tLbl = tier.charAt(0).toUpperCase() + tier.slice(1);
   const tCls = (tier === 'pro' || tier === 'premium') ? 'pro' : '';
-
-  const avatarInner = u.photoURL
-    ? `<img id="avImg" src="${escHtml(u.photoURL)}" alt="">`
-    : escHtml(init);
+  const avatarInner = u.photoURL ? `<img id="avImg" src="${escHtml(u.photoURL)}" alt="">` : escHtml(init);
 
   return `
     ${header(true)}
-    <div class="connected-wrap">
-      <div class="user-card">
-        <div class="av-wrap">
-          <div class="av" id="avEl">${avatarInner}</div>
-          <div class="av-badge"><img src="${ICON_URL}" alt=""></div>
-        </div>
-        <div class="u-info">
-          <div class="u-name" id="uName"></div>
-          <div class="u-email" id="uEmail"></div>
-        </div>
+    <div class="body">
+      <div class="user">
+        <div class="av" id="avEl">${avatarInner}</div>
+        <div class="u-info"><div class="u-name" id="uName"></div><div class="u-email" id="uEmail"></div></div>
         <span class="tier ${tCls}">${escHtml(tLbl)}</span>
       </div>
-      <button id="btnDash" class="btn-main">Open Dashboard</button>
-      <button id="btnLogout" class="btn-danger">Disconnect account</button>
-    </div>`;
+      <div class="ready">${ICONS.check}<span><b>Ready on job pages.</b> Open a job on LinkedIn or an application form to see your fit and fill it in.</span></div>
+      <div class="links">
+        <button class="link" id="lnkJobs">${ICONS.jobs}Jobs</button>
+        <button class="link" id="lnkTracker">${ICONS.track}Job tracker</button>
+        <button class="link" id="lnkResume">${ICONS.resume}Resume</button>
+        <button class="link" id="lnkSetup">${ICONS.gear}Job setup</button>
+      </div>
+      <div class="actions">
+        <button id="btnDash" class="btn btn-primary">Open Preciprocal ${ICONS.arrow.replace('<svg', '<svg width="14" height="14"')}</button>
+        <button id="btnLogout" class="btn btn-ghost">Disconnect this browser</button>
+      </div>
+    </div>
+    ${footer()}`;
 }
 
 function renderDisconnected() {
   return `
     ${header(false)}
-    <div class="hero">
-      <div class="hero-logo"><img src="${ICON_URL}" alt="Preciprocal"></div>
-      <div class="hero-eyebrow">Welcome to Preciprocal</div>
-      <h2 class="hero-h">Land your next<br>job, faster.</h2>
-      <p class="hero-sub">Auto-fill applications, optimize your resume,<br>and ace every interview.</p>
-    </div>
-    <div class="fc-list">
-      <div class="fc-row">
-        <div class="fc-ico i1">⚡</div>
-        <div class="fc-body">
-          <div class="fc-title">1-click Auto Apply</div>
-          <div class="fc-desc">Fill any application form instantly with one click</div>
-        </div>
+    <div class="body">
+      <h2 class="h1">Apply with a resume made for each job</h2>
+      <p class="sub">Sign in once and the extension works on the job pages you already use.</p>
+      <div class="feats">
+        <div class="feat">${ICONS.fill}<div><b>Fills application forms</b><span>On LinkedIn, Greenhouse, Lever, Workday and more. You check every answer before you submit.</span></div></div>
+        <div class="feat">${ICONS.fit}<div><b>Shows how you fit</b><span>Skills from your resume, plus E-Verify and H-1B records, on each job.</span></div></div>
+        <div class="feat">${ICONS.track}<div><b>Tracks what you apply to</b><span>Each application lands in your job tracker as you submit it.</span></div></div>
       </div>
-      <div class="fc-row">
-        <div class="fc-ico i2">📄</div>
-        <div class="fc-body">
-          <div class="fc-title">Resume &amp; ATS Optimizer</div>
-          <div class="fc-desc">Get a tailored score and improvement suggestions</div>
-        </div>
+      <div class="cta">
+        <button id="btnLogin" class="btn btn-primary">Sign in to connect</button>
+        <p class="note">Free to start. No card needed.</p>
       </div>
-      <div class="fc-row">
-        <div class="fc-ico i3">🎯</div>
-        <div class="fc-body">
-          <div class="fc-title">AI Mock Interviews</div>
-          <div class="fc-desc">Practice with real-time AI feedback and coaching</div>
-        </div>
+      <div class="steps">
+        <div class="step"><em>1</em>Sign in to Preciprocal in the tab that opens</div>
+        <div class="step"><em>2</em>Come back here; it connects on its own</div>
       </div>
-    </div>
-    <div class="si-block">
-      <button id="btnLogin" class="btn-si">Get Started - It's Free</button>
-      <div class="how-box">
-        <div class="how-lbl">How to connect</div>
-        <ol>
-          <li>Click above and sign in to Preciprocal</li>
-          <li>Come back and open this extension</li>
-          <li>You'll be connected automatically</li>
-        </ol>
-      </div>
-      <div class="token-box">
-        <div class="token-lbl">Having trouble? Paste your token</div>
+      <details class="token">
+        <summary>Not connecting? Paste a token instead</summary>
         <div class="token-row">
-          <input id="tokenInput" class="token-input" type="password" placeholder="Paste token from Settings → Extension" autocomplete="off" spellcheck="false" />
+          <input id="tokenInput" class="token-input" type="password" placeholder="Token from Settings, Extension" autocomplete="off" spellcheck="false" />
           <button id="btnPasteToken" class="btn-token">Connect</button>
         </div>
         <div id="tokenError" class="token-error" style="display:none;"></div>
-      </div>
-    </div>`;
+      </details>
+    </div>
+    ${footer()}`;
 }
