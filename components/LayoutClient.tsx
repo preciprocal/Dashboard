@@ -15,6 +15,7 @@ import { signOut } from "@/lib/actions/auth.action";
 import { useSupabaseUser } from '@/lib/hooks/useSupabaseUser';
 import SessionHeartbeat from '@/components/SessionHeartbeat';
 import ActivityTracker from '@/components/ActivityTracker';
+import AttributionReporter from '@/components/AttributionReporter';
 import { supabase } from '@/supabase/client';
 import { hasUnreadSupportReply } from '@/lib/support/unread';
 import { ResumeService } from '@/lib/services/resume-service';
@@ -1167,6 +1168,7 @@ export default function LayoutClient({ children, user }: LayoutClientProps) {
       />
       <SessionHeartbeat />
       {user && <ActivityTracker />}
+      {user && <AttributionReporter />}
       <LayoutContent user={user}>
         {children}
       </LayoutContent>

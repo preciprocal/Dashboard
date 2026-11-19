@@ -7,6 +7,7 @@ import {
   getCurrentUser,
 } from "@/lib/actions/auth.action";
 import LayoutClient from "@/components/LayoutClient";
+import AttributionCapture from "@/components/AttributionCapture";
 import { buildMetadata, SITE } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -87,6 +88,7 @@ export default async function RootLayout({
         className={`${inter.variable} ${satoshi.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
+        <AttributionCapture />
         <LayoutClient user={user}>
           {children}
         </LayoutClient>
