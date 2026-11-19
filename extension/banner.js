@@ -475,10 +475,13 @@ class EasyApplyEngine {
 
   async start() {
     this.onStatus('Opening Easy Apply…', 'filling');
-    const applyBtn = this._findApplyButton();
-    if (!applyBtn) { this.onStatus('Easy Apply button not found', 'error'); return false; }
-    applyBtn.click();
-    try { this.modalEl = await this._waitForModal(); } catch { this.onStatus('Easy Apply modal did not open', 'error'); return false; }
+    this.modalEl = findEasyApplyDialog();
+    if (!this.modalEl) {
+      const applyBtn = this._findApplyButton();
+      if (!applyBtn) return false;
+      applyBtn.click();
+      try { this.modalEl = await this._waitForModal(); } catch { return false; }
+    }
     this.onStatus('Filling in your details…', 'filling');
     this._injectModalBanner();
     await this._processAllSteps();
@@ -486,16 +489,20 @@ class EasyApplyEngine {
   }
 
   _findApplyButton() {
+    const isEasy = (el) => /easy apply/i.test(`${el.innerText || el.textContent || ''} ${el.getAttribute('aria-label') || ''}`);
     for (const sel of ['button.jobs-apply-button[aria-label*="Easy Apply"]','button[data-control-name="jobdetails_topcard_inapply"]','.jobs-apply-button--top-card','button.jobs-apply-button']) {
-      const btn = document.querySelector(sel); if (btn && btn.textContent?.toLowerCase().includes('easy apply')) return btn;
+      const btn = document.querySelector(sel); if (btn && isEasy(btn)) return btn;
     }
-    return Array.from(document.querySelectorAll('button')).find(b => b.textContent?.trim().toLowerCase() === 'easy apply') || null;
+    // LinkedIn's current job panel: the control can be a link, and the class
+    // names above are gone. prcFindApplyControl finds the visible one.
+    const found = prcFindApplyControl(); if (found && isEasy(found)) return found;
+    return Array.from(document.querySelectorAll('button, a')).find(el =>
+      !el.closest('#preciprocal-inline-banner, #prc-sidebar') && el.getClientRects().length && isEasy(el)) || null;
   }
 
   _waitForModal(timeout = 8000) {
     return new Promise((resolve, reject) => {
-      const sels = ['[data-test-modal-id="easy-apply-modal"]','.jobs-easy-apply-modal','[aria-labelledby*="easy-apply"]','.artdeco-modal[role="dialog"]'];
-      const check = () => { for (const s of sels) { const el = document.querySelector(s); if (el) return el; } return null; };
+      const check = () => findEasyApplyDialog();
       const ex = check(); if (ex) { resolve(ex); return; }
       const obs = new MutationObserver(() => { const el = check(); if (el) { obs.disconnect(); resolve(el); } });
       obs.observe(document.body, { childList: true, subtree: true });
@@ -570,7 +577,7 @@ class EasyApplyEngine {
     }
   }
 
-  _getModal() { return document.querySelector('[data-test-modal-id="easy-apply-modal"]') || document.querySelector('.jobs-easy-apply-modal') || document.querySelector('.artdeco-modal[role="dialog"]'); }
+  _getModal() { return findEasyApplyDialog(); }
   _findButton(modal, kw) { return Array.from(modal.querySelectorAll('button')).find(b => kw.some(k => b.textContent?.trim().toLowerCase().includes(k))) || null; }
 
   async _fillCurrentStep(modal) {
@@ -878,6 +885,26 @@ class EasyApplyEngine {
 // above find nothing there. These read the page by what it shows instead:
 // the visible Apply / Easy Apply control, the section holding it and the
 // title, and the company link in that section.
+// The open Easy Apply dialog, on LinkedIn's old and current layouts. The old
+// one had stable class names; the current one is a generic role="dialog", so
+// fall back to any visible dialog that holds form fields and an
+// apply-shaped heading or a Next / Review / Submit button.
+function findEasyApplyDialog() {
+  for (const s of ['[data-test-modal-id="easy-apply-modal"]', '.jobs-easy-apply-modal', '[aria-labelledby*="easy-apply"]', '.jobs-easy-apply-content']) {
+    const el = document.querySelector(s); if (el) return el.closest('[role="dialog"]') || el;
+  }
+  for (const d of document.querySelectorAll('[role="dialog"], dialog[open], .artdeco-modal')) {
+    if (d.closest('#preciprocal-inline-banner, #prc-sidebar, #prc-apply-confirm-modal')) continue;
+    if (!d.getClientRects().length) continue;
+    const text = (d.innerText || '').toLowerCase();
+    const hasFields = !!d.querySelector('input:not([type="hidden"]), select, textarea');
+    const applyish = /apply to|easy apply|contact info|submit application|review your application/.test(text) ||
+      Array.from(d.querySelectorAll('button')).some(b => /^(next|review|submit application|continue to next step)$/i.test((b.innerText || '').trim()));
+    if (hasFields && applyish) return d;
+  }
+  return null;
+}
+
 function prcFindApplyControl() {
   for (const el of document.querySelectorAll('button, a')) {
     if (el.closest('#preciprocal-inline-banner, #prc-sidebar')) continue;
@@ -951,6 +978,12 @@ class PreciprocalBanner {
     try {
       await this.checkAuth();
       await this._checkPendingApplyConfirm();
+      if (!PreciprocalBanner._confirmOnReturn) {
+        PreciprocalBanner._confirmOnReturn = true;
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') this._checkPendingApplyConfirm();
+        });
+      }
       await this.waitForJobPanel();
       const extractor = new JobExtractor();
       this.jobData = extractor.extractJobData();
@@ -1190,7 +1223,7 @@ class PreciprocalBanner {
             ${logoUrl ? `<img src="${logoUrl}" class="prc-logo-img" alt="">` : ''}
             <div class="prc-title-text">
               <p class="prc-brand"><span>Preciprocal</span>${this.appliedHere ? '<span class="prc-applied-pill"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Applied</span>' : ''}</p>
-              <h3 class="prc-title">${this.appliedHere ? 'You applied to this job. It is in your tracker, where you can follow it through each round.' : this.isAuthenticated ? 'Tailor your resume and fill in this application in one go.' : 'Sign in to tailor your resume and fill in this application.'}</h3>
+              <h3 class="prc-title">${this.appliedHere ? 'You applied to this job. It is in your tracker, where you can follow it through each round.' : this.isAuthenticated ? 'Stop retyping your details. Fill this application in one click.' : 'Sign in to tailor your resume and fill in this application.'}</h3>
             </div>
           </div>
           <div class="prc-top-right">
@@ -1200,7 +1233,6 @@ class PreciprocalBanner {
         ${this.isAuthenticated ? '<div class="prc-fit-slot"><div class="prc-fit prc-fit-loading"><span class="prc-ring-skel"></span><span class="prc-skel-lines"><span></span><span></span></span></div></div>' : ''}
         <div class="prc-actions">
           <button class="prc-btn prc-apply" data-action="auto-apply" data-tip="${am.tip}">
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             <span class="apply-label">${am.label}</span>
           </button>
           <button class="prc-btn prc-primary" data-action="cover-letter" data-tip="A cover letter written for this role from your resume">
@@ -1216,25 +1248,29 @@ class PreciprocalBanner {
     return c;
   }
 
+  // After Easy Apply fills the form, wait for LinkedIn's dialog to close
+  // (submitted or dismissed), then ask. Only "Yes, I applied" marks the card
+  // and adds the job to the tracker, so the tracker never holds an
+  // application the user did not send.
   _watchForSubmit(jobId) {
-    const modal = document.querySelector('[data-test-modal-id="easy-apply-modal"], .jobs-easy-apply-modal, .artdeco-modal[role="dialog"]');
-    if (!modal) return;
-
-    let fired = false;
-    const submitHandler = (e) => {
-      const btn = e.target.closest('button');
-      if (!btn) return;
-      const text = btn.textContent?.trim().toLowerCase() || '';
-      if (/submit\s*application|^submit$/.test(text)) {
-        if (fired) return; fired = true;
-        modal.removeEventListener('click', submitHandler, true);
-        LabelInjector.inject(jobId, 'applied');
-      }
-    };
-    modal.addEventListener('click', submitHandler, true);
-
-    // Safety cleanup after 10 minutes
-    setTimeout(() => modal.removeEventListener('click', submitHandler, true), 600000);
+    if (this._applyWatch) this._applyWatch.disconnect();
+    const jobData = this.jobData;
+    let seen = !!findEasyApplyDialog();
+    let timer = null;
+    const obs = new MutationObserver(() => {
+      if (findEasyApplyDialog()) { seen = true; clearTimeout(timer); timer = null; return; }
+      if (!seen || timer) return;
+      // Closed. Wait a moment: LinkedIn swaps steps by re-rendering.
+      timer = setTimeout(() => {
+        timer = null;
+        if (findEasyApplyDialog()) return;
+        obs.disconnect(); this._applyWatch = null;
+        this._showApplyConfirmModal(jobId, jobData);
+      }, 700);
+    });
+    obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'aria-hidden', 'open'] });
+    this._applyWatch = obs;
+    setTimeout(() => { obs.disconnect(); if (this._applyWatch === obs) this._applyWatch = null; }, 30 * 60 * 1000);
   }
 
   async handleAutoApply() {
@@ -1254,9 +1290,11 @@ class PreciprocalBanner {
       if (ai.type === 'easy') {
         if (labelEl) labelEl.textContent = 'Filling…';
         const engine = new EasyApplyEngine(this.applyProfile, (msg, t) => { if (t === 'success') this.showNotification(msg, 'success'); if (t === 'error') this.showNotification(msg, 'error'); }, this.jobData);
-        await engine.start(); try { await this._injectFilesIntoModal(); } catch {}
+        const ran = await engine.start();
+        if (!ran) throw new Error('Could not open Easy Apply on this page. Click Easy Apply on LinkedIn, then press Auto Apply again.');
+        try { await this._injectFilesIntoModal(); } catch {}
         this.applyState = 'done'; if (btn) { btn.classList.remove('loading'); btn.classList.add('done'); } if (labelEl) labelEl.textContent = 'Review & Submit';
-        this.showNotificationWithLink('Easy Apply filled in', 'Open tracker', `${PRECIPROCAL_URL}/job-tracker`, 'success', [this.jobData?.title, this.jobData?.company].filter(x => x && !/^Unknown /.test(x)).join(' at '));
+        this.showNotification('Filled in. Review it on LinkedIn and submit when ready.', 'success');
         if (this.currentJobId) this._watchForSubmit(this.currentJobId);
       } else if (ai.type === 'external') {
         await chrome.storage.local.set({ preciprocal_auto_apply_profile: this.applyProfile, preciprocal_auto_apply_files: this.applyFiles || null, preciprocal_auto_apply_timestamp: Date.now(), preciprocal_auto_apply_job: this.jobData, preciprocal_pending_confirm_job: this.currentJobId ? { jobId: this.currentJobId, jobData: this.jobData } : null });
@@ -1458,7 +1496,7 @@ class PreciprocalBanner {
         <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--b-ring)" stroke-width="${stroke}"/>
         ${score === null ? '' : `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="url(#${gid})" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - score / 100)}"/>`}
       </svg>
-      <span class="prc-ring-num">${score === null ? '--' : `${score}<small>%</small>`}</span>
+      <span class="prc-ring-num${score !== null && score >= 100 ? ' prc-ring-num-3' : ''}">${score === null ? '--' : `${score}<small>%</small>`}</span>
     </span>`;
 
     let head, sub = '';
@@ -1798,8 +1836,9 @@ class PreciprocalBanner {
       #preciprocal-inline-banner button.prc-link { background:none; border:0; cursor:pointer; font:inherit; font-size:12.5px; padding:0; }
       #preciprocal-inline-banner .prc-fit { display:flex; align-items:center; gap:14px; padding:12px; border-radius:10px; background:var(--b-soft); }
       #preciprocal-inline-banner .prc-ring { position:relative; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
-      #preciprocal-inline-banner .prc-ring-num { position:absolute; font-size:17px; font-weight:700; color:var(--b-fg); font-variant-numeric:tabular-nums; letter-spacing:-0.02em; }
-      #preciprocal-inline-banner .prc-ring-num small { font-size:10px; font-weight:600; color:var(--b-muted); margin-left:1px; }
+      #preciprocal-inline-banner .prc-ring-num { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:17px; font-weight:700; line-height:1; color:var(--b-fg); font-variant-numeric:tabular-nums; letter-spacing:-0.02em; }
+      #preciprocal-inline-banner .prc-ring-num-3 { font-size:14px; letter-spacing:-0.03em; }
+      #preciprocal-inline-banner .prc-ring-num small { font-size:9px; font-weight:600; color:var(--b-muted); margin-left:1px; align-self:center; transform:translateY(1px); }
       #preciprocal-inline-banner .prc-fit-body { min-width:0; flex:1; }
       #preciprocal-inline-banner .prc-fit-head { margin:0; font-size:14px; font-weight:600; color:var(--b-fg); line-height:1.35; }
       #preciprocal-inline-banner .prc-fit-sub { margin:2px 0 0; font-size:12.5px; color:var(--b-muted); }
