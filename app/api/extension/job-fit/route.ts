@@ -46,8 +46,10 @@ export async function POST(request: NextRequest) {
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const company = str(body.company, 200);
     const description = str(body.description, 20000);
-    if (!description) return NextResponse.json({ error: 'description is required' }, { status: 400 });
     const known = company && company !== 'Unknown Company';
+    // With neither, there is nothing to look up. A description alone gives
+    // the fit; a company alone gives E-Verify and H-1B.
+    if (!description && !known) return NextResponse.json({ error: 'company or description is required' }, { status: 400 });
 
     const [raw, ev, h1b] = await Promise.all([
       extractFileText(user.userId, 'resume').catch(() => null),

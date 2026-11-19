@@ -270,13 +270,27 @@ class CardFacts {
     const seen = new Set(), out = [];
     for (const a of document.querySelectorAll('a[href*="currentJobId="], a[href*="/jobs/view/"]')) {
       if (a.closest('#preciprocal-inline-banner, #prc-sidebar')) continue;
-      const card = a.closest('li') || a.closest('[role="listitem"]') || a.closest('[data-occludable-job-id]');
+      const card = a.closest('li') || a.closest('[role="listitem"]') || a.closest('[data-occludable-job-id]') || CardFacts.cardRoot(a);
       if (!card || seen.has(card)) continue;
       seen.add(card);
       const company = CardFacts.companyOf(card, a);
       if (company) out.push({ card, company });
     }
     return out;
+  }
+
+  /** The largest box around a job link that holds no other job's link: the card. */
+  static cardRoot(a) {
+    const id = (a.href.match(/currentJobId=(\d+)|\/jobs\/view\/(\d+)/) || []).slice(1).find(Boolean);
+    if (!id) return null;
+    let el = a, best = null;
+    for (let i = 0; el && i < 10; i++, el = el.parentElement) {
+      if (el.closest('#preciprocal-inline-banner')) return null;
+      const others = [...el.querySelectorAll('a[href*="currentJobId="], a[href*="/jobs/view/"]')].some(x => !x.href.includes(id));
+      if (others) break;
+      best = el;
+    }
+    return best && best !== a ? best : null;
   }
 
   /** The line after the title, which LinkedIn's cards use for the employer. */
@@ -366,8 +380,8 @@ class JobExtractor {
       const titleEl = document.querySelector(
         'h1.job-details-jobs-unified-top-card__job-title, h1.t-24, h1.jobs-unified-top-card__job-title'
       );
-      const pane = titleEl ? null : prcJobPane(prcFindApplyControl());
-      const jobTitle = titleEl?.textContent?.trim() || prcPaneTitle(pane) || 'Unknown Position';
+      const pane = prcJobPane(prcFindApplyControl());
+      const jobTitle = titleEl?.textContent?.trim() || (pane ? prcPaneTitle(pane) : '') || 'Unknown Position';
       let companyName = 'Unknown Company';
       for (const sel of ['a.job-details-jobs-unified-top-card__company-name','.jobs-unified-top-card__company-name a','.jobs-unified-top-card__company-name','.job-details-jobs-unified-top-card__company-name','a[data-tracking-control-name="public_jobs_topcard-org-name"]','.topcard__org-name-link','.jobs-company__name']) {
         const el = document.querySelector(sel); if (el?.textContent?.trim()) { companyName = el.textContent.trim(); break; }
@@ -381,7 +395,11 @@ class JobExtractor {
       let description = descEl?.textContent?.trim() || '';
       // Current layout: the section under an "About the job" heading.
       if (!description) {
-        const h = [...document.querySelectorAll('h2, h3')].find(x => /^about the job$/i.test((x.innerText || '').trim()));
+        const el = document.querySelector('#job-details, [class*="jobs-description"], [data-testid*="description"], [class*="description__text"]');
+        if ((el?.innerText || '').trim().length > 200) description = el.innerText.trim();
+      }
+      if (!description) {
+        const h = [...document.querySelectorAll('h2, h3')].find(x => /^about the (job|role)\b/i.test((x.innerText || '').trim()));
         let box = h?.parentElement;
         for (let i = 0; box && i < 4 && (box.innerText || '').length < 200; i++) box = box.parentElement;
         description = (box?.innerText || '').replace(/^\s*about the job\s*/i, '').trim();
@@ -1219,7 +1237,7 @@ class PreciprocalBanner {
         const engine = new EasyApplyEngine(this.applyProfile, (msg, t) => { if (t === 'success') this.showNotification(msg, 'success'); if (t === 'error') this.showNotification(msg, 'error'); }, this.jobData);
         await engine.start(); try { await this._injectFilesIntoModal(); } catch {}
         this.applyState = 'done'; if (btn) { btn.classList.remove('loading'); btn.classList.add('done'); } if (labelEl) labelEl.textContent = 'Review & Submit';
-        this.showNotificationWithLink(`Easy Apply filled for ${this.jobData?.company}`, 'View Tracker →', `${PRECIPROCAL_URL}/job-tracker`, 'success');
+        this.showNotificationWithLink('Easy Apply filled in', 'Open tracker', `${PRECIPROCAL_URL}/job-tracker`, 'success', [this.jobData?.title, this.jobData?.company].filter(x => x && !/^Unknown /.test(x)).join(' at '));
         if (this.currentJobId) this._watchForSubmit(this.currentJobId);
       } else if (ai.type === 'external') {
         await chrome.storage.local.set({ preciprocal_auto_apply_profile: this.applyProfile, preciprocal_auto_apply_files: this.applyFiles || null, preciprocal_auto_apply_timestamp: Date.now(), preciprocal_auto_apply_job: this.jobData, preciprocal_pending_confirm_job: this.currentJobId ? { jobId: this.currentJobId, jobData: this.jobData } : null });
@@ -1298,7 +1316,8 @@ class PreciprocalBanner {
       if (btn) { btn.classList.remove('loading'); btn.classList.add('done'); }
       this._replaceButtonIcon(btn, 'check');
       btn?.setAttribute('title', 'Saved to your tracker');
-      resp.data?.duplicate ? this.showNotificationWithLink('Already in your tracker', 'View →', `${PRECIPROCAL_URL}/job-tracker`, 'info') : this.showNotificationWithLink(`Saved - ${this.jobData?.company}`, 'View Tracker →', `${PRECIPROCAL_URL}/job-tracker`, 'success');
+      const who = [this.jobData?.title, this.jobData?.company].filter(x => x && !/^Unknown /.test(x)).join(' at ');
+      resp.data?.duplicate ? this.showNotificationWithLink('Already in your job tracker', 'Open tracker', `${PRECIPROCAL_URL}/job-tracker`, 'info', who) : this.showNotificationWithLink('Saved to your job tracker', 'Open tracker', `${PRECIPROCAL_URL}/job-tracker`, 'success', who);
       if (this.currentJobId) LabelInjector.inject(this.currentJobId, 'saved');
     } catch (err) {
       this.trackState = 'idle'; if (btn) btn.classList.remove('loading');
@@ -1376,6 +1395,16 @@ class PreciprocalBanner {
   // what the posting says and the employer's E-Verify and H-1B records.
   async fetchFit() {
     if (!this.isAuthenticated || !this.authToken || !this.jobData) return;
+    // LinkedIn fills the description in after the top of the panel, so give
+    // it a few seconds before asking with what is there.
+    const startedFor = this.jobData.jobId;
+    for (let i = 0; i < 12 && (this.jobData.description || '').length < 200; i++) {
+      await this._delay(500);
+      if (this.currentJobId !== startedFor) return;
+      const again = new JobExtractor().extractJobData();
+      if (again?.description) this.jobData.description = again.description;
+      if (again?.company && this.jobData.company === 'Unknown Company') this.jobData.company = again.company;
+    }
     const { jobId, company, title, location, description } = this.jobData;
     try {
       const resp = await chrome.runtime.sendMessage({
@@ -1384,8 +1413,16 @@ class PreciprocalBanner {
       });
       if (this.currentJobId !== jobId) return;
       if (resp?.success && resp.data?.success) { this.renderFit(resp.data); this._clearApplyRow(); }
-      else this.banner?.querySelector('.prc-fit-slot')?.remove();
-    } catch { this.banner?.querySelector('.prc-fit-slot')?.remove(); }
+      else this._fitUnavailable();
+    } catch { this._fitUnavailable(); }
+  }
+
+  /** The fit could not be worked out: say so quietly, with a retry, rather than vanish. */
+  _fitUnavailable() {
+    const slot = this.banner?.querySelector('.prc-fit-slot');
+    if (!slot) return;
+    slot.innerHTML = '<div class="prc-fit prc-fit-off"><p class="prc-fit-sub">Could not read this job yet.</p><button type="button" class="prc-link prc-retry">Try again</button></div>';
+    slot.querySelector('.prc-retry')?.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); slot.innerHTML = '<div class="prc-fit prc-fit-loading"><span class="prc-ring-skel"></span><span class="prc-skel-lines"><span></span><span></span></span></div>'; this.fetchFit(); });
   }
 
   renderFit(d) {
@@ -1410,8 +1447,8 @@ class PreciprocalBanner {
       head = 'Add your resume to see how you match';
       sub = `<a class="prc-link" href="${PRECIPROCAL_URL}/settings?section=job-setup" target="_blank" rel="noopener">Add it in Preciprocal</a>`;
     } else if (!fit.skills.length) {
-      head = 'This posting names no specific skills';
-      sub = 'Read the description for what they want.';
+      head = (this.jobData?.description || '').length < 200 ? 'Open the full description to see your skill match' : 'This posting names no specific skills';
+      sub = (this.jobData?.description || '').length < 200 ? 'Company records below are from USCIS.' : 'Read the description for what they want.';
     } else {
       head = `${fit.matched.length} of ${fit.skills.length} skills this job names are on your resume`;
       if (score === null) sub = 'Too few skills named to give a score.';
@@ -1593,18 +1630,23 @@ class PreciprocalBanner {
     };
   }
 
-  showNotification(message, type = 'success') {
-    const n = document.createElement('div'); n.className = `preciprocal-notification ${type}`;
-    n.innerHTML = `<div class="prc-toast-inner"><div class="prc-toast-icon">${this._toastIcons()[type]||this._toastIcons().info}</div><div class="prc-toast-body"><div class="prc-toast-msg">${message}</div></div></div>`;
-    document.body.appendChild(n); setTimeout(() => n.classList.add('show'), 10); setTimeout(() => { n.classList.remove('show'); setTimeout(() => n.remove(), 300); }, 2800);
+  /** A toast in the current design, light or dark to match LinkedIn. */
+  _toast(message, type, { sub = '', linkText = '', linkUrl = '', ms = 3200 } = {}) {
+    document.querySelectorAll('.preciprocal-notification').forEach(x => x.remove());
+    const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const n = document.createElement('div');
+    const m = getComputedStyle(document.body).backgroundColor.match(/[\d.]+/g);
+    const light = m && (0.2126 * +m[0] + 0.7152 * +m[1] + 0.0722 * +m[2]) > 140;
+    n.className = `preciprocal-notification ${type}${light ? ' prc-t-light' : ''}`;
+    n.setAttribute('role', 'status');
+    n.innerHTML = `<div class="prc-toast-inner"><div class="prc-toast-icon">${this._toastIcons()[type] || this._toastIcons().info}</div><div class="prc-toast-body"><div class="prc-toast-msg">${esc(message)}</div>${sub ? `<div class="prc-toast-sub">${esc(sub)}</div>` : ''}<div class="prc-toast-brand">Preciprocal</div></div>${linkText ? `<button type="button" class="prc-toast-link">${esc(linkText)}</button>` : ''}</div>`;
+    n.querySelector('.prc-toast-link')?.addEventListener('click', () => window.open(linkUrl, '_blank'));
+    document.body.appendChild(n); setTimeout(() => n.classList.add('show'), 10); setTimeout(() => { n.classList.remove('show'); setTimeout(() => n.remove(), 300); }, ms);
   }
 
-  showNotificationWithLink(message, linkText, linkUrl, type = 'success') {
-    const n = document.createElement('div'); n.className = `preciprocal-notification ${type}`;
-    n.innerHTML = `<div class="prc-toast-inner"><div class="prc-toast-icon">${this._toastIcons()[type]||this._toastIcons().info}</div><div class="prc-toast-body"><div class="prc-toast-msg">${message}</div><span class="prc-toast-link">${linkText}</span></div></div>`;
-    n.querySelector('.prc-toast-link').addEventListener('click', () => window.open(linkUrl, '_blank'));
-    document.body.appendChild(n); setTimeout(() => n.classList.add('show'), 10); setTimeout(() => { n.classList.remove('show'); setTimeout(() => n.remove(), 300); }, 4500);
-  }
+  showNotification(message, type = 'success') { this._toast(message, type); }
+
+  showNotificationWithLink(message, linkText, linkUrl, type = 'success', sub = '') { this._toast(message, type, { sub, linkText, linkUrl, ms: 5000 }); }
 
   observeJobChanges() {
     if (this.observer) this.observer.disconnect();
@@ -1733,6 +1775,8 @@ class PreciprocalBanner {
       #preciprocal-inline-banner .preciprocal-banner-compact::before { content:''; position:absolute; left:0; right:0; top:0; height:3px; background:linear-gradient(90deg,#5b6ef5 0%,#7c3aed 100%); }
       #preciprocal-inline-banner .preciprocal-banner-compact:hover { border-color:var(--b-edge); box-shadow:none; }
       #preciprocal-inline-banner .prc-fit-slot { margin:0 0 14px; }
+      #preciprocal-inline-banner .prc-fit-off { justify-content:space-between; padding:10px 12px; }
+      #preciprocal-inline-banner button.prc-link { background:none; border:0; cursor:pointer; font:inherit; font-size:12.5px; padding:0; }
       #preciprocal-inline-banner .prc-fit { display:flex; align-items:center; gap:14px; padding:12px; border-radius:10px; background:var(--b-soft); }
       #preciprocal-inline-banner .prc-ring { position:relative; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
       #preciprocal-inline-banner .prc-ring-num { position:absolute; font-size:17px; font-weight:700; color:var(--b-fg); font-variant-numeric:tabular-nums; letter-spacing:-0.02em; }
@@ -1779,6 +1823,7 @@ class PreciprocalBanner {
       #preciprocal-inline-banner .prc-btn.prc-track.done { color:#16a34a; border-color:rgba(22,163,74,0.45); background:rgba(22,163,74,0.08); }
       #preciprocal-inline-banner .prc-btn { flex:0 0 auto; min-width:0; }
       #preciprocal-inline-banner .prc-btn.prc-icon-only { width:34px; padding:0; }
+      #preciprocal-inline-banner .prc-btn.prc-track { margin-left:auto; }
       #preciprocal-inline-banner .ring-bg { stroke:var(--b-ring); }
       #preciprocal-inline-banner .score-val .num { font-size:13px; color:var(--b-fg); }
       #preciprocal-inline-banner .prc-spinner { border-color:var(--b-ring); border-top-color:var(--b-fg); }
@@ -1812,6 +1857,24 @@ class PreciprocalBanner {
       .preciprocal-notification.error .prc-toast-inner { border-color:rgba(248,113,113,0.2); }
       .preciprocal-notification.info .prc-toast-icon { color:#a78bfa; }
       .preciprocal-notification.info .prc-toast-inner { border-color:rgba(167,139,250,0.2); }
+      /* Toast, current design */
+      .preciprocal-notification { font-family:PrcInter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; }
+      .preciprocal-notification .prc-toast-inner { position:relative; overflow:hidden; align-items:flex-start; gap:12px; padding:14px 14px 14px 16px; border-radius:12px; min-width:300px; max-width:380px; background:#151618; border:1px solid rgba(255,255,255,0.1); box-shadow:0 18px 40px -12px rgba(0,0,0,0.6); backdrop-filter:none; }
+      .preciprocal-notification .prc-toast-inner::before { content:''; position:absolute; left:0; right:0; top:0; height:2px; background:linear-gradient(90deg,#5b6ef5,#7c3aed); }
+      .preciprocal-notification .prc-toast-icon { width:22px; height:22px; border-radius:999px; margin-top:1px; }
+      .preciprocal-notification .prc-toast-icon svg { width:13px; height:13px; }
+      .preciprocal-notification.success .prc-toast-icon { color:#fff; background:#16a34a; }
+      .preciprocal-notification.error .prc-toast-icon { color:#fff; background:#dc2626; }
+      .preciprocal-notification.info .prc-toast-icon { color:#fff; background:#5b6ef5; }
+      .preciprocal-notification .prc-toast-msg { font-size:13.5px; font-weight:600; color:#f7f8f8; }
+      .preciprocal-notification .prc-toast-sub { margin-top:2px; font-size:12.5px; color:#a4a9b1; line-height:1.4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
+      .preciprocal-notification .prc-toast-brand { margin-top:4px; font-size:11px; font-weight:600; color:#8b96ff; }
+      .preciprocal-notification .prc-toast-link { flex-shrink:0; align-self:center; margin:0; height:30px; padding:0 12px; border-radius:999px; border:0; cursor:pointer; font-family:inherit; font-size:12.5px; font-weight:600; color:#fff; background:linear-gradient(135deg,#5b6ef5,#7c3aed); }
+      .preciprocal-notification .prc-toast-link:hover { filter:brightness(1.08); color:#fff; }
+      .preciprocal-notification.prc-t-light .prc-toast-inner { background:#ffffff; border-color:rgba(0,0,0,0.1); box-shadow:0 18px 40px -12px rgba(0,0,0,0.25); }
+      .preciprocal-notification.prc-t-light .prc-toast-msg { color:#111827; }
+      .preciprocal-notification.prc-t-light .prc-toast-sub { color:#4b5563; }
+      .preciprocal-notification.prc-t-light .prc-toast-brand { color:#4f5be8; }
 
       @media (max-width:768px) { .preciprocal-banner-compact{padding:12px} .prc-top-section{flex-direction:column;align-items:flex-start;gap:12px} .prc-actions{flex-direction:column;width:100%} .prc-btn{width:100%;font-size:13px} .prc-title{font-size:14px} }
       @media (max-width:1024px) { .prc-actions{flex-wrap:wrap} .prc-btn{flex:1 1 calc(50% - 4px);min-width:140px} }
