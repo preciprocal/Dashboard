@@ -802,7 +802,7 @@ class PreciprocalBanner {
       if (this.isAuthenticated) await this._syncTrackedJobsFromDB();
       this.appliedHere = (await LabelInjector.getLabelForJob(this.currentJobId)) === 'applied';
       this.injectBanner();
-      if (this.isAuthenticated) await Promise.all([this.fetchMatchScore(), this.prefetchApplyProfile(), this.fetchJobSignals(), this.fetchEverify()]);
+      if (this.isAuthenticated) await Promise.all([this.fetchFit(), this.prefetchApplyProfile(), this.fetchJobSignals()]);
       this.observeJobChanges();
     } catch (err) { console.error('[PRC] Banner init error:', err); }
   }
@@ -1000,16 +1000,10 @@ class PreciprocalBanner {
             </div>
           </div>
           <div class="prc-top-right">
-            ${this.isAuthenticated ? `
-            <div class="prc-score-badge" data-tip="Resume match score for this job">
-              <svg class="score-ring" width="40" height="40">
-                <circle class="ring-bg" cx="20" cy="20" r="16" stroke-width="3" fill="none"/>
-                <circle class="ring-fg" cx="20" cy="20" r="16" stroke-width="3" fill="none" stroke-dasharray="0 100.53" transform="rotate(-90 20 20)" stroke-linecap="round"/>
-              </svg>
-              <div class="score-val"><span class="num">--</span></div>
-            </div>` : ''}
+
           </div>
         </div>
+        ${this.isAuthenticated ? '<div class="prc-fit-slot"><div class="prc-fit prc-fit-loading"><span class="prc-ring-skel"></span><span class="prc-skel-lines"><span></span><span></span></span></div></div>' : ''}
         <div class="prc-actions">
           <button class="prc-btn prc-apply" data-action="auto-apply" data-tip="${am.tip}">
             <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
@@ -1218,6 +1212,83 @@ class PreciprocalBanner {
       if (!resp?.success) throw new Error(); this.updateMatchScore(resp.data.compatibilityScore);
       const wrap = this.banner?.querySelector('.prc-score-wrap'); if (wrap && resp.data.oneLineSummary) wrap.setAttribute('title', resp.data.oneLineSummary);
     } catch { this.updateMatchScore(null); }
+  }
+
+  // How this job fits the student's default resume, the same way the Jobs
+  // page works it out (skills the posting names, found on the resume), plus
+  // what the posting says and the employer's E-Verify and H-1B records.
+  async fetchFit() {
+    if (!this.isAuthenticated || !this.authToken || !this.jobData) return;
+    const { jobId, company, title, location, description } = this.jobData;
+    try {
+      const resp = await chrome.runtime.sendMessage({
+        type: 'API_FETCH_JOB_FIT', token: this.authToken, userId: this.authUserId || '', email: this.authEmail || '', baseUrl: PRECIPROCAL_URL,
+        payload: { company, title, location, description: (description || '').slice(0, 20000) },
+      });
+      if (this.currentJobId !== jobId) return;
+      if (resp?.success && resp.data?.success) this.renderFit(resp.data);
+      else this.banner?.querySelector('.prc-fit-slot')?.remove();
+    } catch { this.banner?.querySelector('.prc-fit-slot')?.remove(); }
+  }
+
+  renderFit(d) {
+    const slot = this.banner?.querySelector('.prc-fit-slot');
+    if (!slot) return;
+    const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const fit = d.fit || { skills: [], matched: [], missing: [], score: null, flags: [], years: null };
+    const score = d.resume ? fit.score : null;
+    const [a, b] = score === null ? ['#94a3b8', '#64748b'] : score >= 70 ? ['#34d399', '#10b981'] : score >= 40 ? ['#7c8cff', '#38bdf8'] : ['#94a3b8', '#64748b'];
+    const size = 64, stroke = 6, r = size / 2 - stroke, c = 2 * Math.PI * r, gid = 'prcg' + Math.random().toString(36).slice(2, 8);
+    const ring = `<span class="prc-ring" style="width:${size}px;height:${size}px">
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="transform:rotate(-90deg)">
+        <defs><linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></linearGradient></defs>
+        <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--b-ring)" stroke-width="${stroke}"/>
+        ${score === null ? '' : `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="url(#${gid})" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - score / 100)}"/>`}
+      </svg>
+      <span class="prc-ring-num">${score === null ? '--' : `${score}<small>%</small>`}</span>
+    </span>`;
+
+    let head, sub = '';
+    if (!d.resume) {
+      head = 'Add your resume to see how you match';
+      sub = `<a class="prc-link" href="${PRECIPROCAL_URL}/settings?section=job-setup" target="_blank" rel="noopener">Add it in Preciprocal</a>`;
+    } else if (!fit.skills.length) {
+      head = 'This posting names no specific skills';
+      sub = 'Read the description for what they want.';
+    } else {
+      head = `${fit.matched.length} of ${fit.skills.length} skills this job names are on your resume`;
+      if (score === null) sub = 'Too few skills named to give a score.';
+    }
+    const chips = d.resume ? [
+      ...fit.matched.slice(0, 8).map(s => `<span class="prc-skill prc-skill-on">${esc(s)}</span>`),
+      ...fit.missing.slice(0, 6).map(s => `<span class="prc-skill" data-tip="Named in the posting, not found on your resume">${esc(s)}</span>`),
+    ].join('') : '';
+
+    // What the posting and the public records say.
+    const facts = [];
+    const ev = d.everify?.status;
+    if (d.everify) {
+      const when = d.everify.syncedAt ? ` Updated ${new Date(d.everify.syncedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.` : '';
+      const m = { enrolled: ['good', 'E-Verified', 'Enrolled in E-Verify, which a STEM OPT extension needs.'], ending: ['warn', 'E-Verify ending', 'Its E-Verify enrolment is set to end.'], ended: ['bad', 'E-Verify ended', 'Its E-Verify enrolment has ended.'], 'not-found': ['muted', 'Not found in E-Verify', 'No match in the E-Verify list. It may be listed under another name.'] }[ev?.state || 'not-found'];
+      facts.push(`<span class="prc-fact prc-fact-${m[0]}" data-tip="${esc(m[2] + ' From the USCIS E-Verify list.' + when)}"><i></i>${m[1]}</span>`);
+    }
+    if (d.h1b) {
+      const y = d.h1b.history?.years?.[0];
+      if (y && y.approvals > 0) facts.push(`<span class="prc-fact prc-fact-good" data-tip="${esc(`USCIS H-1B data for ${d.h1b.history.employer}: ${y.approvals} approvals, ${y.newEmployment} for new employment, in ${y.year}.`)}"><i></i>H-1B: ${y.approvals} approved in ${esc(y.year)}</span>`);
+      else if (d.h1b.history) facts.push(`<span class="prc-fact prc-fact-muted" data-tip="${esc(`USCIS H-1B data for ${d.h1b.history.employer}.`)}"><i></i>No H-1B approvals in ${esc(d.h1b.history.years?.[0]?.year || 'the latest year')}</span>`);
+      else facts.push(`<span class="prc-fact prc-fact-muted" data-tip="No match in the USCIS H-1B data. It may be listed under another name."><i></i>No H-1B record found</span>`);
+    }
+    const flagText = { 'no-sponsorship': 'Says no visa sponsorship', 'citizen-only': 'US citizens only', clearance: 'Needs security clearance' };
+    for (const f of fit.flags || []) facts.push(`<span class="prc-fact prc-fact-bad" data-tip="${esc('The posting says: ' + f.quote)}"><i></i>${flagText[f.kind] || 'Check eligibility'}</span>`);
+    if (fit.years) facts.push(`<span class="prc-fact prc-fact-muted" data-tip="${esc('The posting says: ' + fit.years.quote)}"><i></i>${fit.years.min}+ years asked</span>`);
+    const pay = d.facts?.pay;
+    if (pay) {
+      const k = (n) => (pay.unit === 'hour' ? `${n}` : `${Math.round(n / 1000)}K`);
+      facts.push(`<span class="prc-fact prc-fact-muted" data-tip="${esc('The posting says: ' + pay.quote)}"><i></i>${k(pay.min)}${pay.max ? ' to ' + k(pay.max) : ''}${pay.unit === 'hour' ? '/hr' : '/yr'}</span>`);
+    }
+
+    slot.innerHTML = `<div class="prc-fit">${ring}<div class="prc-fit-body"><p class="prc-fit-head">${esc(head)}</p>${sub ? `<p class="prc-fit-sub">${sub}</p>` : ''}${chips ? `<div class="prc-skills">${chips}</div>` : ''}</div></div>${facts.length ? `<div class="prc-facts">${facts.join('')}</div>` : ''}`;
+    this._attachTooltips(slot);
   }
 
   // Ghost-job risk and response odds for this posting. Never blocks anything:
@@ -1504,6 +1575,32 @@ class PreciprocalBanner {
       #preciprocal-inline-banner .preciprocal-banner-compact { background:var(--b-tint); border:1px solid var(--b-edge); border-radius:12px; padding:18px 18px 16px; box-shadow:none; overflow:hidden; }
       #preciprocal-inline-banner .preciprocal-banner-compact::before { content:''; position:absolute; left:0; right:0; top:0; height:3px; background:linear-gradient(90deg,#5b6ef5 0%,#7c3aed 100%); }
       #preciprocal-inline-banner .preciprocal-banner-compact:hover { border-color:var(--b-edge); box-shadow:none; }
+      #preciprocal-inline-banner .prc-fit-slot { margin:0 0 14px; }
+      #preciprocal-inline-banner .prc-fit { display:flex; align-items:center; gap:14px; padding:12px; border-radius:10px; background:var(--b-soft); }
+      #preciprocal-inline-banner .prc-ring { position:relative; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
+      #preciprocal-inline-banner .prc-ring-num { position:absolute; font-size:17px; font-weight:700; color:var(--b-fg); font-variant-numeric:tabular-nums; letter-spacing:-0.02em; }
+      #preciprocal-inline-banner .prc-ring-num small { font-size:10px; font-weight:600; color:var(--b-muted); margin-left:1px; }
+      #preciprocal-inline-banner .prc-fit-body { min-width:0; flex:1; }
+      #preciprocal-inline-banner .prc-fit-head { margin:0; font-size:14px; font-weight:600; color:var(--b-fg); line-height:1.35; }
+      #preciprocal-inline-banner .prc-fit-sub { margin:2px 0 0; font-size:12.5px; color:var(--b-muted); }
+      #preciprocal-inline-banner .prc-link { color:var(--b-brand); font-weight:600; text-decoration:none; }
+      #preciprocal-inline-banner .prc-link:hover { text-decoration:underline; }
+      #preciprocal-inline-banner .prc-skills { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+      #preciprocal-inline-banner .prc-skill { display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:6px; font-size:12px; font-weight:500; color:var(--b-muted); border:1px dashed var(--b-border); cursor:default; }
+      #preciprocal-inline-banner .prc-skill-on { color:#16a34a; border:1px solid rgba(22,163,74,0.35); background:rgba(22,163,74,0.08); }
+      #preciprocal-inline-banner .prc-facts { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+      #preciprocal-inline-banner .prc-fact { display:inline-flex; align-items:center; gap:6px; height:24px; padding:0 9px; border-radius:999px; font-size:12px; font-weight:500; color:var(--b-fg); background:transparent; border:1px solid var(--b-border); cursor:help; }
+      #preciprocal-inline-banner .prc-fact i { width:6px; height:6px; border-radius:999px; background:#94a3b8; }
+      #preciprocal-inline-banner .prc-fact-good i { background:#22c55e; }
+      #preciprocal-inline-banner .prc-fact-warn i { background:#f59e0b; }
+      #preciprocal-inline-banner .prc-fact-bad { color:#ef4444; border-color:rgba(239,68,68,0.4); }
+      #preciprocal-inline-banner .prc-fact-bad i { background:#ef4444; }
+      #preciprocal-inline-banner .prc-fact-muted { color:var(--b-muted); }
+      #preciprocal-inline-banner .prc-fit-loading .prc-ring-skel { width:64px; height:64px; border-radius:999px; border:6px solid var(--b-ring); flex-shrink:0; }
+      #preciprocal-inline-banner .prc-skel-lines { flex:1; display:flex; flex-direction:column; gap:8px; }
+      #preciprocal-inline-banner .prc-skel-lines span { height:10px; border-radius:4px; background:var(--b-ring); animation:prc-pulse 1.4s ease-in-out infinite; }
+      #preciprocal-inline-banner .prc-skel-lines span:last-child { width:60%; }
+      @keyframes prc-pulse { 50% { opacity:.45; } }
       #preciprocal-inline-banner .prc-applied-pill { display:inline-flex; align-items:center; gap:4px; height:18px; padding:0 7px; margin-left:6px; border-radius:999px; font-family:PrcInter, sans-serif; font-size:11px; font-weight:600; color:#16a34a; background:rgba(22,163,74,0.12); vertical-align:1px; }
       #preciprocal-inline-banner .prc-tag { display:inline-flex; align-items:center; height:18px; padding:0 7px; margin-left:8px; border-radius:999px; font-family:PrcInter, sans-serif; font-size:11px; font-weight:600; letter-spacing:0; color:var(--b-brand); background:var(--b-tag); vertical-align:1px; }
       #preciprocal-inline-banner .prc-top-section { align-items:flex-start; margin-bottom:14px; gap:14px; }

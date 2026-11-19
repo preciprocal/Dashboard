@@ -497,6 +497,21 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   // Ghost-job risk and reply odds for the posting on screen (banner.js).
+  // How the job on screen fits the default resume, plus E-Verify and H-1B
+  // (app/api/extension/job-fit). Same maths as the Jobs page, no model.
+  if (message.type === 'API_FETCH_JOB_FIT') {
+    const { token, userId, email, baseUrl, payload } = message;
+    fetch(`${baseUrl}/api/extension/job-fit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-extension-token': token || '', 'x-user-id': userId || '', 'x-user-email': email || '' },
+      body: JSON.stringify(payload || {}),
+    })
+      .then(r => r.json())
+      .then(data => sendResponse({ success: true, data }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
   if (message.type === 'API_FETCH_JOB_SIGNALS') {
     const { token, userId, email, baseUrl, payload } = message;
     fetch(`${baseUrl}/api/extension/job-signals`, {
