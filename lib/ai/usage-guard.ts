@@ -1,6 +1,7 @@
 // lib/ai/usage-guard.ts
 // Server-side usage gate - checks and increments Postgres usage counters.
 // Shared across all API routes that consume AI credits.
+import { renewalUnpaid, RENEWAL_UNPAID_MESSAGE } from '@/lib/billing/renewal-gate';
 import { supabaseAdmin } from '@/supabase/admin';
 import { toSupabaseUserId } from '@/lib/auth/verify-request';
 import { USAGE_LIMITS, resolvePlanKey } from '@/lib/config/usage-limits';
@@ -73,6 +74,8 @@ interface SubscriptionRow {
   trial_ends_at: string | null;
   current_period_start: string | null;
   subscription_started_at: string | null;
+  stripe_subscription_id: string | null;
+  last_payment_at: string | null;
 }
 
 // Manually-granted trials (e.g. the student .edu offer) have no Stripe subscription
@@ -85,7 +88,7 @@ function isTrialExpired(sub: SubscriptionRow | null): boolean {
 async function getSubscription(supabaseUserId: string): Promise<SubscriptionRow | null> {
   const { data } = await supabaseAdmin
     .from('subscriptions')
-    .select('plan, status, trial_ends_at, current_period_start, subscription_started_at')
+    .select('plan, status, trial_ends_at, current_period_start, subscription_started_at, stripe_subscription_id, last_payment_at')
     .eq('user_id', supabaseUserId)
     .maybeSingle();
   return data as SubscriptionRow | null;
@@ -225,7 +228,9 @@ export async function checkUsage(
     const admin = profile?.is_admin === true;
     const profileCreatedAt = profile?.created_at ?? null;
 
-    const plan   = isTrialExpired(sub) ? 'free' : resolvePlanKey(sub?.plan, {
+    // An unpaid renewal is held to Free limits until paid (lib/billing/renewal-gate.ts).
+    const unpaid = !admin && renewalUnpaid(sub);
+    const plan   = isTrialExpired(sub) || unpaid ? 'free' : resolvePlanKey(sub?.plan, {
       isAdmin: admin,
     });
     const blocked = requirePhoneVerification(plan, profile, feature);
@@ -288,6 +293,7 @@ export async function checkUsage(
       source: monthlyRemaining > 0 ? 'subscription' : allowed ? 'pack' : undefined,
       message: allowed
         ? undefined
+        : unpaid ? RENEWAL_UNPAID_MESSAGE
         : `You've reached your monthly limit of ${limit} ${FEATURE_NAMES[feature]}. Upgrade to Pro for more.`,
     };
   } catch (err) {
@@ -333,7 +339,8 @@ export async function checkAndIncrementUsage(
       }).eq('user_id', supabaseUserId);
     }
 
-    const plan   = trialExpired ? 'free' : resolvePlanKey(sub?.plan, {
+    const unpaid = !admin && renewalUnpaid(sub);
+    const plan   = trialExpired || unpaid ? 'free' : resolvePlanKey(sub?.plan, {
       isAdmin: admin,
     });
     const blocked = requirePhoneVerification(plan, profile, feature);
@@ -378,6 +385,7 @@ export async function checkAndIncrementUsage(
       source: 'subscription',
       message: row.allowed
         ? undefined
+        : unpaid ? RENEWAL_UNPAID_MESSAGE
         : `You've reached your monthly limit of ${limit} ${FEATURE_NAMES[feature]}. Upgrade to Pro for more.`,
     };
 

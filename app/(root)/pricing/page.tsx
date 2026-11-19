@@ -78,7 +78,7 @@ const PLANS: Plan[] = [
       { text: "Resume editor + PDF & Word export",  highlight: true },
       { text: "Recruiter eye simulation",           highlight: true },
       { text: "Full analytics dashboard" },
-      { text: "Students: 1 month free with a .edu email", highlight: true },
+      { text: "Students: 1 month free with a .edu email, no card", highlight: true },
     ],
   },
   {
@@ -666,8 +666,8 @@ function StudentModal({ onVerified, onClose }: StudentModalProps) {
             <h3 className="text-lg font-bold text-white leading-snug">Get Pro free for 30 days</h3>
             <p className="text-xs text-slate-400 mt-1">
               {cardSecret
-                ? "Email verified. Add a card to start your free month - you won't be charged today."
-                : "Verify your .edu email, then add a card to start. Nothing is charged for 30 days."}
+                ? "Email verified. Add a card to start your free month. You won't be charged today."
+                : "Verify your .edu email and Pro is yours for 30 days. No card needed."}
             </p>
           </div>
 
@@ -978,7 +978,7 @@ export default function PricingPage() {
               </span>
               <div className="relative min-w-0 flex-1">
                 <p className="text-[14.5px] font-semibold text-white">University student? Pro is free for your first month</p>
-                <p className="text-[12.5px] text-[var(--text-3)] mt-0.5">Verify your .edu email. Nothing is charged for 30 days.</p>
+                <p className="text-[12.5px] text-[var(--text-3)] mt-0.5">Verify your .edu email for 30 days of Pro. No card needed.</p>
               </div>
               <button onClick={() => user ? setShowStudent(true) : (window.location.href = "/sign-in?redirect=/pricing")}
                 className="relative btn-primary flex-shrink-0 cursor-pointer">
@@ -1150,7 +1150,7 @@ function Compare({ currentPlan }: { currentPlan: PlanId }) {
 const FAQS: { q: string; a: string }[] = [
   { q: "Can I cancel any time?", a: "Yes. Settings, Plan & Billing, Cancel. You keep what you paid for until the period ends." },
   { q: "Can I get a refund?", a: `Your first payment back within ${FIRST_REFUND_WINDOW_DAYS} days if you barely used it. After that, the unused part of the month back at any point, and the plan ends. You can do it yourself in Settings.` },
-  { q: "How does the student offer work?", a: "Verify a .edu email and Pro is free for your first month. Nothing is charged for 30 days, and we email you before any charge." },
+  { q: "How does the student offer work?", a: "Verify a .edu email and Pro is free for 30 days. No card is needed and nothing is ever charged: after 30 days your account moves to the Free plan, and you can upgrade any time. It is once per student email and device." },
   { q: "What happens if I reach a monthly limit?", a: "That feature pauses until the month resets. You can upgrade, or buy a one-time credit pack above that tops up just what you need." },
   { q: "Is the Chrome extension included on Free?", a: "Yes. The extension is not limited by plan." },
   { q: "Are prices shown with tax?", a: "Yes. Prices include any sales tax or VAT, so the amount at checkout is the amount you pay." },

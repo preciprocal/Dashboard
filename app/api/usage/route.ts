@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthedUser } from '@/lib/auth/verify-request';
 import { supabaseAdmin } from '@/supabase/admin';
 import { USAGE_LIMITS, normalisePlan } from '@/lib/config/usage-limits';
+import { renewalUnpaid } from '@/lib/billing/renewal-gate';
 import { computeUsagePeriod, pickAnchor } from '@/lib/usage/period';
 
 export async function GET(request: NextRequest) {
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     // period_start is derived from the subscription's billing anchor, so the
     // subscription and profile have to resolve first.
     const [{ data: sub }, { data: profile }] = await Promise.all([
-      supabaseAdmin.from('subscriptions').select('plan, current_period_start, subscription_started_at').eq('user_id', supabaseUserId).maybeSingle(),
+      supabaseAdmin.from('subscriptions').select('plan, status, current_period_start, subscription_started_at, stripe_subscription_id, last_payment_at').eq('user_id', supabaseUserId).maybeSingle(),
       supabaseAdmin.from('profiles').select('is_admin, created_at').eq('user_id', supabaseUserId).maybeSingle(),
     ]);
 
@@ -36,10 +37,13 @@ export async function GET(request: NextRequest) {
 
     // Admin accounts always see unlimited, regardless of subscriptions.plan -
     // mirrors the override in lib/ai/usage-guard.ts.
-    const plan = profile?.is_admin === true ? 'admin' : normalisePlan(sub?.plan || 'free');
+    // An unpaid renewal is on Free limits until paid (lib/billing/renewal-gate.ts).
+    const awaitingPayment = profile?.is_admin !== true && renewalUnpaid(sub);
+    const plan = profile?.is_admin === true ? 'admin' : awaitingPayment ? 'free' : normalisePlan(sub?.plan || 'free');
 
     return NextResponse.json({
       plan,
+      awaitingPayment,
       limits: USAGE_LIMITS[plan],
       usage: {
         applicationsUsed:          usageRow?.applications_used           || 0,

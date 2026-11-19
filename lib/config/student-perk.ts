@@ -44,9 +44,17 @@ export const OTP_MAX_ATTEMPTS = 8;
  * When true, the free month requires a card on file: the user verifies their
  * .edu address, saves a card via a Stripe SetupIntent ($0 now), and Stripe
  * auto-bills the Pro price on day 31. When false, the perk is granted outright
- * with no card, which is the behaviour that originally shipped.
+ * with no card: 30 days of Pro, then the account falls to Free.
  *
- * DEFAULTS TO TRUE as of the Task 3 pass. The default is inverted rather than
+ * DEFAULTS TO FALSE (no card) since 2026-11-18, by the owner's decision: "since
+ * we are not charging, we can remove the card requirement and drop them to
+ * free." It accepts that this path converts nobody. The per-address and
+ * per-device uniqueness rules above apply either way (redeem_student_perk).
+ * Set STUDENT_PERK_REQUIRE_CARD=true to bring the card step back, and revert
+ * the three strings listed below with it. The no-card month is announced
+ * three days before it ends by lib/student/month-ending.ts.
+ *
+ * History: it defaulted to TRUE from the Task 3 pass. The default is inverted rather than
  * env-gated so the decision travels with the code: an env-gated flag has to be
  * remembered separately in every environment, and being silently off in one of
  * them is the failure this is meant to prevent.
@@ -70,7 +78,7 @@ export const OTP_MAX_ATTEMPTS = 8;
  *   - the student banner subtitle
  *   - the StudentModal pre-verification subtitle
  */
-export const REQUIRE_CARD = process.env.STUDENT_PERK_REQUIRE_CARD !== 'false';
+export const REQUIRE_CARD = process.env.STUDENT_PERK_REQUIRE_CARD === 'true';
 
 /**
  * Price the student trial converts onto at day 31. Matches the Pro monthly

@@ -278,6 +278,30 @@ export async function sendTrialEndingEmail(
   });
 }
 
+/** The no-card student month (lib/student/month-ending.ts). Nothing is charged, so it says so. */
+export async function sendStudentMonthEndingEmail(supabaseUserId: string, endsAtMs: number): Promise<boolean> {
+  const end = day(Math.floor(endsAtMs / 1000)) ?? 'soon';
+  return send(supabaseUserId, {
+    type: 'billing_trial_ending',
+    subject: `Your free month of Pro ends on ${end}`,
+    preheader: 'Nothing will be charged. Your account moves to the Free plan.',
+    eyebrow: 'Student offer',
+    heading: 'Your free month of Pro is almost up',
+    paragraphs: [
+      `Your free month of Pro ends on ${end}. Nothing will be charged: there is no card on file, and your account moves to the Free plan on its own.`,
+      'Everything you made stays in your account. Want to keep Pro? You can upgrade from Settings at any time, before or after the month ends.',
+    ],
+    panelTitle: 'What happens next',
+    rows: [
+      { label: 'Pro ends', value: end },
+      { label: 'Then', value: 'The Free plan, at no cost' },
+      { label: 'Charges', value: 'None. No card is on file' },
+    ],
+    cta: { label: 'See plans', url: `${emailAppUrl()}/pricing` },
+    footerNote: 'You are receiving this because you claimed the Preciprocal student offer.',
+  });
+}
+
 export async function sendRenewalReminderEmail(
   supabaseUserId: string,
   args: { renewsAt: number; amountCents: number; currency: string; autoPay: boolean },

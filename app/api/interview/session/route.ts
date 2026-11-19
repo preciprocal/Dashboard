@@ -23,6 +23,7 @@ import {
   type InterviewPhase,
 } from '@/lib/config/interview-limits';
 import { z } from 'zod';
+import { renewalUnpaid } from '@/lib/billing/renewal-gate';
 
 export const runtime = 'nodejs';
 
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
     const [{ data: sub }, { data: profile }] = await Promise.all([
       supabaseAdmin
         .from('subscriptions')
-        .select('plan')
+        .select('plan, status, stripe_subscription_id, current_period_start, last_payment_at')
         .eq('user_id', supabaseUserId)
         .maybeSingle(),
       supabaseAdmin
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
         .maybeSingle(),
     ]);
 
-    const planKey = resolvePlanKey(sub?.plan, {
+    const planKey = profile?.is_admin !== true && renewalUnpaid(sub) ? 'free' : resolvePlanKey(sub?.plan, {
       isAdmin: profile?.is_admin === true,
     });
 
