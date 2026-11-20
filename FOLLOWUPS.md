@@ -1405,18 +1405,28 @@ the offline checks (authorize URL, token requests, event payload, read-back).
 
 ## 41. OPEN - after the Chrome Web Store approves the new extension
 
-The store serves 1.12.0 (the first 1.12.0 build: new toast and fonts). 1.13.0
-is in review; 1.15.0 goes up once 1.13.0 is approved. The live server still
-works with 1.12.0 (autofill and submit tracking checked against production on
-2026-11-18), so nothing in the app waits on this. Once 1.15.0 is live:
+The store serves 1.13.0 (approved 2026-11-19); 1.15.0 is in review. Checked
+on 2026-11-19 that the server still works with 1.13.0: every route it calls
+exists, and every change since is additive (telemetry, optional
+x-extension-* headers, track-job's optional 'saved' status, job-fit accepting
+a company with no description). Nothing in the app waits on this, and the app
+must keep working with 1.13.0 until most installs have updated. Once 1.15.0 is
+live:
 
 1. Send the "what's new" email to users. The draft (LinkedIn fit, E-Verify and
    H-1B on cards, Applied/Saved tags, Job setup, Approve all, Find Contacts,
+   Easy Apply fixed for LinkedIn's new layout, "Did you apply?" before a job
+   is added to the tracker, skill match split into on-your-resume and missing,
    unlimited tracking and journal, group packs, sending credits) went out once
    as a test to the owner on 2026-11-18. Leave calendar sync out until #40 and
    the Google keys are live.
 2. Saves made with 1.12.0 or 1.13.0 are stored as Applied (the Save fix is in
-   1.15.0); tell users who saved jobs to move them back to Wishlist.
+   1.15.0; the server cannot tell those saves from applications, since
+   neither sends a status); tell users who saved jobs to move them back to
+   Wishlist. Easy Apply also does nothing on LinkedIn's current layout in
+   1.13.0, fixed in 1.15.0.
+4. Upload the store images in Downloads\Preciprocal Chrome Store images: they
+   show 1.15.0's banner (no bolt on Auto Apply, two-row skill match).
 3. Bump the version only for major changes, and zip with
    `C:/Windows/System32/tar.exe -a -cf`, never PowerShell Compress-Archive.
 
