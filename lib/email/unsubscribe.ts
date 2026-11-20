@@ -32,9 +32,9 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { supabaseAdmin } from '@/supabase/admin';
 import { emailAppUrl } from '@/lib/email/app-url';
 
-export type UnsubscribeScope = 'weeklyDigest' | 'supportReplies' | 'activation' | 'coaching' | 'jobAlerts' | 'all';
+export type UnsubscribeScope = 'weeklyDigest' | 'supportReplies' | 'activation' | 'coaching' | 'jobAlerts' | 'productUpdates' | 'all';
 
-export const UNSUBSCRIBE_SCOPES: readonly UnsubscribeScope[] = ['weeklyDigest', 'supportReplies', 'activation', 'coaching', 'jobAlerts', 'all'];
+export const UNSUBSCRIBE_SCOPES: readonly UnsubscribeScope[] = ['weeklyDigest', 'supportReplies', 'activation', 'coaching', 'jobAlerts', 'productUpdates', 'all'];
 
 export function isUnsubscribeScope(value: string | null): value is UnsubscribeScope {
   return value !== null && (UNSUBSCRIBE_SCOPES as readonly string[]).includes(value);
@@ -61,6 +61,10 @@ export const SCOPE_COPY: Record<UnsubscribeScope, { link: string; done: string }
   jobAlerts: {
     link: 'Stop new job match emails',
     done: "You won't get emails about new jobs that match your search any more. The Jobs page still shows them first.",
+  },
+  productUpdates: {
+    link: 'Stop product update emails',
+    done: "You won't get emails announcing new features any more.",
   },
   all: {
     link: 'Unsubscribe from all optional emails',
@@ -191,7 +195,7 @@ async function optOutOfSettingsFlag(userId: string, key: 'supportReplies' | 'job
   return !error;
 }
 
-/** Only flips an existing row. Not being on the list already means "no". */
+/** Writes the row even when there is none: no row now means "yes". */
 async function optOutOfProductUpdates(userId: string): Promise<boolean> {
   const { data: profile } = await supabaseAdmin
     .from('profiles').select('email').eq('user_id', userId).maybeSingle();
@@ -199,8 +203,7 @@ async function optOutOfProductUpdates(userId: string): Promise<boolean> {
 
   const { error } = await supabaseAdmin
     .from('newsletter_subscribers')
-    .update({ subscribed: false })
-    .eq('email', String(profile.email).toLowerCase().trim());
+    .upsert({ email: String(profile.email).toLowerCase().trim(), subscribed: false }, { onConflict: 'email' });
   if (error) console.error('❌ unsubscribe (productUpdates) failed:', error.message);
   return !error;
 }
@@ -213,6 +216,7 @@ export async function applyUnsubscribe(userId: string, scope: UnsubscribeScope):
   else if (scope === 'activation') results = [await optOutOfActivation(userId)];
   else if (scope === 'coaching') results = [await optOutOfCoaching(userId)];
   else if (scope === 'jobAlerts') results = [await optOutOfJobAlerts(userId)];
+  else if (scope === 'productUpdates') results = [await optOutOfProductUpdates(userId)];
   else {
     results = await Promise.all([
       optOutOfDigest(userId),

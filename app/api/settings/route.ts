@@ -19,7 +19,7 @@ interface AppSettings {
     coaching: boolean;
     /** Read from here by app/api/cron/job-alerts. */
     jobAlerts: boolean;
-    /** Mirrored to newsletter_subscribers.subscribed. Opt-in. */
+    /** Mirrored to newsletter_subscribers.subscribed. On unless switched off. */
     productUpdates: boolean;
   };
 }
@@ -31,7 +31,7 @@ const defaultSettings: AppSettings = {
     activation: true,
     coaching: true,
     jobAlerts: true,
-    productUpdates: false,
+    productUpdates: true,
   },
 };
 
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
         .select('subscribed')
         .eq('email', String(profileRow.email).toLowerCase().trim())
         .maybeSingle();
-      productUpdates = sub?.subscribed === true;
+      productUpdates = sub?.subscribed !== false;
     }
 
     // Section-by-section, because an email unsubscribe can create this row
@@ -193,6 +193,7 @@ export async function POST(request: NextRequest) {
     if (!beforeFlags?.application_email_opt_out && !n.coaching) turnedOff.push('coaching');
     if (prevNotif.supportReplies !== false && n.supportReplies === false) turnedOff.push('supportReplies');
     if (prevNotif.jobAlerts !== false && n.jobAlerts === false) turnedOff.push('jobAlerts');
+    if (prevNotif.productUpdates !== false && n.productUpdates === false) turnedOff.push('productUpdates');
     for (const scope of turnedOff) await recordUnsubscribe(authedUser.supabaseUserId, scope, 'settings');
 
     return NextResponse.json({

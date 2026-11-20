@@ -24,6 +24,7 @@ const SCOPE_NAME: Record<UnsubscribeScope, string> = {
   activation: 'Next-step suggestions',
   coaching: 'Application coaching',
   jobAlerts: 'New job matches',
+  productUpdates: 'Product updates',
   all: 'All optional emails',
 };
 

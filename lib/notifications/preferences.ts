@@ -25,7 +25,9 @@
 //                   read by app/api/cron/application-coaching
 //   jobAlerts       user_settings.settings.notifications.jobAlerts
 //                   read by app/api/cron/job-alerts
-//   productUpdates  newsletter_subscribers.subscribed, keyed by email
+//   productUpdates  newsletter_subscribers.subscribed, keyed by email. On
+//                   unless a row says subscribed = false (opt-out since
+//                   2026-11-20, like the others).
 //
 // Deliberately NOT gated, and there is no toggle for them: password reset,
 // email verification, new-device security alerts and billing receipts. Those
@@ -51,13 +53,14 @@ export const DEFAULT_PREFS: NotificationPrefs = {
   activation: true,
   coaching: true,
   jobAlerts: true,
-  productUpdates: false, // opt-IN, unlike the other two
+  productUpdates: true,
 };
 
 /**
- * Read a single preference. Fails OPEN for the two opt-out channels: a
- * database hiccup should not silently swallow a support reply the user is
- * waiting on. productUpdates fails closed, because it is opt-in.
+ * Read a single preference. Fails OPEN for the opt-out channels: a database
+ * hiccup should not silently swallow a support reply the user is waiting on.
+ * productUpdates fails closed: a missed announcement costs nothing, an
+ * announcement to someone who opted out does.
  */
 export async function canSend(
   supabaseUserId: string,
@@ -100,7 +103,7 @@ export async function canSend(
         .select("subscribed")
         .eq("email", String(profile.email).toLowerCase().trim())
         .maybeSingle();
-      return data?.subscribed === true;
+      return data?.subscribed !== false;
     }
 
     const { data } = await supabaseAdmin

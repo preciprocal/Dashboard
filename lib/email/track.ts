@@ -31,7 +31,8 @@ export type EmailType =
   | 'billing_action_required'
   | 'billing_card_expiring'
   | `activation_${string}`
-  | `coaching_${string}`;
+  | `coaching_${string}`
+  | `product_update_${string}`;
 
 /**
  * Best effort and never throws: the email has already gone, and losing its
