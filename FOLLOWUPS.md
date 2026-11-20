@@ -1425,9 +1425,9 @@ live:
    neither sends a status); tell users who saved jobs to move them back to
    Wishlist. Easy Apply also does nothing on LinkedIn's current layout in
    1.13.0, fixed in 1.15.0.
-4. Upload the store images in Downloads\Preciprocal Chrome Store images: they
+3. Upload the store images in Downloads\Preciprocal Chrome Store images: they
    show 1.15.0's banner (no bolt on Auto Apply, two-row skill match).
-3. Bump the version only for major changes, and zip with
+4. Bump the version only for major changes, and zip with
    `C:/Windows/System32/tar.exe -a -cf`, never PowerShell Compress-Archive.
 
 ## 42. OPEN - gaps the privacy policy review found (2026-11-18)
