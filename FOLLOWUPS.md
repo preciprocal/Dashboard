@@ -1405,7 +1405,7 @@ the offline checks (authorize URL, token requests, event payload, read-back).
 
 ## 41. OPEN - after the Chrome Web Store approves the new extension
 
-The store serves 1.13.0 (approved 2026-11-19); 1.15.0 went live 2026-11-20 without the Easy Apply fix; 1.16.0 carries it. Checked
+The store serves 1.13.0 (approved 2026-11-19); 1.15.0 went live 2026-11-20 without the Easy Apply fix; 1.16.0 carries it and went live 2026-11-20 (downloaded and matched to main). Checked
 on 2026-11-19 that the server still works with 1.13.0: every route it calls
 exists, and every change since is additive (telemetry, optional
 x-extension-* headers, track-job's optional 'saved' status, job-fit accepting
