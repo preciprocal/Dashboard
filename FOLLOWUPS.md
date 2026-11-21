@@ -1413,7 +1413,14 @@ a company with no description). Nothing in the app waits on this, and the app
 must keep working with 1.13.0 until most installs have updated. Once 1.15.0 is
 live:
 
-1. Send the "what's new" email to users. The draft (LinkedIn fit, E-Verify and
+1. DONE 2026-11-20: the "what's new" email (lib/email/product-update.ts,
+   campaign product_update_2026_11) went to all 16 accounts, 16 sent, 0
+   failed, after product updates became opt-out. It includes the Save to
+   Wishlist note, so item 2 is covered. Next campaign: new id in that file,
+   then /api/cron/product-update (dry run, then ?mode=send). Update the
+   privacy policy on the landing site: it may still call product updates
+   opt-in.
+   Old note: Send the "what's new" email to users. The draft (LinkedIn fit, E-Verify and
    H-1B on cards, Applied/Saved tags, Job setup, Approve all, Find Contacts,
    Easy Apply fixed for LinkedIn's new layout, "Did you apply?" before a job
    is added to the tracker, skill match split into on-your-resume and missing,
