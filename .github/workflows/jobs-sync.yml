@@ -1,13 +1,23 @@
 # Live job postings for the landing site's /jobs page, from employers' own
-# job boards (official Greenhouse, Lever and Ashby APIs). Every 6 hours, so a
-# closed role drops off within the day. See scripts/everify/jobs-sync.mjs.
-# A failed run keeps the previous postings live and makes GitHub email the
-# repo owner.
+# job boards (official Greenhouse, Lever and Ashby APIs). Target: every 6
+# hours, so a closed role drops off within the day. See
+# scripts/everify/jobs-sync.mjs. A failed run keeps the previous postings live
+# and makes GitHub email the repo owner.
+#
+# GitHub runs schedules best-effort: in November 2026 it skipped every 00:15
+# and 12:15 run and started the rest 1 to 2 hours late. So there are three
+# triggers every 6 hours, and the guard step skips a run when the last
+# successful sync was under 4 hours ago (a skipped run finishes in seconds,
+# so only runs longer than 90 seconds count as a sync). Whichever trigger fires first in a
+# window does the sync; a dropped one is covered by the next. A manual run
+# always syncs.
 name: Job postings sync
 
 on:
   schedule:
     - cron: "15 */6 * * *"
+    - cron: "47 1,7,13,19 * * *"
+    - cron: "23 3,9,15,21 * * *"
   workflow_dispatch: {}
 
 concurrency:
@@ -16,6 +26,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   sync:
@@ -25,12 +36,32 @@ jobs:
       run:
         working-directory: scripts/everify
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Skip if synced in the last 4 hours
+        id: guard
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          last=$(gh run list -R "${{ github.repository }}" --workflow jobs-sync.yml --status success --limit 20 \
+            --json createdAt,updatedAt,databaseId \
+            --jq '[.[] | select(.databaseId != ${{ github.run_id }}) | select(((.updatedAt | fromdate) - (.createdAt | fromdate)) > 90)][0].createdAt // empty')
+          if [ -n "$last" ] && [ $(( $(date +%s) - $(date -d "$last" +%s) )) -lt 14400 ]; then
+            echo "Last successful sync at $last, under 4 hours ago. Skipping."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.guard.outputs.run == 'true'
+        uses: actions/checkout@v4
+      - if: steps.guard.outputs.run == 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install --no-audit --no-fund
-      - run: node --max-old-space-size=4096 jobs-sync.mjs
+      - if: steps.guard.outputs.run == 'true'
+        run: npm install --no-audit --no-fund
+      - if: steps.guard.outputs.run == 'true'
+        run: node --max-old-space-size=4096 jobs-sync.mjs
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
